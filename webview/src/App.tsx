@@ -1,7 +1,17 @@
 import { ChatContainer } from './components/Chat/ChatContainer';
 import { useVSCode } from './hooks/useVSCode';
-import { useChatStore } from './stores/chatStore';
+import { useChatStore, type Message } from './stores/chatStore';
 import { useEffect } from 'react';
+
+// Types for messages from VS Code extension
+interface VSCodeMessage {
+  type: string;
+  messages?: Message[];
+  message?: Message | string;
+  messageIndex?: number;
+  token?: string;
+  isStreaming?: boolean;
+}
 
 function App() {
   const { postMessage, onMessage } = useVSCode();
@@ -13,25 +23,33 @@ function App() {
     postMessage({ type: 'getConfig' });
 
     // Listen for messages from extension
-    const cleanup = onMessage((message) => {
+    const cleanup = onMessage((message: VSCodeMessage) => {
       switch (message.type) {
         case 'messages':
-          setMessages(message.messages);
+          if (message.messages) {
+            setMessages(message.messages);
+          }
           break;
         case 'messageAdded':
-          addMessage(message.message);
+          if (message.message && typeof message.message === 'object') {
+            addMessage(message.message);
+          }
           if (message.isStreaming) {
             setLoading(true);
           }
           break;
         case 'streamToken':
-          updateStreamingMessage(message.messageIndex, message.token);
+          if (message.messageIndex !== undefined && message.token) {
+            updateStreamingMessage(message.messageIndex, message.token);
+          }
           break;
         case 'streamComplete':
           setLoading(false);
           break;
         case 'error':
-          setError(message.message);
+          if (typeof message.message === 'string') {
+            setError(message.message);
+          }
           setLoading(false);
           break;
         case 'conversationCleared':

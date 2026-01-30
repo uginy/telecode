@@ -59,14 +59,33 @@
       "properties": {
         "aisCode.provider": {
           "type": "string",
-          "default": "anthropic",
+          "default": "openai-compatible",
           "enum": [
+            "openai-compatible",
             "anthropic",
-            "openai",
-            "google",
-            "ollama"
+            "openai"
+          ],
+          "enumDescriptions": [
+            "OpenAI-compatible API (Ollama, LM Studio, OpenRouter, etc.)",
+            "Anthropic Claude (requires API key)",
+            "OpenAI GPT (requires API key)"
           ],
           "description": "AI provider to use"
+        },
+        "aisCode.openaiCompatible.baseUrl": {
+          "type": "string",
+          "default": "http://localhost:11434/v1",
+          "description": "Base URL for OpenAI-compatible API (e.g., http://localhost:11434/v1 for Ollama)"
+        },
+        "aisCode.openaiCompatible.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key (optional for local APIs like Ollama)"
+        },
+        "aisCode.openaiCompatible.model": {
+          "type": "string",
+          "default": "llama3.2",
+          "description": "Model name (e.g., llama3.2, qwen2.5-coder, deepseek-coder-v2)"
         },
         "aisCode.anthropic.apiKey": {
           "type": "string",

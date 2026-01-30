@@ -1,6 +1,7 @@
-import { AIProvider } from './base';
+import type { AIProvider } from './base';
 import { AnthropicProvider } from './anthropic';
 import { OpenAIProvider } from './openai';
+import { OpenAICompatibleProvider } from './openai-compatible';
 
 /**
  * Registry for AI providers
@@ -11,6 +12,7 @@ export class ProviderRegistry {
 
   constructor() {
     // Register built-in providers
+    this.register(new OpenAICompatibleProvider()); // First - always available
     this.register(new AnthropicProvider());
     this.register(new OpenAIProvider());
   }
