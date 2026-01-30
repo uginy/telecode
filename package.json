@@ -139,6 +139,16 @@
           "type": "boolean",
           "default": false,
           "description": "Auto-approve tool actions and file changes (Agent mode)"
+        },
+        "aisCode.diffOnly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require unified diff patches when auto-approve is off"
+        },
+        "aisCode.workspaceIndex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable workspace indexing for faster context search"
         }
       }
     }

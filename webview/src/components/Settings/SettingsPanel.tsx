@@ -16,6 +16,8 @@ export interface SettingsConfig {
   apiKey: string;
   model: string;
   autoApprove?: boolean;
+  diffOnly?: boolean;
+  workspaceIndex?: boolean;
   maxTokens?: number;
   temperature?: number;
 }
@@ -60,7 +62,7 @@ const SETTINGS_SECTIONS = [
   { id: 'provider', label: 'Providers', keywords: ['provider', 'openrouter', 'openai', 'anthropic', 'ollama'] },
   { id: 'model', label: 'Models', keywords: ['model', 'free', 'search'] },
   { id: 'agent', label: 'Agent Mode', keywords: ['agent', 'auto-approve', 'approve'] },
-  { id: 'advanced', label: 'Advanced', keywords: ['advanced', 'base url'] }
+  { id: 'advanced', label: 'Advanced', keywords: ['advanced', 'base url', 'diff', 'index'] }
 ];
 
 export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanelProps) {
@@ -325,6 +327,30 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           <section id="settings-section-advanced" className="settings-section-block">
             <h3>Advanced</h3>
             <p className="settings-section-desc">Tune advanced controls for long-term usage.</p>
+
+            <div className="settings-section">
+              <label className="settings-label">Diff-only mode</label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={localConfig.diffOnly !== false}
+                  onChange={e => setLocalConfig({ ...localConfig, diffOnly: e.target.checked })}
+                />
+                Require unified diff patches when auto-approve is off
+              </label>
+            </div>
+
+            <div className="settings-section">
+              <label className="settings-label">Workspace Index</label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={localConfig.workspaceIndex !== false}
+                  onChange={e => setLocalConfig({ ...localConfig, workspaceIndex: e.target.checked })}
+                />
+                Enable fast workspace indexing for @ context search
+              </label>
+            </div>
 
             <div className="settings-section">
               <label className="settings-label">Max Tokens</label>

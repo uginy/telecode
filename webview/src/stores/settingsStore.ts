@@ -26,6 +26,8 @@ const DEFAULT_CONFIG: SettingsConfig = {
   apiKey: '',
   model: 'llama3.2',
   autoApprove: false,
+  diffOnly: true,
+  workspaceIndex: true,
   maxTokens: 4096,
   temperature: 0.7
 };

@@ -21,6 +21,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _didRestoreOnStartup = false;
   private _pendingApprovals = new Map<string, (approved: boolean) => void>();
   private _lastCommandOutput = '';
+  private _fileIndex: Array<{ fsPath: string; relative: string; lower: string }> = [];
+  private _indexReady = false;
+  private _indexRebuildTimer?: NodeJS.Timeout;
+  private _indexInFlight = false;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -63,6 +67,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // Restore last chat (or create a fresh one) once, when the webview is first created.
     // Don't await here to avoid blocking render.
     void this._restoreLastChatOnStartup();
+    this._initializeWorkspaceIndexing();
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data: WebviewMessage) => {
@@ -80,6 +85,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'saveConfig':
           await this._saveConfig(data.config);
           this._sendConfigToWebview();
+          this._handleIndexingConfigChange();
           break;
         case 'fetchModels':
           await this._fetchModels(data.provider);
@@ -269,6 +275,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async _handleApplyDiff(code: string, targetPath?: string) {
     try {
       const isDiff = this._isUnifiedDiff(code);
+      if (!this._isAutoApproveEnabled() && this._isDiffOnlyEnabled() && !isDiff) {
+        throw new Error('Diff-only mode is enabled. Please provide a unified diff patch.');
+      }
       if (!this._isAutoApproveEnabled()) {
         await this._previewBeforeApply(code, targetPath, isDiff);
       }
@@ -331,22 +340,36 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // 2. File search
     if (!type || type === 'file') {
       try {
-        // Find files matching query, exclude node_modules, .git, etc.
-        // Limit to 20 results for performance
-        const files = await vscode.workspace.findFiles(`**/*${query}*`, '**/{node_modules,.git,dist,out,build}/**', 20);
-        
-        for (const file of files) {
-          const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
-          const relativePath = workspaceFolder ? vscode.workspace.asRelativePath(file, false) : file.fsPath;
+        if (this._isIndexingEnabled() && this._indexReady) {
+          const results = this._searchIndexedFiles(lowerQuery);
+          for (const result of results) {
+            items.push({
+              id: result.fsPath,
+              name: result.relative.split('/').pop() || result.relative,
+              description: result.relative,
+              type: 'file',
+              path: result.fsPath,
+              icon: 'file-code'
+            });
+          }
+        } else {
+          // Find files matching query, exclude node_modules, .git, etc.
+          // Limit to 20 results for performance
+          const files = await vscode.workspace.findFiles(`**/*${query}*`, '**/{node_modules,.git,dist,out,build}/**', 20);
           
-          items.push({
-            id: file.fsPath,
-            name: relativePath.split('/').pop() || relativePath,
-            description: relativePath,
-            type: 'file',
-            path: file.fsPath,
-            icon: 'file-code'
-          });
+          for (const file of files) {
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
+            const relativePath = workspaceFolder ? vscode.workspace.asRelativePath(file, false) : file.fsPath;
+            
+            items.push({
+              id: file.fsPath,
+              name: relativePath.split('/').pop() || relativePath,
+              description: relativePath,
+              type: 'file',
+              path: file.fsPath,
+              icon: 'file-code'
+            });
+          }
         }
       } catch (e) {
         console.error('Error searching files:', e);
@@ -364,6 +387,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await wsConfig.update('provider', config.provider, vscode.ConfigurationTarget.Global);
     if (typeof config.autoApprove === 'boolean') {
       await wsConfig.update('autoApprove', config.autoApprove, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof config.diffOnly === 'boolean') {
+      await wsConfig.update('diffOnly', config.diffOnly, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof config.workspaceIndex === 'boolean') {
+      await wsConfig.update('workspaceIndex', config.workspaceIndex, vscode.ConfigurationTarget.Global);
     }
     if (typeof config.maxTokens === 'number') {
       await wsConfig.update('maxTokens', config.maxTokens, vscode.ConfigurationTarget.Global);
@@ -664,7 +693,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         apiKey,
         maxTokens: config.get('maxTokens'),
         temperature: config.get('temperature'),
-        autoApprove: config.get('autoApprove')
+        autoApprove: config.get('autoApprove'),
+        diffOnly: config.get('diffOnly'),
+        workspaceIndex: config.get('workspaceIndex')
       }
     });
   }
@@ -733,6 +764,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return config.get<boolean>('autoApprove') === true;
   }
 
+  private _isDiffOnlyEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    return config.get<boolean>('diffOnly') !== false;
+  }
+
+  private _isIndexingEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    return config.get<boolean>('workspaceIndex') !== false;
+  }
+
   private _resolveWorkspacePath(inputPath: string): string {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -750,6 +791,93 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     return uri.fsPath;
+  }
+
+  private _initializeWorkspaceIndexing() {
+    if (!this._isIndexingEnabled()) {
+      return;
+    }
+
+    void this._buildWorkspaceIndex();
+
+    const watcher = vscode.workspace.createFileSystemWatcher('**/*');
+    watcher.onDidCreate(() => this._scheduleIndexRebuild());
+    watcher.onDidDelete(() => this._scheduleIndexRebuild());
+    watcher.onDidChange(() => this._scheduleIndexRebuild());
+    this._context.subscriptions.push(watcher);
+  }
+
+  private _handleIndexingConfigChange() {
+    if (this._isIndexingEnabled() && !this._indexReady && !this._indexInFlight) {
+      void this._buildWorkspaceIndex();
+    }
+  }
+
+  private _scheduleIndexRebuild() {
+    if (!this._isIndexingEnabled()) {
+      return;
+    }
+    if (this._indexRebuildTimer) {
+      clearTimeout(this._indexRebuildTimer);
+    }
+    this._indexRebuildTimer = setTimeout(() => {
+      void this._buildWorkspaceIndex();
+    }, 1000);
+  }
+
+  private async _buildWorkspaceIndex() {
+    if (this._indexInFlight) {
+      return;
+    }
+    this._indexInFlight = true;
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        this._indexReady = false;
+        return;
+      }
+
+      const files = await vscode.workspace.findFiles(
+        '**/*',
+        '**/{node_modules,.git,dist,out,build,coverage}/**',
+        20000
+      );
+      this._fileIndex = files.map((file) => {
+        const relative = vscode.workspace.asRelativePath(file, false);
+        return {
+          fsPath: file.fsPath,
+          relative,
+          lower: relative.toLowerCase()
+        };
+      });
+      this._indexReady = true;
+    } catch (error) {
+      this._indexReady = false;
+      this._log('Failed to build workspace index', error);
+    } finally {
+      this._indexInFlight = false;
+    }
+  }
+
+  private _searchIndexedFiles(query: string) {
+    if (!query) {
+      return this._fileIndex.slice(0, 20);
+    }
+    const matches = this._fileIndex
+      .map((entry) => {
+        const idx = entry.lower.indexOf(query);
+        if (idx === -1) return null;
+        return { entry, idx };
+      })
+      .filter((item): item is { entry: { fsPath: string; relative: string; lower: string }; idx: number } => item !== null)
+      .sort((a, b) => {
+        if (a.idx !== b.idx) return a.idx - b.idx;
+        return a.entry.relative.length - b.entry.relative.length;
+      })
+      .slice(0, 20)
+      .map(({ entry }) => entry);
+
+    return matches;
   }
 
   private async _previewBeforeApply(code: string, targetPath: string | undefined, isDiff: boolean) {
