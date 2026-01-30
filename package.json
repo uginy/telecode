@@ -154,29 +154,31 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run build",
-    "build": "npm run build:extension && npm run build:webview",
+    "vscode:prepublish": "bun run build",
+    "build": "bun run build:extension && bun run build:webview",
     "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "build:webview": "cd webview && npm run build",
-    "watch": "npm run watch:extension & npm run watch:webview",
+    "build:webview": "cd webview && bun run build",
+    "watch": "bun run watch:extension & bun run watch:webview",
     "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
-    "watch:webview": "cd webview && npm run dev",
+    "watch:webview": "cd webview && bun run dev",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.72.1",
     "diff": "^8.0.3",
+    "js-tiktoken": "^1.0.21",
     "openai": "^6.17.0"
   },
   "devDependencies": {
+    "@types/diff": "^8.0.0",
     "@types/node": "^25.1.0",
     "@types/vscode": "^1.108.1",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
-    "typescript": "^5.9.3",
-    "@vscode/vsce": "^3.7.1"
+    "typescript": "^5.9.3"
   }
 }

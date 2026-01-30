@@ -137,6 +137,13 @@ components/
 └── Chat.tsx             # 800 lines doing everything
 ```
 
+### Strict Guidelines
+
+1. **File size**: No file should exceed **400 lines**. If it does - it **must** be decomposed. No exceptions.
+2. **UI Kit**: Always use **Shadcn UI** components and utility classes.
+3. **Design Tokens**: Every visual element must rely on official design tokens (Tailwind colors, spacing, etc.).
+4. **Environment**: Use **Bun** as the primary task runner and manager.
+
 ### TypeScript Discipline
 
 ```bash

@@ -1,27 +1,11 @@
 import * as vscode from 'vscode';
 import { ChatViewProvider } from './panels/ChatViewProvider';
-import { ProviderRegistry } from './providers/registry';
-import { DiffContentProvider } from './providers/diffProvider';
-
-let chatViewProvider: ChatViewProvider | undefined;
-let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
-  outputChannel = vscode.window.createOutputChannel('AIS Code');
+  const outputChannel = vscode.window.createOutputChannel('AIS Code');
   outputChannel.appendLine('AIS Code is now active!');
-  console.log('AIS Code is now active!');
 
-  // Initialize provider registry
-  const providerRegistry = new ProviderRegistry();
-  
-  // Initialize diff provider
-  const diffContentProvider = new DiffContentProvider();
-  context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider(DiffContentProvider.scheme, diffContentProvider)
-  );
-
-  // Register the chat view provider
-  chatViewProvider = new ChatViewProvider(context.extensionUri, providerRegistry, diffContentProvider, context, outputChannel);
+  const chatViewProvider = new ChatViewProvider(context, context.extensionUri);
   
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -35,16 +19,8 @@ export function activate(context: vscode.ExtensionContext) {
     )
   );
 
-  // Register commands
-  context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.newConversation', async () => {
-      await chatViewProvider?.newConversation();
-    })
-  );
-
   context.subscriptions.push(
     vscode.commands.registerCommand('aisCode.openChat', async () => {
-      // Focus the AIS Code container in the activity bar.
       await vscode.commands.executeCommand('workbench.view.extension.ais-code');
     })
   );
@@ -52,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('aisCode')) {
-        chatViewProvider?.updateConfiguration();
+        // Handle config changes if needed
       }
     })
   );
