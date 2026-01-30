@@ -1,10 +1,9 @@
 import { ChatContainer } from './components/Chat/ChatContainer';
 import { Header } from './components/Header/Header';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
-import { ChatHistory } from './components/History/ChatHistory';
 import { HistoryPage } from './components/History/HistoryPage';
 import { ApprovalModal } from './components/Approvals/ApprovalModal';
-import { ApprovalPanel } from './components/Approvals/ApprovalPanel';
+import { ApprovalsPage } from './components/Approvals/ApprovalsPage';
 import { ConfirmModal } from './components/Approvals/ConfirmModal';
 import { useVSCode } from './hooks/useVSCode';
 import { useChatStore } from './stores/chatStore';
@@ -17,7 +16,7 @@ import type { ExtensionMessage, WebviewMessage } from './types/bridge';
 function App() {
   const { postMessage, onMessage } = useVSCode();
   const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, saveCurrentChat } = useChatStore();
-  const { isOpen, closeSettings, config, setConfig, isHistoryOpen, closeHistory } = useSettingsStore();
+  const { isOpen, closeSettings, config, setConfig, isHistoryOpen, closeHistory, isApprovalsOpen, closeApprovals } = useSettingsStore();
   const { setChats, setCurrentChatId, loadHistory } = useHistoryStore();
   const enqueueApproval = useApprovalStore((state) => state.enqueue);
 
@@ -160,12 +159,16 @@ function App() {
     );
   }
 
+  if (isApprovalsOpen) {
+    return (
+      <div className="app settings-only">
+        <ApprovalsPage onClose={closeApprovals} />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
-      <div className="sidebar">
-        <ChatHistory />
-        <ApprovalPanel />
-      </div>
       <div className="main-content">
         <Header onNewChat={handleNewChat} />
         <ChatContainer 

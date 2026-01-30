@@ -56,11 +56,11 @@ const PROVIDERS = [
 ];
 
 const SETTINGS_SECTIONS = [
-  { id: 'general', label: 'General', icon: '4cc', keywords: ['general', 'provider', 'model', 'api', 'key'] },
-  { id: 'provider', label: 'Providers', icon: '310', keywords: ['provider', 'openrouter', 'openai', 'anthropic', 'ollama'] },
-  { id: 'model', label: 'Models', icon: '9e0', keywords: ['model', 'free', 'search'] },
-  { id: 'agent', label: 'Agent Mode', icon: '916', keywords: ['agent', 'auto-approve', 'approve'] },
-  { id: 'advanced', label: 'Advanced', icon: '9f0', keywords: ['advanced', 'base url'] }
+  { id: 'general', label: 'General', keywords: ['general', 'provider', 'model', 'api', 'key'] },
+  { id: 'provider', label: 'Providers', keywords: ['provider', 'openrouter', 'openai', 'anthropic', 'ollama'] },
+  { id: 'model', label: 'Models', keywords: ['model', 'free', 'search'] },
+  { id: 'agent', label: 'Agent Mode', keywords: ['agent', 'auto-approve', 'approve'] },
+  { id: 'advanced', label: 'Advanced', keywords: ['advanced', 'base url'] }
 ];
 
 export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanelProps) {
@@ -173,7 +173,6 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
                 className={`settings-nav-item ${activeSectionId === section.id ? 'active' : ''}`}
                 onClick={() => scrollToSection(section.id)}
               >
-                <span className="settings-nav-icon">{section.icon}</span>
                 <span>{section.label}</span>
               </button>
             ))}
@@ -182,7 +181,7 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
 
         <div className="settings-content-area">
           <section id="settings-section-general" className="settings-section-block">
-            <h3>4cc General</h3>
+            <h3>General</h3>
             <p className="settings-section-desc">Core defaults for provider and model selection.</p>
 
             <div className="settings-section">
@@ -203,7 +202,7 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           </section>
 
           <section id="settings-section-provider" className="settings-section-block">
-            <h3>310 Providers</h3>
+            <h3>Providers</h3>
             <p className="settings-section-desc">Credentials and base endpoints for the selected provider.</p>
 
             {localConfig.provider === 'openai-compatible' && (
@@ -250,7 +249,7 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           </section>
 
           <section id="settings-section-model" className="settings-section-block">
-            <h3>9e0 Models</h3>
+            <h3>Models</h3>
             <p className="settings-section-desc">Pick the model and limit free-only results.</p>
 
             <div className="settings-section">
@@ -307,7 +306,7 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           </section>
 
           <section id="settings-section-agent" className="settings-section-block">
-            <h3>916 Agent Mode</h3>
+            <h3>Agent Mode</h3>
             <p className="settings-section-desc">Agent mode lets AIS Code auto-approve actions.</p>
 
             <div className="settings-section">
@@ -324,7 +323,7 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           </section>
 
           <section id="settings-section-advanced" className="settings-section-block">
-            <h3>9f0 Advanced</h3>
+            <h3>Advanced</h3>
             <p className="settings-section-desc">Tune advanced controls for long-term usage.</p>
 
             <div className="settings-section">

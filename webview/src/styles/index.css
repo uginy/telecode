@@ -1615,9 +1615,6 @@ body {
   color: var(--text-primary);
 }
 
-.settings-nav-icon {
-  font-size: 16px;
-}
 
 .settings-content-area {
   flex: 1;
@@ -1705,6 +1702,70 @@ body {
 }
 
 .history-page-body .chat-history {
+  height: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+/* ===========================================
+   Approvals Page Layout
+   =========================================== */
+
+.approvals-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+.approvals-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.approvals-page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.approvals-page-title-text {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.approvals-page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.approvals-page-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.approvals-page-button {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.approvals-page-body {
+  flex: 1;
+  overflow: hidden;
+  padding: var(--spacing-xl);
+}
+
+.approvals-page-body .approval-panel {
+  max-height: none;
   height: 100%;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);

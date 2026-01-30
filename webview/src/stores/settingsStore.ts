@@ -6,12 +6,15 @@ interface SettingsState {
   isOpen: boolean;
   isConfigured: boolean;
   isHistoryOpen: boolean;
+  isApprovalsOpen: boolean;
   searchQuery: string;
   activeSectionId: string;
   openSettings: () => void;
   closeSettings: () => void;
   openHistory: () => void;
   closeHistory: () => void;
+  openApprovals: () => void;
+  closeApprovals: () => void;
   setConfig: (config: SettingsConfig) => void;
   setSearchQuery: (query: string) => void;
   setActiveSectionId: (id: string) => void;
@@ -32,6 +35,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   isOpen: false,
   isConfigured: true, // OpenAI-compatible is always configured
   isHistoryOpen: false,
+  isApprovalsOpen: false,
   searchQuery: '',
   activeSectionId: 'general',
   
@@ -39,6 +43,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   closeSettings: () => set({ isOpen: false }),
   openHistory: () => set({ isHistoryOpen: true }),
   closeHistory: () => set({ isHistoryOpen: false }),
+  openApprovals: () => set({ isApprovalsOpen: true }),
+  closeApprovals: () => set({ isApprovalsOpen: false }),
   
   setConfig: (config: SettingsConfig) => {
     const isConfigured = config.provider === 'openai-compatible' || !!config.apiKey;

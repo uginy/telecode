@@ -5,7 +5,7 @@ interface HeaderProps {
 }
 
 export function Header({ onNewChat }: HeaderProps) {
-  const { openSettings, openHistory } = useSettingsStore();
+  const { openSettings, openHistory, openApprovals } = useSettingsStore();
 
   return (
     <header className="app-header">
@@ -26,6 +26,15 @@ export function Header({ onNewChat }: HeaderProps) {
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M13 3a9 9 0 1 0 8.95 10h-2.02A7 7 0 1 1 13 5V3zm-1 4h2v6l4 2-.8 1.8L12 14V7zm9-3v6h-6l2.2-2.2A9.95 9.95 0 0 0 13 2C7.48 2 3 6.48 3 12h2a8 8 0 0 1 8-8c2.12 0 4.07.83 5.5 2.2L21 4z"/>
+          </svg>
+        </button>
+        <button 
+          className="header-button" 
+          onClick={openApprovals}
+          title="Approvals"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5z"/>
           </svg>
         </button>
         <button 
