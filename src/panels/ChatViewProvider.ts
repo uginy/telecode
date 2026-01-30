@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ProviderRegistry } from '../providers/registry';
 import { Message, StreamCallbacks } from '../providers/base';
+import { FileSystemTools } from '../tools/fileSystem';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
@@ -133,77 +134,101 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!content.trim()) return;
 
     // Add user message
-    const userMessage: Message = {
-      role: 'user',
-      content: content.trim(),
-      timestamp: Date.now()
-    };
-    this._messages.push(userMessage);
-    this._postMessage({ type: 'messageAdded', message: userMessage });
+    this._messages.push({ role: 'user', content: content.trim(), timestamp: Date.now() });
+    
+    // Notify webview
+    this._postMessage({ 
+      type: 'messageAdded', 
+      message: this._messages[this._messages.length - 1] 
+    });
 
-    // Create assistant message placeholder
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now()
-    };
-    this._messages.push(assistantMessage);
-    this._postMessage({ type: 'messageAdded', message: assistantMessage, isStreaming: true });
+    const providerName = vscode.workspace.getConfiguration('aisCode').get<string>('provider');
+    const provider = await this._providerRegistry.getProvider(providerName || 'openai-compatible');
 
-    try {
-      // Get the current provider
-      const config = vscode.workspace.getConfiguration('aisCode');
-      const providerName = config.get<string>('provider') || 'anthropic';
-      const provider = await this._providerRegistry.getProvider(providerName);
+    if (!provider) {
+      this._postMessage({ type: 'error', message: `Provider ${providerName} not found` });
+      return;
+    }
 
-      if (!provider) {
-        throw new Error(`Provider ${providerName} not configured`);
-      }
+    if (!provider.isConfigured()) {
+      this._postMessage({ type: 'error', message: 'Provider not configured. Please check settings.' });
+      return;
+    }
 
-      // Create abort controller
-      this._abortController = new AbortController();
+    let loopCount = 0;
+    const maxLoops = 5;
 
-      // Stream the response
-      const callbacks: StreamCallbacks = {
-        onToken: (token: string) => {
-          assistantMessage.content += token;
-          this._postMessage({
-            type: 'streamToken',
-            token,
-            messageIndex: this._messages.length - 1
-          });
-        },
-        onComplete: (fullResponse: string) => {
-          assistantMessage.content = fullResponse;
-          this._postMessage({
-            type: 'streamComplete',
-            messageIndex: this._messages.length - 1
-          });
-        },
-        onError: (error: Error) => {
-          this._postMessage({
-            type: 'error',
-            message: error.message
-          });
-        },
-        signal: this._abortController.signal
-      };
-
-      await provider.complete(this._messages, callbacks);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this._postMessage({
-        type: 'error',
-        message: errorMessage
-      });
+    while (loopCount < maxLoops) {
+      loopCount++;
+      const userMessageIndex = this._messages.length;
       
-      // Remove the empty assistant message on error
-      if (assistantMessage.content === '') {
-        this._messages.pop();
+      this._messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+
+      this._postMessage({ 
+        type: 'messageAdded', 
+        message: this._messages[userMessageIndex],
+        isStreaming: true 
+      });
+
+      let fullResponse = '';
+
+      try {
+        this._abortController = new AbortController();
+
+        await provider.complete(this._messages.slice(0, -1), {
+          onToken: (token) => {
+            fullResponse += token;
+            this._messages[userMessageIndex].content = fullResponse;
+            this._postMessage({
+              type: 'streamToken',
+              messageIndex: userMessageIndex,
+              token
+            });
+          },
+          onComplete: (response) => {
+            fullResponse = response;
+          },
+          onError: (error) => {
+            throw error;
+          },
+          signal: this._abortController.signal
+        });
+
+        this._postMessage({ type: 'streamComplete' });
+        
+        const toolResult = await this._processToolCalls(fullResponse);
+        
+        if (toolResult) {
+          this._messages.push({ 
+            role: 'user', 
+            content: `Tool Execution Result:\n${toolResult}\n\nPlease continue based on this result.`,
+            timestamp: Date.now()
+          });
+          
+          this._postMessage({
+             type: 'messageAdded',
+             message: this._messages[this._messages.length - 1]
+          });
+          
+          continue; 
+        } else {
+          break;
+        }
+
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          return;
+        }
+        vscode.window.showErrorMessage(`AI Error: ${error.message}`);
+        this._postMessage({ type: 'error', message: error.message });
+        
+        if (!fullResponse) {
+          this._messages.pop();
+        }
+        break;
+      } finally {
+        this._abortController = undefined;
       }
-    } finally {
-      this._abortController = undefined;
     }
   }
 
@@ -268,6 +293,55 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private _generateId(): string {
     return Math.random().toString(36).substring(2, 15);
+  }
+
+  private async _processToolCalls(response: string): Promise<string | null> {
+    const readFileRegex = /<read_file>(.*?)<\/read_file>/s;
+    const listFilesRegex = /<list_files>(.*?)<\/list_files>/s;
+    const writeFileRegex = /<write_file\s+path="([^"]+)">(.*?)<\/write_file>/s;
+
+    const readMatch = readFileRegex.exec(response);
+    if (readMatch) {
+      const path = readMatch[1].trim();
+      try {
+        const content = await FileSystemTools.readFile(this._resolvePath(path));
+        return `File content of ${path}:\n\`\`\`\n${content}\n\`\`\``;
+      } catch (e: any) {
+        return `Error reading file ${path}: ${e.message}`;
+      }
+    }
+
+    const listMatch = listFilesRegex.exec(response);
+    if (listMatch) {
+      const path = listMatch[1].trim();
+      try {
+        const files = await FileSystemTools.listFiles(this._resolvePath(path));
+        return `Files in ${path}:\n${files.join('\n')}`;
+      } catch (e: any) {
+        return `Error listing directory ${path}: ${e.message}`;
+      }
+    }
+
+    const writeMatch = writeFileRegex.exec(response);
+    if (writeMatch) {
+      const path = writeMatch[1].trim();
+      const content = writeMatch[2].trim();
+      try {
+         await FileSystemTools.writeFile(this._resolvePath(path), content);
+         return `Successfully wrote to file ${path}`;
+      } catch (e: any) {
+        return `Error writing file ${path}: ${e.message}`;
+      }
+    }
+
+    return null;
+  }
+
+  private _resolvePath(path: string): string {
+    if (path.startsWith('/')) return path; // Absolute
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) return path; // No workspace, assume absolute or fail
+    return vscode.Uri.joinPath(workspaceFolders[0].uri, path).fsPath;
   }
 
   private _handleGetContext() {

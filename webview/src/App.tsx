@@ -6,12 +6,19 @@ import { useChatStore, type Message } from './stores/chatStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useEffect } from 'react';
 
-// Types for messages from VS Code extension
 interface Model {
   id: string;
   name: string;
   contextWindow: number;
   isFree?: boolean;
+}
+
+interface ContextItem {
+  id: string;
+  name: string;
+  content: string;
+  type: 'file' | 'selection';
+  path: string;
 }
 
 interface VSCodeMessage {
@@ -29,6 +36,7 @@ interface VSCodeMessage {
   };
   provider?: string;
   models?: Model[];
+  context?: ContextItem;
 }
 
 function App() {
@@ -60,6 +68,11 @@ function App() {
             window.dispatchEvent(new CustomEvent('modelsFound', { 
               detail: { models: message.models } 
             }));
+          }
+          break;
+        case 'contextAdded':
+          if (message.context) {
+            useChatStore.getState().addContext(message.context);
           }
           break;
         case 'messageAdded':

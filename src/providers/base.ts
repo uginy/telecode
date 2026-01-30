@@ -6,6 +6,8 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp?: number;
+  toolResult?: string;
+  context?: any[];
 }
 
 export interface Model {

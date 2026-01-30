@@ -1,9 +1,18 @@
 import { create } from 'zustand';
 
+export interface ContextItem {
+  id: string;
+  name: string;
+  content: string;
+  type: 'file' | 'selection';
+  path: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp?: number;
+  context?: ContextItem[];
 }
 
 interface ChatState {
@@ -11,6 +20,7 @@ interface ChatState {
   isLoading: boolean;
   error: string | null;
   conversationId: string | null;
+  attachments: ContextItem[];
   
   // Actions
   addMessage: (message: Message) => void;
@@ -19,6 +29,9 @@ interface ChatState {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearMessages: () => void;
+  addContext: (context: ContextItem) => void;
+  removeContext: (id: string) => void;
+  clearContext: () => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -26,6 +39,7 @@ export const useChatStore = create<ChatState>((set) => ({
   isLoading: false,
   error: null,
   conversationId: null,
+  attachments: [],
 
   addMessage: (message) =>
     set((state) => ({
@@ -55,5 +69,18 @@ export const useChatStore = create<ChatState>((set) => ({
     set({ error, isLoading: false }),
 
   clearMessages: () =>
-    set({ messages: [], error: null })
+    set({ messages: [], error: null, attachments: [] }),
+
+  addContext: (context) => 
+    set((state) => ({
+      attachments: [...state.attachments, context]
+    })),
+
+  removeContext: (id) =>
+    set((state) => ({
+      attachments: state.attachments.filter(a => a.id !== id)
+    })),
+
+  clearContext: () =>
+    set({ attachments: [] })
 }));
