@@ -9,7 +9,6 @@ import type { ApprovalRequest, WebviewMessage } from '../types/bridge';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
-  private static readonly maxTerminalChars = 4000;
   private static readonly maxProblemsChars = 8000;
 
   private _view?: vscode.WebviewView;
@@ -18,7 +17,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _chatStorage: ChatStorage;
   private _didRestoreOnStartup = false;
   private _pendingApprovals = new Map<string, (approved: boolean) => void>();
-  private _terminalBuffers = new Map<string, string>();
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -29,14 +27,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   ) {
     this._conversationId = this._generateId();
     this._chatStorage = new ChatStorage(_context);
-    this._context.subscriptions.push(
-      vscode.window.onDidWriteTerminalData(event => {
-        const name = event.terminal.name || 'terminal';
-        const previous = this._terminalBuffers.get(name) || '';
-        const combined = (previous + event.data).slice(-ChatViewProvider.maxTerminalChars);
-        this._terminalBuffers.set(name, combined);
-      })
-    );
     this._log('ChatViewProvider initialized');
   }
 
@@ -224,17 +214,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     } else if (type === 'terminal') {
        const activeTerminal = vscode.window.activeTerminal;
        const terminalName = activeTerminal?.name || 'terminal';
-       const content = this._terminalBuffers.get(terminalName);
-       const text = content && content.trim().length > 0
-         ? content
-         : 'No terminal output captured yet.';
-
        this._postMessage({
           type: 'contextAdded',
           context: {
             id: 'terminal',
             name: 'Terminal',
-            content: `Terminal (${terminalName}) last output:\n${text}`,
+            content: `Terminal (${terminalName}) output capture is not available without VS Code proposed API. Run the extension with --enable-proposed-api or disable terminal context.`,
             type: 'terminal',
             path: 'terminal'
           }
