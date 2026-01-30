@@ -11,7 +11,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const { postMessage } = useVSCode();
   const isContextBlock = language.includes(':');
-  const [, contextName] = isContextBlock ? language.split(':', 2) : [null, null];
+  const [contextType, contextName] = isContextBlock ? language.split(':', 2) : [null, null];
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleCopy = async () => {
@@ -59,6 +59,9 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
       <div className="code-header">
         <span className="code-language">
           {isContextBlock ? (contextName || 'Context') : language}
+          {isContextBlock && contextType && (
+            <span className="context-badge">{contextType}</span>
+          )}
         </span>
         {isContextBlock ? (
           <button

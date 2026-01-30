@@ -147,6 +147,7 @@ function App() {
           config={config}
           onSave={handleSaveSettings}
         />
+        <ConfirmModal />
       </div>
     );
   }
@@ -155,6 +156,7 @@ function App() {
     return (
       <div className="app settings-only">
         <HistoryPage onClose={closeHistory} />
+        <ConfirmModal />
       </div>
     );
   }
@@ -163,6 +165,7 @@ function App() {
     return (
       <div className="app settings-only">
         <ApprovalsPage onClose={closeApprovals} />
+        <ConfirmModal />
       </div>
     );
   }

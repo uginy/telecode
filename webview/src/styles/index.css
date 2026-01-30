@@ -357,6 +357,19 @@ body {
   padding: var(--spacing-md);
 }
 
+.context-badge {
+  display: inline-block;
+  margin-left: var(--spacing-sm);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-secondary);
+}
+
 /* ===========================================
    Message Input
    =========================================== */
