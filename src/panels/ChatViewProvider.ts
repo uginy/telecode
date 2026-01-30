@@ -88,6 +88,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'reviewDiff':
           this._handleReviewDiff(data.code, data.language, data.targetPath);
           break;
+        case 'applyDiff':
+          await this._handleApplyDiff(data.code, data.targetPath);
+          break;
       }
     });
 
@@ -189,11 +192,46 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const virtualUri = vscode.Uri.parse(`ais-diff://${uri.path}?proposed`);
     this._diffContentProvider.updateContent(virtualUri, code);
 
-    await vscode.commands.executeCommand('vscode.diff', 
-       uri, 
-       virtualUri, 
+    await vscode.commands.executeCommand('vscode.diff',
+       uri,
+       virtualUri,
        `Diff: ${uri.path.split('/').pop()} (Original) ↔ Proposed`
     );
+  }
+
+  private async _handleApplyDiff(code: string, targetPath?: string) {
+    try {
+      let uri: vscode.Uri;
+
+      if (targetPath) {
+        if (path.isAbsolute(targetPath)) {
+          uri = vscode.Uri.file(targetPath);
+        } else {
+          const files = await vscode.workspace.findFiles(targetPath, null, 1);
+          if (files[0]) {
+            uri = files[0];
+          } else {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+              throw new Error('No workspace folder open');
+            }
+            uri = vscode.Uri.joinPath(workspaceFolder.uri, targetPath);
+          }
+        }
+      } else {
+        if (vscode.window.activeTextEditor) {
+          uri = vscode.window.activeTextEditor.document.uri;
+        } else {
+          throw new Error('No target file specified and no active editor');
+        }
+      }
+
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(code));
+      vscode.window.showInformationMessage(`Changes applied to ${path.basename(uri.fsPath)}`);
+    } catch (error: any) {
+      this._postMessage({ type: 'error', message: `Failed to apply changes: ${error.message}` });
+      vscode.window.showErrorMessage(`Apply failed: ${error.message}`);
+    }
   }
 
   private async _handleSearchContext(query: string, type?: string) {

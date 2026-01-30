@@ -41,13 +41,14 @@ export function useContextSearch() {
     const lastAt = textBeforeCaret.lastIndexOf('@');
 
     if (lastAt !== -1) {
-      // Check if '@' is start of line or preceded by space
-      const isValidTrigger = lastAt === 0 || /\s/.test(textBeforeCaret[lastAt - 1]);
+      // Check if '@' is start of line or preceded by whitespace/punctuation
+      const prevChar = textBeforeCaret[lastAt - 1];
+      const isValidTrigger = lastAt === 0 || /\s/.test(prevChar) || /[\(\[\{<>"'`;,]/.test(prevChar);
       
       if (isValidTrigger) {
         const query = textBeforeCaret.slice(lastAt + 1);
-        // Only trigger if no spaces in query (simple implementation)
-        if (!query.includes(' ')) {
+        // Only trigger if no spaces/newlines in query
+        if (!query.includes(' ') && !query.includes('\n')) {
           setState(prev => ({
             ...prev,
             isActive: true,
@@ -55,12 +56,12 @@ export function useContextSearch() {
             triggerIndex: lastAt
           }));
 
-          // Debounce search
+          // Debounce search - reduced for faster response
           if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
           searchTimeoutRef.current = setTimeout(() => {
             console.log('[useContextSearch] Sending searchContext query:', query);
             postMessage({ type: 'searchContext', query });
-          }, 300); // 300ms debounce
+          }, 150);
           return;
         }
       }

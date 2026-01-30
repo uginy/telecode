@@ -32,9 +32,13 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
           components={{
             code({ className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
-              const isInline = !match;
+              const hasLanguage = !!match;
+              const content = String(children);
+              // Block code: has language OR contains newlines (fenced block)
+              // Inline code: no language AND no newlines
+              const isBlock = hasLanguage || content.includes('\n');
               
-              if (isInline) {
+              if (!isBlock) {
                 return (
                   <code className="inline-code" {...props}>
                     {children}
@@ -44,8 +48,8 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
               
               return (
                 <CodeBlock
-                  language={match[1]}
-                  code={String(children).replace(/\n$/, '')}
+                  language={match?.[1] || 'text'}
+                  code={content.replace(/\n$/, '')}
                 />
               );
             },

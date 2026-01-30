@@ -17,17 +17,17 @@ A specialized AI coding assistant for VS Code.
 - [x] **Native Networking**: Switched to `https` module to bypass Google Cloud Code proxy interferences.
 - [x] **Enhanced Settings**: In-webview settings panel with real-time configuration updates.
 
-### 🟡 Iteration 3: Context & Diff View (In Progress)
+### ✅ Iteration 3: Context & Diff View (Completed)
 
 - [x] **`@` Mention System**: Architecture for file and problem search.
 - [x] **Diff Provider**: Virtual document provider for side-by-side reviews.
 - [x] **Diff UI**: "Review" button in code blocks.
-- [ ] **Bug Fixes**: Resolve issue where `@` menu doesn't appear for some users.
-- [ ] **Bug Fixes**: Improve Markdown parsing for LLM responses (ensure code blocks are always detected).
+- [x] **Bug Fixes**: Resolve issue where `@` menu doesn't appear for some users.
+- [x] **Bug Fixes**: Improve Markdown parsing for LLM responses (ensure code blocks are always detected).
 
 ### 🚀 Upcoming Features
 
-- [ ] **Direct Apply**: One-click "Apply" button to merge changes from Diff View.
+- [x] **Direct Apply**: One-click "Apply" button to merge changes from Diff View.
 - [ ] **Terminal Context**: Ability to `@terminal` to include last output in context.
 - [ ] **History Persistence**: Save conversations to local storage.
 - [ ] **Indexing**: Better file search using workspace indexing (for large projects).

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent, useLayoutEffect } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
 import { useChatStore } from '../../stores/chatStore';
 import { useContextSearch } from '../../hooks/useContextSearch';
@@ -14,6 +14,7 @@ interface MessageInputProps {
 export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const caretPositionRef = useRef<number>(0);
   const { postMessage } = useVSCode();
   const { attachments, removeContext, clearContext } = useChatStore();
   
@@ -36,6 +37,14 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
     }
   }, [value]);
+
+  // Handle input changes with caret position using layout effect to avoid race conditions
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && caretPositionRef.current > 0) {
+      handleInput(value, caretPositionRef.current);
+    }
+  }, [value, handleInput]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (isActive && results.length > 0) {
@@ -87,9 +96,11 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
-    console.log('[MessageInput] Input changed:', newValue, 'Caret at:', e.target.selectionStart);
+    const caretPos = e.target.selectionStart || 0;
+    caretPositionRef.current = caretPos;
+    console.log('[MessageInput] Input changed:', newValue, 'Caret at:', caretPos);
     setValue(newValue);
-    handleInput(newValue, e.target.selectionStart || 0);
+    // handleInput is called in useLayoutEffect to avoid race condition
   };
 
   const handleSend = () => {

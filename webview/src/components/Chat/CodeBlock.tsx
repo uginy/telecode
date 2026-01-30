@@ -21,18 +21,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   };
 
   const handleReview = () => {
-    // Try to extract path from comments
-    const lines = code.split('\n').slice(0, 3);
-    let targetPath: string | undefined;
-    
-    for (const line of lines) {
-      const match = line.match(/\/\/\s*(?:file:)?\s*([^\s]+)/i);
-      if (match) {
-         targetPath = match[1];
-         break;
-      }
-    }
-
+    const targetPath = extractTargetPath(code);
     postMessage({
       type: 'reviewDiff',
       code,
@@ -41,12 +30,42 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
     });
   };
 
+  const handleApply = () => {
+    const targetPath = extractTargetPath(code);
+    postMessage({
+      type: 'applyDiff',
+      code,
+      targetPath
+    });
+  };
+
+  const extractTargetPath = (code: string): string | undefined => {
+    const lines = code.split('\n').slice(0, 3);
+    for (const line of lines) {
+      const match = line.match(/\/\/\s*(?:file:)?\s*([^\s]+)/i);
+      if (match) {
+        return match[1];
+      }
+    }
+    return undefined;
+  };
+
   return (
     <div className="code-block">
       <div className="code-header">
         <span className="code-language">{language}</span>
         <div className="code-actions">
-          <button 
+          <button
+            className="apply-button"
+            onClick={handleApply}
+            title="Apply Changes"
+            style={{ marginRight: '8px', cursor: 'pointer', background: 'none', border: 'none', color: 'inherit' }}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </button>
+          <button
             className="review-button"
             onClick={handleReview}
             title="Review Diff"
