@@ -3,6 +3,7 @@ import { Header } from './components/Header/Header';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { ChatHistory } from './components/History/ChatHistory';
 import { ApprovalModal } from './components/Approvals/ApprovalModal';
+import { ApprovalPanel } from './components/Approvals/ApprovalPanel';
 import { ConfirmModal } from './components/Approvals/ConfirmModal';
 import { useVSCode } from './hooks/useVSCode';
 import { useChatStore } from './stores/chatStore';
@@ -141,6 +142,7 @@ function App() {
     <div className="app">
       <div className="sidebar">
         <ChatHistory />
+        <ApprovalPanel />
       </div>
       <div className="main-content">
         <Header onNewChat={handleNewChat} />

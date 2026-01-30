@@ -4,12 +4,12 @@ import type { WebviewMessage } from '../../types/bridge';
 
 export function ApprovalModal() {
   const { postMessage } = useVSCode();
-  const { current, resolveCurrent } = useApprovalStore();
+  const { current, resolveRequest } = useApprovalStore();
 
   if (!current) return null;
 
   const handleDecision = (decision: 'approve' | 'deny') => {
-    const resolved = resolveCurrent();
+    const resolved = resolveRequest(current.requestId, decision);
     if (!resolved) return;
     const message: WebviewMessage = {
       type: 'approvalResponse',

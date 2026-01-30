@@ -1,16 +1,24 @@
 import { create } from 'zustand';
 import type { ApprovalRequest } from '../types/bridge';
 
+export interface ApprovalDecision {
+  request: ApprovalRequest;
+  decision: 'approve' | 'deny';
+  decidedAt: number;
+}
+
 interface ApprovalState {
   queue: ApprovalRequest[];
   current: ApprovalRequest | null;
+  history: ApprovalDecision[];
   enqueue: (request: ApprovalRequest) => void;
-  resolveCurrent: () => ApprovalRequest | null;
+  resolveRequest: (requestId: string, decision: 'approve' | 'deny') => ApprovalRequest | null;
 }
 
 export const useApprovalStore = create<ApprovalState>((set, get) => ({
   queue: [],
   current: null,
+  history: [],
 
   enqueue: (request) => {
     const { current, queue } = get();
@@ -21,13 +29,39 @@ export const useApprovalStore = create<ApprovalState>((set, get) => ({
     set({ queue: [...queue, request] });
   },
 
-  resolveCurrent: () => {
-    const { current, queue } = get();
-    if (!current) return null;
+  resolveRequest: (requestId, decision) => {
+    const { current, queue, history } = get();
 
-    const next = queue[0] ?? null;
-    const remaining = next ? queue.slice(1) : [];
-    set({ current: next, queue: remaining });
-    return current;
+    let resolved: ApprovalRequest | null = null;
+    let next = current;
+    let remainingQueue = queue;
+
+    if (current && current.requestId === requestId) {
+      resolved = current;
+      next = queue[0] ?? null;
+      remainingQueue = queue.slice(1);
+    } else {
+      const idx = queue.findIndex((req) => req.requestId === requestId);
+      if (idx >= 0) {
+        resolved = queue[idx];
+        remainingQueue = [...queue.slice(0, idx), ...queue.slice(idx + 1)];
+      }
+    }
+
+    if (!resolved) return null;
+
+    const entry: ApprovalDecision = {
+      request: resolved,
+      decision,
+      decidedAt: Date.now()
+    };
+
+    set({
+      current: next,
+      queue: remainingQueue,
+      history: [entry, ...history].slice(0, 50)
+    });
+
+    return resolved;
   }
 }));
