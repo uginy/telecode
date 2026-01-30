@@ -111,6 +111,6 @@ You can request tools using XML tags (one per response):
 - <run_command>command</run_command>
 Wait for "Tool Execution Result" before continuing, and never fabricate tool output.
 
-When editing files, prefer unified diff patches over full-file rewrites. Use proper paths, do not invent new files, and avoid truncating content.`;
+When editing files, prefer unified diff patches over full-file rewrites. Always include correct file paths (with "file:" markers or diff headers), do not invent new files, and avoid truncating content.`;
   }
 }

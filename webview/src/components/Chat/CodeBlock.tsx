@@ -70,9 +70,13 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
   const extractTargetPath = (code: string): string | undefined => {
     const lines = code.split('\n').slice(0, 3);
     for (const line of lines) {
-      const match = line.match(/\/\/\s*(?:file:)?\s*([^\s]+)/i);
+      const match = line.match(/\/\/\s*file:\s*([^\s]+)/i);
       if (match) {
         return match[1];
+      }
+      const blockMatch = line.match(/\/\*\s*file:\s*([^\s]+)/i);
+      if (blockMatch) {
+        return blockMatch[1];
       }
     }
     const diffMatch = code.match(/^diff --git a\/(.+?) b\/(.+)$/m);

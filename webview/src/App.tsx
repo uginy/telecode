@@ -109,7 +109,15 @@ function App() {
           }
           break;
         case 'approvalRequest':
-          enqueueApproval(message.request);
+          if (useSettingsStore.getState().config.autoApprove) {
+            postMessage({
+              type: 'approvalResponse',
+              requestId: message.request.requestId,
+              decision: 'approve'
+            } as WebviewMessage);
+          } else {
+            enqueueApproval(message.request);
+          }
           break;
       }
     });

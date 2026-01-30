@@ -612,6 +612,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
         this._postMessage({ type: 'streamComplete' });
         
+        if (this._isAutoApproveEnabled() && !this._containsToolTags(fullResponse)) {
+          const autoApplySummary = await this._maybeAutoApplyResponse(fullResponse);
+          if (autoApplySummary) {
+            this._messages[userMessageIndex].content = autoApplySummary;
+            this._postMessage({
+              type: 'messages',
+              messages: this._messages,
+              conversationId: this._conversationId
+            });
+            break;
+          }
+        }
+
         const toolResult = await this._processToolCalls(fullResponse);
         
         if (toolResult) {
@@ -656,6 +669,74 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this._abortController = undefined;
       }
     }
+  }
+
+  private _containsToolTags(content: string): boolean {
+    return /<read_file>|<list_files>|<write_file|<run_command>/s.test(content);
+  }
+
+  private async _maybeAutoApplyResponse(content: string): Promise<string | null> {
+    const blocks = this._extractCodeBlocks(content);
+    if (blocks.length === 0) {
+      return null;
+    }
+
+    const diffBlock = blocks.find((block) => this._isUnifiedDiff(block.content) || block.language === 'diff');
+    if (diffBlock) {
+      try {
+        await this._handleApplyDiff(diffBlock.content);
+        return '✅ Changes applied automatically (diff).';
+      } catch (error: any) {
+        return `⚠️ Auto-apply failed: ${error.message}`;
+      }
+    }
+
+    if (this._isDiffOnlyEnabled()) {
+      return '⚠️ Auto-apply skipped: diff-only mode requires a unified diff.';
+    }
+
+    const fileBlock = blocks.find((block) => block.language === 'file' || block.language === 'FILE');
+    if (!fileBlock) {
+      return null;
+    }
+
+    const targetPath = this._extractFilePathMarker(fileBlock.content);
+    if (!targetPath) {
+      return '⚠️ Auto-apply skipped: missing file path marker.';
+    }
+
+    try {
+      await this._handleApplyDiff(fileBlock.content, targetPath);
+      return `✅ Changes applied automatically to ${path.basename(targetPath)}.`;
+    } catch (error: any) {
+      return `⚠️ Auto-apply failed: ${error.message}`;
+    }
+  }
+
+  private _extractCodeBlocks(content: string): Array<{ language: string; content: string }> {
+    const blocks: Array<{ language: string; content: string }> = [];
+    const regex = /```(\w+)?\n([\s\S]*?)```/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content))) {
+      blocks.push({
+        language: (match[1] || '').toLowerCase(),
+        content: match[2].trim()
+      });
+    }
+    return blocks;
+  }
+
+  private _extractFilePathMarker(content: string): string | null {
+    const lines = content.split('\n').slice(0, 5);
+    for (const line of lines) {
+      const single = line.match(/\/\/\s*file:\s*([^\s]+)/i);
+      if (single) return single[1];
+      const block = line.match(/\/\*\s*file:\s*([^\s]+)/i);
+      if (block) return block[1];
+      const plain = line.match(/file:\s*([^\s]+)/i);
+      if (plain) return plain[1];
+    }
+    return null;
   }
 
   private _sendMessagesToWebview() {

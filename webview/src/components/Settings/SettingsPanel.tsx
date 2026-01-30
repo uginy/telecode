@@ -145,7 +145,6 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
     <div className="settings-page">
       <div className="settings-page-header">
         <div className="settings-page-title">
-          <span className="settings-page-icon">6e0e0f</span>
           <div>
             <div className="settings-page-title-text">Settings</div>
             <div className="settings-page-subtitle">Configure AIS Code to match your workflow</div>
