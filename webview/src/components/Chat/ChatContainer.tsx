@@ -10,7 +10,7 @@ interface ChatContainerProps {
 }
 
 export function ChatContainer({ onSendMessage, onAbort }: ChatContainerProps) {
-  const { messages, isLoading, error } = useChatStore();
+  const { messages, isLoading, error, status } = useChatStore();
   const messagesAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -61,6 +61,21 @@ export function ChatContainer({ onSendMessage, onAbort }: ChatContainerProps) {
               <div className="error-message">
                 <span className="error-icon">⚠️</span>
                 <span>{error}</span>
+              </div>
+            )}
+            {status && (
+              <div className="message-bubble assistant status">
+                <div className="message-avatar">
+                  <div className="avatar ai-avatar">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </div>
+                </div>
+                <div className="message-content">
+                  <span className="status-text">{status}</span>
+                  {isLoading && <span className="status-dots" aria-hidden="true" />}
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />

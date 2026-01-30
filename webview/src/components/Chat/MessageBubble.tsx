@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '../../stores/chatStore';
 import { CodeBlock } from './CodeBlock';
@@ -9,6 +10,11 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
+  const [isContextVisible, setIsContextVisible] = useState(false);
+  const split = isUser ? splitContextContent(message.content || '') : null;
+  const hasContext = !!split?.context;
+  const mainContent = split ? split.main : (message.content || '');
+  const contextContent = split?.context || '';
 
   return (
     <div className={`message-bubble ${isUser ? 'user' : 'assistant'} ${isStreaming ? 'streaming' : ''}`}>
@@ -28,6 +34,20 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
         )}
       </div>
       <div className="message-content">
+        {isUser && hasContext && (
+          <div className="context-preview-actions">
+            <button
+              className="context-preview-toggle"
+              onClick={() => setIsContextVisible((prev) => !prev)}
+              title={isContextVisible ? 'Hide context' : 'Show context'}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <path d="M12 5c-5 0-9 5-9 7s4 7 9 7 9-5 9-7-4-7-9-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+              </svg>
+              <span>{isContextVisible ? 'Hide context' : 'Show context'}</span>
+            </button>
+          </div>
+        )}
         <ReactMarkdown
           components={{
             code({ className, children, ...props }) {
@@ -77,12 +97,54 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
             }
           }}
         >
-          {message.content || (isStreaming ? '...' : '')}
+          {mainContent || (isStreaming ? '...' : '')}
         </ReactMarkdown>
+        {isUser && hasContext && isContextVisible && (
+          <div className="context-preview">
+            <ReactMarkdown
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const hasLanguage = !!match;
+                  const content = String(children);
+                  const isBlock = hasLanguage || content.includes('\n');
+                  
+                  if (!isBlock) {
+                    return (
+                      <code className="inline-code" {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                  
+                  return (
+                    <CodeBlock
+                      language={match?.[1] || 'text'}
+                      code={content.replace(/\n$/, '')}
+                    />
+                  );
+                }
+              }}
+            >
+              {`Context:\n${contextContent}`}
+            </ReactMarkdown>
+          </div>
+        )}
         {isStreaming && (
           <span className="cursor-blink">▊</span>
         )}
       </div>
     </div>
   );
+}
+
+function splitContextContent(content: string): { main: string; context: string } | null {
+  const marker = '\n\nContext:\n';
+  const index = content.indexOf(marker);
+  if (index === -1) {
+    return null;
+  }
+  const main = content.slice(0, index).trimEnd();
+  const context = content.slice(index + marker.length).trim();
+  return { main, context };
 }

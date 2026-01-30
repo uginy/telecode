@@ -48,6 +48,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     console.log(formatted, ...args);
   }
 
+  private _setStatus(status: string | null) {
+    this._postMessage({ type: 'status', status });
+  }
+
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -279,6 +283,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleApplyDiff(code: string, targetPath?: string) {
     try {
+      this._setStatus('Applying changes');
       const isDiff = this._isUnifiedDiff(code);
       if (!this._isAutoApproveEnabled() && this._isDiffOnlyEnabled() && !isDiff) {
         throw new Error('Diff-only mode is enabled. Please provide a unified diff patch.');
@@ -306,9 +311,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const { doc, wasDirty } = await this._readDocument(uri);
       await this._writeDocument(doc, code, wasDirty);
       vscode.window.showInformationMessage(`Changes applied to ${path.basename(uri.fsPath)}`);
+      this._setStatus('Changes applied');
     } catch (error: any) {
       this._postMessage({ type: 'error', message: `Failed to apply changes: ${error.message}` });
       vscode.window.showErrorMessage(`Apply failed: ${error.message}`);
+      this._setStatus(null);
     }
   }
 
@@ -596,17 +603,20 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       type: 'messageAdded', 
       message: this._messages[this._messages.length - 1] 
     });
+    this._setStatus('Analyzing request');
 
     const providerName = vscode.workspace.getConfiguration('aisCode').get<string>('provider');
     const provider = await this._providerRegistry.getProvider(providerName || 'openai-compatible');
 
     if (!provider) {
       this._postMessage({ type: 'error', message: `Provider ${providerName} not found` });
+      this._setStatus(null);
       return;
     }
 
     if (!provider.isConfigured()) {
       this._postMessage({ type: 'error', message: 'Provider not configured. Please check settings.' });
+      this._setStatus(null);
       return;
     }
 
@@ -637,6 +647,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         await provider.complete(this._messages.slice(0, -1), {
           onToken: (token) => {
             fullResponse += token;
+            if (this._isAutoApproveEnabled() && !streamAutoApplied) {
+              this._setStatus('Applying changes');
+            }
             if (suppressStreaming && !streamAutoApplied && !streamAutoApplyInFlight) {
               streamAutoApplyInFlight = true;
               void this._tryStreamAutoApply(fullResponse).then((applied) => {
@@ -666,6 +679,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
 
         this._postMessage({ type: 'streamComplete' });
+        this._setStatus(null);
         
         if (this._isAutoApproveEnabled() && !this._containsToolTags(fullResponse)) {
           const autoApplyResult = await this._maybeAutoApplyResponse(fullResponse);
@@ -739,10 +753,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       } catch (error: any) {
         if (error.name === 'AbortError') {
+          this._setStatus(null);
           return;
         }
         vscode.window.showErrorMessage(`AI Error: ${error.message}`);
         this._postMessage({ type: 'error', message: error.message });
+        this._setStatus(null);
         
         if (!fullResponse) {
           this._messages.pop();
@@ -1156,6 +1172,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const { text: current } = await this._readDocument(uri);
     const updated = applyPatch(current, patch, this._getApplyPatchOptions());
     if (updated === false) {
+      this._setStatus(null);
       this._postMessage({
         type: 'error',
         message: 'Diff preview failed: patch could not be applied to the current file content.'
@@ -1252,6 +1269,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
       await this._writeDocument(doc, updated, wasDirty);
       vscode.window.showInformationMessage(`Diff applied to ${path.basename(resolved.fsPath)}`);
+      this._setStatus('Changes applied');
       return;
     }
 
@@ -1280,6 +1298,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     if (touched.length > 0) {
       vscode.window.showInformationMessage(`Diff applied to ${applied.join(', ')}`);
+      this._setStatus('Changes applied');
     }
   }
 

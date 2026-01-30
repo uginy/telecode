@@ -13,6 +13,7 @@ interface ChatState {
   messages: Message[];
   isLoading: boolean;
   error: string | null;
+  status: string | null;
   conversationId: string | null;
   attachments: ContextItem[];
   
@@ -21,6 +22,7 @@ interface ChatState {
   setMessages: (messages: Message[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setStatus: (status: string | null) => void;
   clearMessages: () => void;
   addContext: (context: ContextItem) => void;
   updateContext: (id: string, updates: Partial<ContextItem>) => void;
@@ -47,6 +49,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
   error: null,
+  status: null,
   conversationId: null,
   attachments: [],
 
@@ -79,6 +82,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
+  setStatus: (status) => set({ status }),
   
   clearMessages: () => set({ 
     messages: [], 

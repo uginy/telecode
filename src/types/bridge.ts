@@ -64,6 +64,7 @@ export type ExtensionMessage =
   | { type: 'messageAdded'; message: Message; isStreaming?: boolean }
   | { type: 'streamToken'; messageIndex: number; token: string }
   | { type: 'streamComplete' }
+  | { type: 'status'; status: string | null }
   | { type: 'error'; message: string }
   | { type: 'config'; config: { provider: string; baseUrl: string; apiKey: string; model: string; maxTokens?: number; temperature?: number; autoApprove?: boolean; diffOnly?: boolean; workspaceIndex?: boolean } }
   | { type: 'modelsFound'; provider: string; models: ModelInfo[] }

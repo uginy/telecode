@@ -15,7 +15,7 @@ import type { ExtensionMessage, WebviewMessage } from './types/bridge';
 
 function App() {
   const { postMessage, onMessage } = useVSCode();
-  const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, saveCurrentChat } = useChatStore();
+  const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, setStatus, saveCurrentChat } = useChatStore();
   const { isOpen, closeSettings, config, setConfig, isHistoryOpen, closeHistory, isApprovalsOpen, closeApprovals } = useSettingsStore();
   const { setChats, setCurrentChatId, loadHistory } = useHistoryStore();
   const enqueueApproval = useApprovalStore((state) => state.enqueue);
@@ -69,13 +69,18 @@ function App() {
           break;
         case 'streamComplete':
           setLoading(false);
+          setStatus(null);
           saveCurrentChat();
+          break;
+        case 'status':
+          setStatus(message.status ?? null);
           break;
         case 'error':
           if (typeof message.message === 'string') {
             setError(message.message);
           }
           setLoading(false);
+          setStatus(null);
           break;
         case 'conversationCleared':
           setMessages([]);
@@ -123,7 +128,7 @@ function App() {
     });
 
     return cleanup;
-  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setConfig, setChats, setCurrentChatId, loadHistory, saveCurrentChat]);
+  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setStatus, setConfig, setChats, setCurrentChatId, loadHistory, saveCurrentChat]);
 
   const handleSendMessage = (content: string) => {
     const payload: WebviewMessage = { type: 'sendMessage', content };
