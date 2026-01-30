@@ -243,6 +243,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _handleReviewDiff(code: string, language: string, targetPath?: string) {
+    if (this._isUnifiedDiff(code)) {
+      await this._previewBeforeApply(code, targetPath, true);
+      return;
+    }
     let uri: vscode.Uri;
     
     if (targetPath) {
@@ -299,7 +303,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         return;
       }
 
-      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(code));
+      const { doc, wasDirty } = await this._readDocument(uri);
+      await this._writeDocument(doc, code, wasDirty);
       vscode.window.showInformationMessage(`Changes applied to ${path.basename(uri.fsPath)}`);
     } catch (error: any) {
       this._postMessage({ type: 'error', message: `Failed to apply changes: ${error.message}` });
@@ -1148,9 +1153,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
     const uri = await this._resolveExistingTarget(targetPath ?? patchPath);
-    const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
-    const updated = applyPatch(current, patch);
+    const { text: current } = await this._readDocument(uri);
+    const updated = applyPatch(current, patch, this._getApplyPatchOptions());
     if (updated === false) {
+      this._postMessage({
+        type: 'error',
+        message: 'Diff preview failed: patch could not be applied to the current file content.'
+      });
       return;
     }
     await this._handleReviewDiff(updated, 'text', uri.fsPath);
@@ -1190,7 +1199,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (!patchPath || patchPath === '/dev/null') {
       return null;
     }
-    return patchPath.replace(/^[ab]\//, '');
+    return patchPath.replace(/^[ab][\\/]/, '').replace(/\\/g, '/');
   }
 
   private async _applyUnifiedDiff(diffContent: string, targetPath?: string) {
@@ -1210,12 +1219,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         throw new Error('Creating or deleting files via diff is not supported.');
       }
       const uri = await this._resolveExistingTarget(patchPath);
-      const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
-      const updated = applyPatch(current, patch);
+      const { doc, text: current, wasDirty } = await this._readDocument(uri);
+      const updated = applyPatch(current, patch, this._getApplyPatchOptions());
       if (updated === false) {
         throw new Error(`Failed to apply diff to ${patchPath}. File might be out of date.`);
       }
-      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(updated));
+      await this._writeDocument(doc, updated, wasDirty);
       return uri;
     };
 
@@ -1230,12 +1239,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       });
       if (!approved) return;
 
-      const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(resolved));
-      const updated = applyPatch(current, diffContent);
+      const patchForTarget = patches.length === 1
+        ? patches[0]
+        : this._findPatchForTarget(patches, resolved);
+      if (!patchForTarget) {
+        throw new Error('Diff does not contain changes for the selected target file.');
+      }
+      const { doc, text: current, wasDirty } = await this._readDocument(resolved);
+      const updated = applyPatch(current, patchForTarget, this._getApplyPatchOptions());
       if (updated === false) {
         throw new Error(`Failed to apply diff to ${targetPath}. File might be out of date.`);
       }
-      await vscode.workspace.fs.writeFile(resolved, new TextEncoder().encode(updated));
+      await this._writeDocument(doc, updated, wasDirty);
       vscode.window.showInformationMessage(`Diff applied to ${path.basename(resolved.fsPath)}`);
       return;
     }
@@ -1266,6 +1281,55 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (touched.length > 0) {
       vscode.window.showInformationMessage(`Diff applied to ${applied.join(', ')}`);
     }
+  }
+
+  private _getApplyPatchOptions() {
+    return {
+      fuzzFactor: 2
+    };
+  }
+
+  private async _readDocument(uri: vscode.Uri): Promise<{ doc: vscode.TextDocument; text: string; wasDirty: boolean }> {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    return { doc, text: doc.getText(), wasDirty: doc.isDirty };
+  }
+
+  private async _writeDocument(doc: vscode.TextDocument, content: string, wasDirty: boolean) {
+    const edit = new vscode.WorkspaceEdit();
+    const fullRange = new vscode.Range(
+      doc.positionAt(0),
+      doc.positionAt(doc.getText().length)
+    );
+    edit.replace(doc.uri, fullRange, content);
+    await vscode.workspace.applyEdit(edit);
+    if (!wasDirty) {
+      await doc.save();
+    }
+  }
+
+  private _findPatchForTarget(
+    patches: ReturnType<typeof parsePatch>,
+    targetUri: vscode.Uri
+  ): ReturnType<typeof parsePatch>[number] | undefined {
+    const targetRel = vscode.workspace.asRelativePath(targetUri, false).replace(/\\/g, '/');
+    const normalize = (value: string) => value.replace(/\\/g, '/').replace(/^\.\//, '');
+
+    const exact = patches.find((patch) => {
+      const patchPath = this._sanitizePatchPath(patch.newFileName) || this._sanitizePatchPath(patch.oldFileName);
+      if (!patchPath) return false;
+      return normalize(patchPath) === normalize(targetRel);
+    });
+    if (exact) return exact;
+
+    const targetBase = path.posix.basename(targetRel);
+    const baseMatches = patches.filter((patch) => {
+      const patchPath = this._sanitizePatchPath(patch.newFileName) || this._sanitizePatchPath(patch.oldFileName);
+      if (!patchPath) return false;
+      const normalized = normalize(patchPath);
+      return normalized === targetBase || normalized.endsWith(`/${targetBase}`);
+    });
+
+    return baseMatches.length === 1 ? baseMatches[0] : undefined;
   }
 
   private async _processToolCalls(response: string): Promise<string | null> {
