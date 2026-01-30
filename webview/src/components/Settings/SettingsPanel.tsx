@@ -14,6 +14,7 @@ export interface SettingsConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  autoApprove?: boolean;
 }
 
 interface Model {
@@ -235,6 +236,19 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
                 />
               </div>
             )}
+          </div>
+
+          {/* Agent Mode */}
+          <div className="settings-section">
+            <label className="settings-label">Agent Mode</label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={!!localConfig.autoApprove}
+                onChange={e => setLocalConfig({ ...localConfig, autoApprove: e.target.checked })}
+              />
+              Auto-approve tool actions and file changes
+            </label>
           </div>
         </div>
 

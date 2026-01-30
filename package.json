@@ -134,6 +134,11 @@
           "minimum": 0,
           "maximum": 2,
           "description": "Temperature for AI responses"
+        },
+        "aisCode.autoApprove": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-approve tool actions and file changes (Agent mode)"
         }
       }
     }

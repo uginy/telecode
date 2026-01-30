@@ -344,6 +344,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async _saveConfig(config: any) {
     const wsConfig = vscode.workspace.getConfiguration('aisCode');
     await wsConfig.update('provider', config.provider, vscode.ConfigurationTarget.Global);
+    if (typeof config.autoApprove === 'boolean') {
+      await wsConfig.update('autoApprove', config.autoApprove, vscode.ConfigurationTarget.Global);
+    }
     
     if (config.provider === 'openrouter') {
       if (config.apiKey) await wsConfig.update('openrouter.apiKey', config.apiKey, vscode.ConfigurationTarget.Global);
@@ -626,7 +629,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         baseUrl,
         apiKey,
         maxTokens: config.get('maxTokens'),
-        temperature: config.get('temperature')
+        temperature: config.get('temperature'),
+        autoApprove: config.get('autoApprove')
       }
     });
   }
@@ -665,6 +669,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _requestApproval(request: Omit<ApprovalRequest, 'requestId'>): Promise<boolean> {
+    if (this._isAutoApproveEnabled()) {
+      return Promise.resolve(true);
+    }
     if (!this._view) {
       return Promise.resolve(false);
     }
@@ -685,6 +692,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         resolve(approved);
       });
     });
+  }
+
+  private _isAutoApproveEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    return config.get<boolean>('autoApprove') === true;
   }
 
   private _resolveWorkspacePath(inputPath: string): string {

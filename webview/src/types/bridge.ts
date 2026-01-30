@@ -42,7 +42,7 @@ export type WebviewMessage =
   | { type: 'sendMessage'; content: string }
   | { type: 'getMessages' }
   | { type: 'getConfig' }
-  | { type: 'saveConfig'; config: { provider: string; baseUrl: string; apiKey: string; model: string; maxTokens?: number; temperature?: number } }
+  | { type: 'saveConfig'; config: { provider: string; baseUrl: string; apiKey: string; model: string; maxTokens?: number; temperature?: number; autoApprove?: boolean } }
   | { type: 'fetchModels'; provider: string; apiKey?: string }
   | { type: 'abortGeneration' }
   | { type: 'newConversation' }
@@ -64,7 +64,7 @@ export type ExtensionMessage =
   | { type: 'streamToken'; messageIndex: number; token: string }
   | { type: 'streamComplete' }
   | { type: 'error'; message: string }
-  | { type: 'config'; config: { provider: string; baseUrl: string; apiKey: string; model: string; maxTokens?: number; temperature?: number } }
+  | { type: 'config'; config: { provider: string; baseUrl: string; apiKey: string; model: string; maxTokens?: number; temperature?: number; autoApprove?: boolean } }
   | { type: 'modelsFound'; provider: string; models: ModelInfo[] }
   | { type: 'contextAdded'; context: ContextItem }
   | { type: 'searchContextResults'; items: ContextItem[] }

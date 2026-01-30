@@ -14,7 +14,8 @@ const DEFAULT_CONFIG: SettingsConfig = {
   provider: 'openai-compatible',
   baseUrl: 'http://localhost:11434/v1',
   apiKey: '',
-  model: 'llama3.2'
+  model: 'llama3.2',
+  autoApprove: false
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
