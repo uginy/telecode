@@ -8,6 +8,7 @@
   --bg-primary: var(--vscode-editor-background, #1e1e1e);
   --bg-secondary: var(--vscode-sideBar-background, #252526);
   --bg-tertiary: #2d2d2d;
+  --bg-chat: #1b1d22;
   --bg-hover: #3c3c3c;
 
   --text-primary: var(--vscode-editor-foreground, #cccccc);
@@ -111,6 +112,7 @@ body {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  background: var(--bg-chat);
 }
 
 .messages-area {
@@ -120,6 +122,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-lg);
+  background: var(--bg-chat);
 }
 
 /* Custom scrollbar */
