@@ -32,7 +32,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
 
   return (
     <footer className="p-2 border-t border-border bg-background/95 backdrop-blur-sm">
-      <div className="flex gap-2 max-w mx-auto w-full px-1 align-center items-center">
+      <div className="flex items-center gap-2 max-w mx-auto w-full px-1">
         <div className="relative flex-1 group">
           <textarea
             value={value}
@@ -40,7 +40,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend }) => {
             onKeyDown={handleKeyDown}
             placeholder={isStreaming ? "AIS is thinking..." : "Message AIS Code..."}
             disabled={isStreaming}
-            className="w-full min-h-[40px] max-h-[200px] bg-muted/20 border border-border/50 focus:border-primary/40 focus:bg-muted/40 rounded-xl px-3 py-2.5 text-xs focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-50"
+            className="w-full min-h-[40px] max-h-[200px] bg-muted/40 border border-border/50 focus:border-primary/40 focus:bg-muted/40 rounded-xl px-3 py-2.5 text-xs focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-50"
             rows={1}
           />
         </div>

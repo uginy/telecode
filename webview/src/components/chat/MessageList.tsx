@@ -13,7 +13,7 @@ export const MessageList: React.FC = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.length]); 
+  }, [messages]); 
 
   if (messages.length === 0) {
     return (
