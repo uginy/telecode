@@ -1,4 +1,5 @@
-import OpenAI from 'openai';
+import * as https from 'https';
+import { URL } from 'url';
 import * as vscode from 'vscode';
 import { BaseProvider, type Message, type Model, type StreamCallbacks, type UsageStats } from './base';
 
@@ -13,33 +14,13 @@ interface OpenRouterModel {
 }
 
 /**
- * OpenRouter provider with dynamic model loading
+ * OpenRouter provider using native Node.js https module to bypass VS Code fetch/proxy issues
  */
 export class OpenRouterProvider extends BaseProvider {
   readonly name = 'openrouter';
   readonly displayName = 'OpenRouter';
 
-  private _client: OpenAI | null = null;
   private _cachedModels: Model[] = [];
-
-  private get client(): OpenAI {
-    const apiKey = this.getApiKey();
-    
-    if (!this._client && apiKey) {
-      this._client = new OpenAI({ 
-        apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
-        defaultHeaders: {
-          'HTTP-Referer': 'https://github.com/ais-code/vscode-extension',
-          'X-Title': 'AIS Code'
-        }
-      });
-    }
-    if (!this._client) {
-      throw new Error('OpenRouter client not initialized. Check API Key.');
-    }
-    return this._client;
-  }
 
   private getApiKey(): string | undefined {
     const config = vscode.workspace.getConfiguration('aisCode');
@@ -66,12 +47,7 @@ export class OpenRouterProvider extends BaseProvider {
   }
 
   getModels(): Model[] {
-    // Return cached models or defaults
-    if (this._cachedModels.length > 0) {
-      return this._cachedModels;
-    }
-    
-    // Default popular free models
+    if (this._cachedModels.length > 0) return this._cachedModels;
     return [
       { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)', contextWindow: 1000000, maxOutput: 8192, supportsVision: true },
       { id: 'meta-llama/llama-3.2-3b-instruct:free', name: 'Llama 3.2 3B (Free)', contextWindow: 131072, maxOutput: 4096, supportsVision: false },
@@ -81,33 +57,15 @@ export class OpenRouterProvider extends BaseProvider {
     ];
   }
 
-  /**
-   * Fetch all available models from OpenRouter API
-   */
   async fetchModels(): Promise<Model[]> {
     const apiKey = this.getApiKey();
-    if (!apiKey) {
-      throw new Error('OpenRouter API key is required');
-    }
+    if (!apiKey) throw new Error('OpenRouter API key is required');
 
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://github.com/ais-code/vscode-extension',
-          'X-Title': 'AIS Code',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText} (${errorText})`);
-      }
-
-      const data = await response.json() as { data: OpenRouterModel[] };
+      console.log('Fetching models via https module (bypass fetch)...');
+      const data = await this._makeRequest< { data: OpenRouterModel[] }>('GET', '/api/v1/models', apiKey);
       
-      this._cachedModels = data.data.map((m: OpenRouterModel) => {
+      this._cachedModels = data.data.map((m) => {
         const promptPrice = parseFloat(m.pricing?.prompt || '0');
         const completionPrice = parseFloat(m.pricing?.completion || '0');
         const isFree = promptPrice === 0 && completionPrice === 0;
@@ -129,7 +87,7 @@ export class OpenRouterProvider extends BaseProvider {
       return this._cachedModels;
     } catch (error) {
       console.error('Failed to fetch OpenRouter models:', error);
-      throw error; // Re-throw to show in UI
+      throw error;
     }
   }
 
@@ -140,59 +98,148 @@ export class OpenRouterProvider extends BaseProvider {
     }
 
     const systemPrompt = this.buildSystemPrompt();
-    
-    const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [
+    const apiMessages = [
       { role: 'system', content: systemPrompt },
       ...messages.filter(m => m.role !== 'system').map(m => ({
-        role: m.role as 'user' | 'assistant',
+        role: m.role,
         content: m.content
       }))
     ];
 
-    let fullResponse = '';
-    let inputTokens = 0;
-    let outputTokens = 0;
+    const payload = {
+      model: this.getModel(),
+      messages: apiMessages,
+      stream: true,
+      max_tokens: this.getMaxTokens(),
+      temperature: this.getTemperature()
+    };
 
-    try {
-      const stream = await this.client.chat.completions.create({
-        model: this.getModel(),
-        max_tokens: this.getMaxTokens(),
-        temperature: this.getTemperature(),
-        messages: openaiMessages,
-        stream: true
+    console.log('Starting stream via https module...');
+
+    return new Promise<UsageStats>((resolve) => {
+      const url = new URL('https://openrouter.ai/api/v1/chat/completions');
+      const options = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getApiKey()}`,
+          'HTTP-Referer': 'https://github.com/ais-code/vscode-extension',
+          'X-Title': 'AIS Code',
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000 // 60s timeout
+      };
+
+      const req = https.request(url, options, (res) => {
+        if (res.statusCode && res.statusCode >= 400) {
+           let errorBody = '';
+           res.on('data', chunk => errorBody += chunk);
+           res.on('end', () => {
+             console.error(`Status ${res.statusCode}: ${errorBody}`);
+             callbacks.onError(new Error(`OpenRouter Error ${res.statusCode}: ${errorBody}`));
+             resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
+           });
+           return;
+        }
+
+        let buffer = '';
+        let accumulated = '';
+
+        res.on('data', (chunk) => {
+          if (callbacks.signal?.aborted) {
+            req.destroy();
+            return;
+          }
+
+          buffer += chunk.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data: ')) continue;
+            
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const json = JSON.parse(data);
+              const content = json.choices[0]?.delta?.content || '';
+              if (content) {
+                accumulated += content;
+                callbacks.onToken(content);
+              }
+            } catch (e) {
+              // ignore
+            }
+          }
+        });
+
+        res.on('end', () => {
+          callbacks.onComplete(accumulated);
+          resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
+        });
+
+        res.on('error', (err) => {
+          callbacks.onError(err);
+          resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
+        });
       });
 
-      for await (const chunk of stream) {
-        if (callbacks.signal?.aborted) {
-          break;
-        }
+      req.on('error', (err) => {
+        console.error('Network request failed:', err);
+        callbacks.onError(err);
+        resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
+      });
 
-        const delta = chunk.choices[0]?.delta;
-        if (delta?.content) {
-          fullResponse += delta.content;
-          callbacks.onToken(delta.content);
-        }
-
-        if (chunk.usage) {
-          inputTokens = chunk.usage.prompt_tokens;
-          outputTokens = chunk.usage.completion_tokens;
-        }
+      // Handle abort
+      if (callbacks.signal) {
+        callbacks.signal.addEventListener('abort', () => {
+          req.destroy();
+        });
       }
 
-      callbacks.onComplete(fullResponse);
+      req.write(JSON.stringify(payload));
+      req.end();
+    });
+  }
 
-    } catch (error) {
-      if (error instanceof Error) {
-        callbacks.onError(error);
-      } else {
-        callbacks.onError(new Error('Unknown error during OpenRouter completion'));
-      }
-    }
+  /**
+   * Helper for non-streaming requests
+   */
+  private _makeRequest<T>(method: string, path: string, apiKey: string, body?: any): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const url = new URL(`https://openrouter.ai${path}`);
+      const options = {
+        method,
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://github.com/ais-code/vscode-extension',
+          'X-Title': 'AIS Code',
+          'Content-Type': 'application/json'
+        }
+      };
 
-    return {
-      inputTokens,
-      outputTokens,
-      totalCost: 0 // Free tier
-    };
+      const req = https.request(url, options, (res) => {
+        let responseBody = '';
+
+        res.on('data', chunk => responseBody += chunk);
+        
+        res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`API Error ${res.statusCode}: ${responseBody}`));
+          } else {
+            try {
+              resolve(JSON.parse(responseBody));
+            } catch (e) {
+              reject(new Error(`Invalid JSON: ${responseBody}`));
+            }
+          }
+        });
+      });
+
+      req.on('error', reject);
+      if (body) req.write(JSON.stringify(body));
+      req.end();
+    });
   }
 }
