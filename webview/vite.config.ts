@@ -14,6 +14,11 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     origin: 'http://localhost:5173',
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+    },
   },
   resolve: {
     alias: {
