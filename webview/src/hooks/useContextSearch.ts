@@ -22,6 +22,8 @@ export function useContextSearch() {
   });
 
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastQueryRef = useRef<string>('');
+  const lastTriggerRef = useRef<number>(-1);
 
   useEffect(() => {
     return onMessage((message: ExtensionMessage) => {
@@ -50,20 +52,26 @@ export function useContextSearch() {
         const query = textBeforeCaret.slice(lastAt + 1);
         // Only trigger if no spaces/newlines in query
         if (!query.includes(' ') && !query.includes('\n')) {
-          setState(prev => ({
-            ...prev,
-            isActive: true,
-            query,
-            triggerIndex: lastAt
-          }));
+          if (!(state.isActive && state.query === query && state.triggerIndex === lastAt)) {
+            setState(prev => ({
+              ...prev,
+              isActive: true,
+              query,
+              triggerIndex: lastAt
+            }));
+          }
 
           // Debounce search - reduced for faster response
-          if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-          searchTimeoutRef.current = setTimeout(() => {
-            console.log('[useContextSearch] Sending searchContext query:', query);
-            const payload: WebviewMessage = { type: 'searchContext', query };
-            postMessage(payload);
-          }, 150);
+          if (query !== lastQueryRef.current || lastAt !== lastTriggerRef.current) {
+            lastQueryRef.current = query;
+            lastTriggerRef.current = lastAt;
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+            searchTimeoutRef.current = setTimeout(() => {
+              console.log('[useContextSearch] Sending searchContext query:', query);
+              const payload: WebviewMessage = { type: 'searchContext', query };
+              postMessage(payload);
+            }, 150);
+          }
           return;
         }
       }
