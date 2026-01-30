@@ -6,7 +6,7 @@
   "publisher": "ais-code",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.95.0"
+    "vscode": "^1.108.0"
   },
   "categories": [
     "Machine Learning",
