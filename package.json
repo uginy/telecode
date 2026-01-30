@@ -1,0 +1,305 @@
+{
+  "name": "telecode-ai",
+  "displayName": "TeleCode AI",
+  "description": "The first remote-controlled autonomous coding agent in your IDE.",
+  "version": "0.1.3",
+  "publisher": "Uginy",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.108.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "telegram",
+    "whatsapp",
+    "autonomous"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "telecode.openChat",
+        "title": "TeleCode AI: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "telecode.openSettings",
+        "title": "TeleCode AI: Open Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "telecode.startAgent",
+        "title": "TeleCode AI: Start Agent",
+        "icon": "$(play)"
+      },
+      {
+        "command": "telecode.runTask",
+        "title": "TeleCode AI: Run Task",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "telecode.stopAgent",
+        "title": "TeleCode AI: Stop Agent",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "telecode.resetSession",
+        "title": "TeleCode AI: Reset Session History",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "telecode.setStyleShort",
+        "title": "TeleCode AI: Set Response Style - Short",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "telecode.setStyleNormal",
+        "title": "TeleCode AI: Set Response Style - Normal",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "telecode.setStyleDetailed",
+        "title": "TeleCode AI: Set Response Style - Detailed",
+        "icon": "$(book)"
+      },
+      {
+        "command": "telecode.setLanguageRu",
+        "title": "TeleCode AI: Set Language - Russian",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "telecode.setLanguageEn",
+        "title": "TeleCode AI: Set Language - English",
+        "icon": "$(globe)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "telecode-ai",
+          "title": "TeleCode AI",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "telecode-ai": [
+        {
+          "type": "webview",
+          "id": "telecode.chatView",
+          "name": "Chat",
+          "icon": "media/icon.png"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TeleCode AI",
+      "properties": {
+        "telecode.provider": {
+          "type": "string",
+          "default": "openrouter",
+          "enum": [
+            "openrouter",
+            "openai",
+            "anthropic",
+            "google",
+            "minimax",
+            "moonshot",
+            "ollama"
+          ],
+          "enumDescriptions": [
+            "OpenRouter (free models available)",
+            "OpenAI",
+            "Anthropic Claude",
+            "Google Gemini",
+            "MiniMax",
+            "Moonshot (Kimi)",
+            "Ollama (local)"
+          ],
+          "description": "AI provider"
+        },
+        "telecode.model": {
+          "type": "string",
+          "default": "arcee-ai/trinity-large-preview:free",
+          "enum": [
+            "google/gemini-2.0-flash-exp:free",
+            "google/gemini-2.0-flash-thinking-exp:free",
+            "qwen/qwen-2.5-coder-32b-instruct",
+            "anthropic/claude-3-5-sonnet:beta",
+            "openai/gpt-4o",
+            "deepseek/deepseek-chat",
+            "deepseek/deepseek-coder"
+          ],
+          "enumDescriptions": [
+            "arcee-ai/trinity-large-preview:free",
+            "Gemini 2.0 Flash Thinking (Free on OpenRouter)",
+            "Qwen 2.5 Coder 32B (Great for code/OpenRouter)",
+            "Claude 3.5 Sonnet",
+            "GPT-4o",
+            "DeepSeek V3",
+            "DeepSeek Coder"
+          ],
+          "description": "Model ID (e.g., arcee-ai/trinity-large-preview:free). You can type any custom model ID manually in settings.json"
+        },
+        "telecode.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for the selected provider"
+        },
+        "telecode.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1)"
+        },
+        "telecode.telegram.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Telegram bot"
+        },
+        "telecode.telegram.botToken": {
+          "type": "string",
+          "default": "",
+          "description": "Telegram bot token from @BotFather"
+        },
+        "telecode.telegram.chatId": {
+          "type": "string",
+          "default": "",
+          "description": "Your Telegram chat ID"
+        },
+        "telecode.telegram.apiRoot": {
+          "type": "string",
+          "default": "https://api.telegram.org",
+          "description": "Telegram Bot API root URL (advanced networking)"
+        },
+        "telecode.telegram.forceIPv4": {
+          "type": "boolean",
+          "default": true,
+          "description": "Force IPv4 for Telegram API requests (helps on broken IPv6 networks)"
+        },
+        "telecode.whatsapp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable WhatsApp bot"
+        },
+        "telecode.whatsapp.sessionPath": {
+          "type": "string",
+          "default": "~/.telecode-ai/whatsapp-session.json",
+          "description": "Path to WhatsApp session file"
+        },
+        "telecode.autoApprove": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-approve tool actions"
+        },
+        "telecode.maxSteps": {
+          "type": "number",
+          "default": 100,
+          "description": "Max agent steps per task"
+        },
+        "telecode.allowedTools": {
+          "type": "array",
+          "default": [
+            "Read",
+            "Edit",
+            "Write",
+            "Bash",
+            "Glob",
+            "Grep",
+            "WebFetch",
+            "TodoWrite",
+            "Task"
+          ],
+          "description": "Tools the agent can use"
+        },
+        "telecode.dev.autoReloadWindow": {
+          "type": "boolean",
+          "default": true,
+          "description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
+        },
+        "telecode.responseStyle": {
+          "type": "string",
+          "default": "concise",
+          "enum": [
+            "concise",
+            "normal",
+            "detailed"
+          ],
+          "enumDescriptions": [
+            "Concise answers - only the most important parts",
+            "Normal answers - balance between details and brevity",
+            "Detailed answers - maximum details"
+          ],
+          "description": "Agent response style"
+        },
+        "telecode.language": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "ru",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Auto (detect from user language)",
+            "Russian (RU)",
+            "English (EN)"
+          ],
+          "description": "Agent's communication language"
+        },
+        "telecode.uiLanguage": {
+          "type": "string",
+          "default": "ru",
+          "enum": [
+            "ru",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Russian (interface)",
+            "English (interface)"
+          ],
+          "description": "Extension UI language"
+        },
+        "telecode.allowOutOfWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow agent to access files and run commands outside the current workspace folder"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:extension",
+    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --keep-names",
+    "watch": "node scripts/watch.mjs",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "release:patch": "mkdir -p builds && vsce package patch --no-dependencies --allow-missing-repository -o builds/",
+    "release:minor": "mkdir -p builds && vsce package minor --no-dependencies --allow-missing-repository -o builds/",
+    "release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-agent-core": "^0.54.0",
+    "@mariozechner/pi-ai": "^0.54.0",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.108.1",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.24.0",
+    "grammy": "^1.40.0",
+    "markdown-it": "^14.1.1",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
+  }
+}

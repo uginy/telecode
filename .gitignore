@@ -1,0 +1,8 @@
+node_modules
+dist
+.DS_Store
+*.vsix
+builds/
+test_keys.txt
+.env*
+landing/
