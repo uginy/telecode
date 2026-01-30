@@ -90,6 +90,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'newConversation':
           await this.newConversation();
           break;
+        case 'runCommand':
+          await this._handleRunCommand(data.command);
+          break;
         case 'getContext':
           this._handleGetContext();
           break;
@@ -836,33 +839,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         return 'Error: <run_command> is empty.';
       }
 
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) {
-        return 'Error: No workspace folder open.';
-      }
-
-      const approved = await this._requestApproval({
-        kind: 'command',
-        title: 'Run command',
-        description: `Allow AIS Code to run: ${command}?`,
-        detail: `Working directory: ${workspaceFolder.uri.fsPath}`
-      });
-      if (!approved) {
-        return `Denied running command: ${command}`;
-      }
-
-      try {
-        const result = await this._execCommand(command, workspaceFolder.uri.fsPath);
-        const combined = [result.stdout, result.stderr].filter(Boolean).join(result.stdout && result.stderr ? '\n\n' : '');
-        const output = combined || '(no output)';
-        const summary = `Command: ${command}\nExit code: ${result.exitCode}${result.signal ? ` (${result.signal})` : ''}\n\n${output}`;
-        this._lastCommandOutput = summary;
-        return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
-      } catch (e: any) {
-        const summary = `Command: ${command}\nExit code: 1\n\n${e.message}`;
-        this._lastCommandOutput = summary;
-        return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
-      }
+      return this._runCommandWithApproval(command, 'tool');
     }
 
     return null;
@@ -892,6 +869,55 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
       );
     });
+  }
+
+  private async _runCommandWithApproval(command: string, source: 'tool' | 'ui'): Promise<string> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return 'Error: No workspace folder open.';
+    }
+
+    const approved = await this._requestApproval({
+      kind: 'command',
+      title: 'Run command',
+      description: source === 'ui' ? `Run command from chat: ${command}?` : `Allow AIS Code to run: ${command}?`,
+      detail: `Working directory: ${workspaceFolder.uri.fsPath}`
+    });
+    if (!approved) {
+      return `Denied running command: ${command}`;
+    }
+
+    const time = new Date().toISOString();
+    try {
+      const result = await this._execCommand(command, workspaceFolder.uri.fsPath);
+      const combined = [result.stdout, result.stderr].filter(Boolean).join(result.stdout && result.stderr ? '\n\n' : '');
+      const output = combined || '(no output)';
+      const summary = `Command: ${command}\nTime: ${time}\nExit code: ${result.exitCode}${result.signal ? ` (${result.signal})` : ''}\n\n${output}`;
+      this._lastCommandOutput = summary;
+      return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
+    } catch (e: any) {
+      const summary = `Command: ${command}\nTime: ${time}\nExit code: 1\n\n${e.message}`;
+      this._lastCommandOutput = summary;
+      return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
+    }
+  }
+
+  private async _handleRunCommand(command: string) {
+    const trimmed = command.trim();
+    if (!trimmed) {
+      this._postMessage({ type: 'error', message: 'Command is empty.' });
+      return;
+    }
+
+    const output = await this._runCommandWithApproval(trimmed, 'ui');
+    const message: Message = {
+      role: 'assistant',
+      content: `\`\`\`terminal\n${output}\n\`\`\``,
+      timestamp: Date.now()
+    };
+
+    this._messages.push(message);
+    this._postMessage({ type: 'messageAdded', message });
   }
 
   private _handleGetContext() {

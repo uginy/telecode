@@ -46,6 +46,7 @@ export type WebviewMessage =
   | { type: 'fetchModels'; provider: string; apiKey?: string }
   | { type: 'abortGeneration' }
   | { type: 'newConversation' }
+  | { type: 'runCommand'; command: string }
   | { type: 'getContext' }
   | { type: 'searchContext'; query: string; contextType?: ContextType }
   | { type: 'requestContextItem'; path: string; contextType: ContextType }
