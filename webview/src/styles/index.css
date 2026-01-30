@@ -337,6 +337,26 @@ body {
   color: #e6e6e6;
 }
 
+.context-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.context-block .code-content {
+  padding: 0;
+}
+
+.context-block .code-content.collapsed {
+  display: none;
+}
+
+.context-block .code-content.expanded {
+  padding: var(--spacing-md);
+}
+
 /* ===========================================
    Message Input
    =========================================== */
