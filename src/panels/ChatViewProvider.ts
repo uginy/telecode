@@ -576,30 +576,43 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     while (loopCount < maxLoops) {
       loopCount++;
-      const userMessageIndex = this._messages.length;
-      
-      this._messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
-
-      this._postMessage({ 
-        type: 'messageAdded', 
-        message: this._messages[userMessageIndex],
-        isStreaming: true 
-      });
+      const suppressStreaming = this._isAutoApproveEnabled();
+      let assistantIndex = -1;
+      if (!suppressStreaming) {
+        assistantIndex = this._messages.length;
+        this._messages.push({ role: 'assistant', content: '', timestamp: Date.now() });
+        this._postMessage({ 
+          type: 'messageAdded', 
+          message: this._messages[assistantIndex],
+          isStreaming: true 
+        });
+      }
 
       let fullResponse = '';
 
       try {
         this._abortController = new AbortController();
-        const suppressStreaming = this._isAutoApproveEnabled();
+        let streamAutoApplyInFlight = false;
+        let streamAutoApplied = false;
 
         await provider.complete(this._messages.slice(0, -1), {
           onToken: (token) => {
             fullResponse += token;
-            if (!suppressStreaming) {
-              this._messages[userMessageIndex].content = fullResponse;
+            if (suppressStreaming && !streamAutoApplied && !streamAutoApplyInFlight) {
+              streamAutoApplyInFlight = true;
+              void this._tryStreamAutoApply(fullResponse).then((applied) => {
+                if (applied) {
+                  streamAutoApplied = true;
+                }
+              }).finally(() => {
+                streamAutoApplyInFlight = false;
+              });
+            }
+            if (!suppressStreaming && assistantIndex >= 0) {
+              this._messages[assistantIndex].content = fullResponse;
               this._postMessage({
                 type: 'streamToken',
-                messageIndex: userMessageIndex,
+                messageIndex: assistantIndex,
                 token
               });
             }
@@ -619,9 +632,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           const autoApplyResult = await this._maybeAutoApplyResponse(fullResponse);
           if (autoApplyResult) {
             if (autoApplyResult.applied) {
-              this._messages.splice(userMessageIndex, 1);
+              if (assistantIndex >= 0) {
+                this._messages.splice(assistantIndex, 1);
+              }
             } else {
-              this._messages[userMessageIndex].content = autoApplyResult.message;
+              if (assistantIndex >= 0) {
+                this._messages[assistantIndex].content = autoApplyResult.message;
+              } else {
+                this._messages.push({
+                  role: 'assistant',
+                  content: autoApplyResult.message,
+                  timestamp: Date.now()
+                });
+              }
             }
             this._postMessage({
               type: 'messages',
@@ -658,8 +681,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
           continue;
         } else {
-          if (suppressStreaming) {
-            this._messages[userMessageIndex].content = fullResponse;
+          if (!suppressStreaming && assistantIndex >= 0) {
+            this._messages[assistantIndex].content = fullResponse;
             this._postMessage({
               type: 'messages',
               messages: this._messages,
@@ -688,6 +711,47 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private _containsToolTags(content: string): boolean {
     return /<read_file>|<list_files>|<write_file|<run_command>/s.test(content);
+  }
+
+  private async _tryStreamAutoApply(content: string): Promise<boolean> {
+    const completedBlocks = this._extractCompletedCodeBlocks(content);
+    if (completedBlocks.length === 0) {
+      return false;
+    }
+
+    const diffBlock = completedBlocks.find((block) => this._isUnifiedDiff(block.content) || block.language === 'diff');
+    if (diffBlock) {
+      try {
+        await this._handleApplyDiff(diffBlock.content);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    if (this._isDiffOnlyEnabled()) {
+      return false;
+    }
+
+    const fileBlock = completedBlocks.find((block) => block.language === 'file' || block.language === 'text');
+    if (!fileBlock) {
+      return false;
+    }
+
+    let targetPath = this._extractFilePathMarker(fileBlock.content);
+    if (!targetPath) {
+      targetPath = await this._extractTargetPathFromResponse(content);
+    }
+    if (!targetPath) {
+      return false;
+    }
+
+    try {
+      await this._handleApplyDiff(fileBlock.content, targetPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async _maybeAutoApplyResponse(
@@ -745,6 +809,20 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     return blocks;
   }
+
+  private _extractCompletedCodeBlocks(content: string): Array<{ language: string; content: string }> {
+    const blocks: Array<{ language: string; content: string }> = [];
+    const regex = /```(\w+)?\n([\s\S]*?)```/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content))) {
+      blocks.push({
+        language: (match[1] || '').toLowerCase(),
+        content: match[2].trim()
+      });
+    }
+    return blocks;
+  }
+
 
   private _extractFilePathMarker(content: string): string | null {
     const lines = content.split('\n').slice(0, 5);
