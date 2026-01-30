@@ -1,0 +1,9 @@
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Small gap around the black background so we have some invisible buffer for the border-radius -->
+  <rect x="0" y="0" width="256" height="256" rx="48" ry="48" fill="#18181b" />
+  
+  <!-- Exactly in the center, white diamond. Length here determines size. -->
+  <g transform="translate(128, 128)">
+    <rect x="-56" y="-56" width="112" height="112" fill="#ffffff" transform="rotate(45)" />
+  </g>
+</svg>
