@@ -61,6 +61,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'getContext':
           this._handleGetContext();
           break;
+        case 'searchContext':
+          this._handleSearchContext(data.query, data.type);
+          break;
+        case 'requestContextItem':
+          this._handleRequestContextItem(data.path, data.contextType);
+          break;
       }
     });
 
@@ -70,6 +76,133 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this._sendMessagesToWebview();
         this._sendConfigToWebview();
       }
+    });
+  }
+
+  private async _handleRequestContextItem(itemPath: string, type: 'file' | 'folder' | 'terminal' | 'problems') {
+    if (type === 'file') {
+      try {
+        const uri = vscode.Uri.file(itemPath);
+        // Try to get from open document first
+        const doc = vscode.workspace.textDocuments.find(d => d.uri.fsPath === uri.fsPath);
+        let content = '';
+
+        if (doc) {
+          content = doc.getText();
+        } else {
+          const uint8Array = await vscode.workspace.fs.readFile(uri);
+          content = new TextDecoder().decode(uint8Array);
+        }
+
+        this._postMessage({
+          type: 'contextAdded',
+          context: {
+            id: itemPath,
+            name: uri.path.split('/').pop() || itemPath,
+            content,
+            type: 'file',
+            path: itemPath
+          }
+        });
+      } catch (error: any) {
+        this._postMessage({
+          type: 'error',
+          message: `Failed to read file: ${error.message}`
+        });
+      }
+    } else if (type === 'problems') {
+      const diagnostics = vscode.languages.getDiagnostics();
+      const problemStrings = diagnostics.map(([uri, diags]) => {
+        if (diags.length === 0) return null;
+        const filename = vscode.workspace.asRelativePath(uri);
+        return `File: ${filename}\n` + diags.map(d => 
+          `- [${vscode.DiagnosticSeverity[d.severity]}] Line ${d.range.start.line + 1}: ${d.message}`
+        ).join('\n');
+      }).filter(Boolean).join('\n\n');
+
+      this._postMessage({
+        type: 'contextAdded',
+        context: {
+          id: 'problems',
+          name: 'Problems',
+          content: problemStrings || 'No problems found.',
+          type: 'problems',
+          path: 'problems'
+        }
+      });
+    } else if (type === 'terminal') {
+       this._postMessage({
+          type: 'contextAdded',
+          context: {
+            id: 'terminal',
+            name: 'Terminal',
+            content: 'Terminal output reading is not yet supported in this version.',
+            type: 'terminal',
+            path: 'terminal'
+          }
+        });
+    }
+  }
+
+  private async _handleSearchContext(query: string, type?: string) {
+    const items: any[] = [];
+    const lowerQuery = query.toLowerCase();
+
+    // 1. Static items (Terminal, Problems)
+    if (!type || type === 'terminal') {
+      if ('terminal'.includes(lowerQuery)) {
+        items.push({
+          id: 'terminal',
+          name: 'Terminal Output',
+          description: 'Last used terminal content',
+          type: 'terminal',
+          path: 'terminal',
+          icon: 'terminal'
+        });
+      }
+    }
+
+    if (!type || type === 'problems') {
+      if ('problems'.includes(lowerQuery)) {
+        items.push({
+          id: 'problems',
+          name: 'Problems',
+          description: 'Current workspace errors and warnings',
+          type: 'problems',
+          path: 'problems',
+          icon: 'error'
+        });
+      }
+    }
+
+    // 2. File search
+    if (!type || type === 'file') {
+      try {
+        // Find files matching query, exclude node_modules, .git, etc.
+        // Limit to 20 results for performance
+        const files = await vscode.workspace.findFiles(`**/*${query}*`, '**/{node_modules,.git,dist,out,build}/**', 20);
+        
+        for (const file of files) {
+          const workspaceFolder = vscode.workspace.getWorkspaceFolder(file);
+          const relativePath = workspaceFolder ? vscode.workspace.asRelativePath(file, false) : file.fsPath;
+          
+          items.push({
+            id: file.fsPath,
+            name: relativePath.split('/').pop() || relativePath,
+            description: relativePath,
+            type: 'file',
+            path: file.fsPath,
+            icon: 'file-code'
+          });
+        }
+      } catch (e) {
+        console.error('Error searching files:', e);
+      }
+    }
+
+    this._postMessage({
+      type: 'searchContextResults',
+      items
     });
   }
 

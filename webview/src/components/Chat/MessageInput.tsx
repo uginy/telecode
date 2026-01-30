@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
 import { useChatStore } from '../../stores/chatStore';
+import { useContextSearch } from '../../hooks/useContextSearch';
+import { ContextMenu } from './ContextMenu';
+import { ContextItem } from '../../types/context';
 
 interface MessageInputProps {
   onSend: (content: string) => void;
@@ -13,6 +16,17 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { postMessage } = useVSCode();
   const { attachments, removeContext, clearContext } = useChatStore();
+  
+  const { 
+    isActive, 
+    results, 
+    selectedIndex, 
+    setSelectedIndex, 
+    handleInput, 
+    clearSearch,
+    triggerIndex,
+    query
+  } = useContextSearch();
 
   // Auto-resize textarea
   useEffect(() => {
@@ -24,10 +38,57 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
   }, [value]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isActive && results.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((selectedIndex + 1) % results.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((selectedIndex - 1 + results.length) % results.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectContext(results[selectedIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        clearSearch();
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleSelectContext = (item: ContextItem) => {
+    // Remove the @query part
+    const before = value.substring(0, triggerIndex);
+    const after = value.substring(triggerIndex + query.length + 1); // +1 for @
+    
+    setValue(before + after);
+    clearSearch();
+
+    // Reset textarea cursor position (optional, hard to do perfectly in React)
+    
+    // Request backend to load this context item
+    postMessage({ 
+      type: 'requestContextItem', 
+      path: item.path,
+      contextType: item.type 
+    });
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    handleInput(newValue, e.target.selectionStart || 0);
   };
 
   const handleSend = () => {
@@ -45,10 +106,11 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
     onSend(finalContent);
     setValue('');
     clearContext();
+    clearSearch();
   };
 
   const handleAttach = () => {
-    postMessage({ type: 'getContext' });
+    postMessage({ type: 'getContext' }); // Old behavior: attach active file
   };
 
   return (
@@ -57,7 +119,9 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
         <div className="attachments-list">
           {attachments.map(file => (
             <div key={file.id} className="attachment-chip">
-              <span className="attachment-icon">📄</span>
+              <span className="attachment-icon">
+                {file.type === 'terminal' ? '💻' : file.type === 'problems' ? '⚠️' : '📄'}
+              </span>
               <span className="attachment-name">{file.name}</span>
               <button 
                 className="remove-attachment"
@@ -70,13 +134,21 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
         </div>
       )}
       
-      <div className="input-wrapper">
+      <div className="input-wrapper" style={{ position: 'relative' }}>
+        {isActive && (
+          <ContextMenu 
+            items={results} 
+            selectedIndex={selectedIndex} 
+            onSelect={handleSelectContext}
+          />
+        )}
+        
         <textarea
           ref={textareaRef}
           className="message-textarea"
-          placeholder="Type a message... (@ to add context)"
+          placeholder="Type a message... (Type @ to add files, terminal, problems)"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
           rows={1}
@@ -85,7 +157,7 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
           <button 
             className="attach-button"
             onClick={handleAttach}
-            title="Add active file context"
+            title="Add active file"
             disabled={isLoading}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
@@ -120,7 +192,7 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
       </div>
       <div className="input-footer">
         <span className="hint">
-          Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line
+          Type <b>@</b> to add context • <kbd>Enter</kbd> to send
         </span>
       </div>
     </div>

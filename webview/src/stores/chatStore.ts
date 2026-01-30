@@ -1,12 +1,5 @@
 import { create } from 'zustand';
-
-export interface ContextItem {
-  id: string;
-  name: string;
-  content: string;
-  type: 'file' | 'selection';
-  path: string;
-}
+import { ContextItem } from '../types/context';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -30,6 +23,7 @@ interface ChatState {
   setError: (error: string | null) => void;
   clearMessages: () => void;
   addContext: (context: ContextItem) => void;
+  updateContext: (id: string, updates: Partial<ContextItem>) => void;
   removeContext: (id: string) => void;
   clearContext: () => void;
 }
@@ -59,21 +53,28 @@ export const useChatStore = create<ChatState>((set) => ({
       return { messages };
     }),
 
-  setMessages: (messages) =>
-    set({ messages, error: null }),
-
-  setLoading: (isLoading) =>
-    set({ isLoading }),
-
-  setError: (error) =>
-    set({ error, isLoading: false }),
-
-  clearMessages: () =>
-    set({ messages: [], error: null, attachments: [] }),
+  setMessages: (messages) => set({ messages }),
+  setLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
+  
+  clearMessages: () => set({ 
+    messages: [], 
+    error: null, 
+    conversationId: null // Reset conversation on clear
+  }),
 
   addContext: (context) => 
+    set((state) => {
+      // Avoid duplicates
+      if (state.attachments.some(a => a.id === context.id)) return state;
+      return { attachments: [...state.attachments, context] };
+    }),
+    
+  updateContext: (id, updates) =>
     set((state) => ({
-      attachments: [...state.attachments, context]
+      attachments: state.attachments.map(a => 
+        a.id === id ? { ...a, ...updates } : a
+      )
     })),
 
   removeContext: (id) =>
@@ -81,6 +82,5 @@ export const useChatStore = create<ChatState>((set) => ({
       attachments: state.attachments.filter(a => a.id !== id)
     })),
 
-  clearContext: () =>
-    set({ attachments: [] })
+  clearContext: () => set({ attachments: [] })
 }));
