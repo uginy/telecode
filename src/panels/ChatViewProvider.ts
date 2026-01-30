@@ -52,6 +52,130 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._postMessage({ type: 'status', status });
   }
 
+  private _formatToolError(message: string): string {
+    return `Error: ${message}`;
+  }
+
+  private _isReviewRequest(content: string): boolean {
+    const normalized = content.toLowerCase();
+    return (
+      normalized.includes('code review') ||
+      normalized.includes('код ревью') ||
+      normalized.includes('код-ревью') ||
+      normalized.includes('review проекта') ||
+      normalized.includes('ревью проекта') ||
+      normalized.includes('review project') ||
+      normalized.includes('audit code') ||
+      normalized.includes('code audit')
+    );
+  }
+
+  private _buildPromptMessages(messages: Message[]): Message[] {
+    const keepRecent = 8;
+    const summaryMaxChars = 4000;
+    if (messages.length <= keepRecent) {
+      return messages;
+    }
+
+    const recent = messages.slice(-keepRecent);
+    const older = messages.slice(0, -keepRecent);
+    const summaryLines: string[] = ['Summary of earlier conversation:'];
+
+    for (const msg of older) {
+      const roleLabel = msg.role === 'assistant' ? 'assistant' : 'user';
+      const cleaned = msg.content.replace(/\s+/g, ' ').trim();
+      const snippet = cleaned.length > 280 ? `${cleaned.slice(0, 277)}...` : cleaned;
+      summaryLines.push(`- ${roleLabel}: ${snippet}`);
+      if (summaryLines.join('\n').length >= summaryMaxChars) {
+        break;
+      }
+    }
+
+    const summaryMessage: Message = {
+      role: 'user',
+      content: summaryLines.join('\n')
+    };
+
+    return [summaryMessage, ...recent];
+  }
+
+  private async _getWorkspaceFileList(limit: number): Promise<string[]> {
+    if (this._indexReady && this._fileIndex.length > 0) {
+      return this._fileIndex
+        .map((entry) => entry.relative.replace(/\\/g, '/'))
+        .filter((item) => !this._isIgnoredPath(item))
+        .slice(0, limit);
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return [];
+    }
+
+    const files = await vscode.workspace.findFiles('**/*', '{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/out/**,**/.next/**,**/.cache/**,**/.venv/**}', limit);
+    return files.map((uri) => vscode.workspace.asRelativePath(uri, false).replace(/\\/g, '/'));
+  }
+
+  private _isIgnoredPath(pathValue: string): boolean {
+    return /(^|\/)(node_modules|\.git|dist|build|out|\.next|\.cache|\.venv)(\/|$)/.test(pathValue);
+  }
+
+  private async _buildWorkspaceOverview(): Promise<string | null> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return null;
+    }
+
+    const rootUri = workspaceFolder.uri;
+    const entries = await vscode.workspace.fs.readDirectory(rootUri);
+    const topLevel = entries
+      .filter(([name]) => !this._isIgnoredPath(name))
+      .map(([name, type]) => (type === vscode.FileType.Directory ? `${name}/` : name))
+      .sort((a, b) => a.localeCompare(b));
+
+    const fileList = await this._getWorkspaceFileList(200);
+    const keyFiles = [
+      'README.md',
+      'README.MD',
+      'README.txt',
+      'package.json',
+      'tsconfig.json',
+      'pyproject.toml',
+      'requirements.txt',
+      'Cargo.toml',
+      'go.mod',
+      'pom.xml',
+      'build.gradle',
+      'Makefile'
+    ];
+
+    const keyContents: string[] = [];
+    for (const name of keyFiles) {
+      try {
+        const uri = vscode.Uri.joinPath(rootUri, name);
+        await vscode.workspace.fs.stat(uri);
+        const content = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+        const trimmed = this._trimOutput(content, 4000);
+        keyContents.push(`file: ${name}\n\`\`\`\n${trimmed}\n\`\`\``);
+      } catch {
+        continue;
+      }
+    }
+
+    const overview = [
+      `Root: ${rootUri.fsPath}`,
+      `Top-level: ${topLevel.join(', ') || '(empty)'}`,
+      '',
+      'Files (first 200):',
+      fileList.join('\n') || '(none)',
+      '',
+      keyContents.length > 0 ? 'Key files:' : 'Key files: (none found)',
+      keyContents.join('\n\n')
+    ].join('\n');
+
+    return this._trimOutput(overview, 12000);
+  }
+
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -594,6 +718,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         finalContent = `${finalContent}\n\nContext:\n\`\`\`file:${fileName}\n${fileContent}\n\`\`\``;
       }
     }
+    if (this._isReviewRequest(finalContent)) {
+      this._setStatus('Scanning workspace');
+      try {
+        const overview = await this._buildWorkspaceOverview();
+        if (overview) {
+          finalContent = `${finalContent}\n\nContext:\n\`\`\`file:workspace-overview.txt\n${overview}\n\`\`\``;
+        }
+      } catch {
+        // If scanning fails, proceed without blocking the request.
+      } finally {
+        this._setStatus('Analyzing request');
+      }
+    }
 
     // Add user message
     this._messages.push({ role: 'user', content: finalContent, timestamp: Date.now() });
@@ -644,7 +781,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         let streamAutoApplyInFlight = false;
         let streamAutoApplied = false;
 
-        await provider.complete(this._messages.slice(0, -1), {
+        const baseMessages = assistantIndex >= 0 ? this._messages.slice(0, -1) : this._messages.slice();
+        this._setStatus('Compressing context');
+        const promptMessages = this._buildPromptMessages(baseMessages);
+        this._setStatus('Analyzing request');
+
+        await provider.complete(promptMessages, {
           onToken: (token) => {
             fullResponse += token;
             if (this._isAutoApproveEnabled() && !streamAutoApplied) {
@@ -1361,7 +1503,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (readMatch) {
       const path = readMatch[1].trim();
       if (!path) {
-        return 'Error: <read_file> path is empty.';
+        return this._formatToolError('<read_file> path is empty.');
       }
       try {
         const approved = await this._requestApproval({
@@ -1377,7 +1519,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const content = await FileSystemTools.readFile(this._resolveWorkspacePath(path));
         return `File content of ${path}:\n\`\`\`\n${content}\n\`\`\``;
       } catch (e: any) {
-        return `Error reading file ${path}: ${e.message}`;
+        return this._formatToolError(`reading file ${path}: ${e.message}`);
       }
     }
 
@@ -1385,7 +1527,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (listMatch) {
       const path = listMatch[1].trim();
       if (!path) {
-        return 'Error: <list_files> path is empty.';
+        return this._formatToolError('<list_files> path is empty.');
       }
       try {
         const approved = await this._requestApproval({
@@ -1401,7 +1543,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const files = await FileSystemTools.listFiles(this._resolveWorkspacePath(path));
         return `Files in ${path}:\n${files.join('\n')}`;
       } catch (e: any) {
-        return `Error listing directory ${path}: ${e.message}`;
+        return this._formatToolError(`listing directory ${path}: ${e.message}`);
       }
     }
 
@@ -1410,7 +1552,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const path = writeMatch[1].trim();
       const content = writeMatch[2].trim();
       if (!path) {
-        return 'Error: <write_file> path is empty.';
+        return this._formatToolError('<write_file> path is empty.');
       }
       try {
          const approved = await this._requestApproval({
@@ -1427,7 +1569,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
          await FileSystemTools.writeFile(this._resolveWorkspacePath(path), content);
          return `Successfully wrote to file ${path}`;
       } catch (e: any) {
-        return `Error writing file ${path}: ${e.message}`;
+        return this._formatToolError(`writing file ${path}: ${e.message}`);
       }
     }
 
@@ -1435,7 +1577,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (commandMatch) {
       const command = commandMatch[1].trim();
       if (!command) {
-        return 'Error: <run_command> is empty.';
+        return this._formatToolError('<run_command> is empty.');
       }
 
       return this._runCommandWithApproval(command, 'tool');

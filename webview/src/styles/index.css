@@ -210,8 +210,10 @@ body {
   border-color: var(--accent-primary);
 }
 
-.message-bubble.status .message-content {
+.status-line {
+  margin: var(--spacing-sm) 0 var(--spacing-xs) 52px;
   color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .status-text {
