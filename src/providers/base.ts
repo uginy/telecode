@@ -109,6 +109,8 @@ You can request tools using XML tags (one per response):
 - <list_files>path</list_files>
 - <write_file path="path">content</write_file>
 - <run_command>command</run_command>
-Wait for "Tool Execution Result" before continuing, and never fabricate tool output.`;
+Wait for "Tool Execution Result" before continuing, and never fabricate tool output.
+
+When editing files, prefer unified diff patches over full-file rewrites. Use proper paths, do not invent new files, and avoid truncating content.`;
   }
 }

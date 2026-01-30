@@ -75,6 +75,14 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
         return match[1];
       }
     }
+    const diffMatch = code.match(/^diff --git a\/(.+?) b\/(.+)$/m);
+    if (diffMatch) {
+      return diffMatch[2];
+    }
+    const plusMatch = code.match(/^\+\+\+\s+b\/(.+)$/m);
+    if (plusMatch) {
+      return plusMatch[1];
+    }
     return undefined;
   };
 

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
+import { applyPatch, parsePatch } from 'diff';
 import { ProviderRegistry } from '../providers/registry';
 import { Message } from '../providers/base';
 import { FileSystemTools } from '../tools/fileSystem';
@@ -267,41 +268,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleApplyDiff(code: string, targetPath?: string) {
     try {
-      let uri: vscode.Uri;
-
-      if (targetPath) {
-        if (path.isAbsolute(targetPath)) {
-          uri = vscode.Uri.file(targetPath);
-        } else {
-          const files = await vscode.workspace.findFiles(targetPath, null, 1);
-          if (files[0]) {
-            uri = files[0];
-          } else {
-            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            if (!workspaceFolder) {
-              throw new Error('No workspace folder open');
-            }
-            uri = vscode.Uri.joinPath(workspaceFolder.uri, targetPath);
-          }
-        }
-      } else {
-        if (vscode.window.activeTextEditor) {
-          uri = vscode.window.activeTextEditor.document.uri;
-        } else {
-          throw new Error('No target file specified and no active editor');
-        }
+      const isDiff = this._isUnifiedDiff(code);
+      if (!this._isAutoApproveEnabled()) {
+        await this._previewBeforeApply(code, targetPath, isDiff);
+      }
+      if (isDiff) {
+        await this._applyUnifiedDiff(code, targetPath);
+        return;
       }
 
-      const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-      if (!workspaceFolder) {
-        throw new Error('Target path is outside the current workspace');
-      }
-
+      const uri = await this._resolveExistingTarget(targetPath);
       const approved = await this._requestApproval({
         kind: 'apply',
         title: 'Apply changes',
         description: `Apply changes to ${path.basename(uri.fsPath)}?`,
-        detail: 'This will overwrite the file contents.',
+        detail: 'This will replace file contents with the provided version.',
         path: uri.fsPath
       });
       if (!approved) {
@@ -605,18 +586,28 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const toolResult = await this._processToolCalls(fullResponse);
         
         if (toolResult) {
-          this._messages.push({ 
-            role: 'user', 
-            content: `Tool Execution Result:\n${toolResult}\n\nPlease continue based on this result.`,
+          const isErrorResult = /^Error:|^Denied/.test(toolResult);
+          const followupRole = isErrorResult ? 'assistant' : 'user';
+          const followupContent = isErrorResult
+            ? toolResult
+            : `Tool Execution Result:\n${toolResult}\n\nPlease continue based on this result.`;
+
+          this._messages.push({
+            role: followupRole,
+            content: followupContent,
             timestamp: Date.now()
           });
-          
+
           this._postMessage({
-             type: 'messageAdded',
-             message: this._messages[this._messages.length - 1]
+            type: 'messageAdded',
+            message: this._messages[this._messages.length - 1]
           });
-          
-          continue; 
+
+          if (isErrorResult) {
+            break;
+          }
+
+          continue;
         } else {
           break;
         }
@@ -761,6 +752,151 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return uri.fsPath;
   }
 
+  private async _previewBeforeApply(code: string, targetPath: string | undefined, isDiff: boolean) {
+    if (!this._view) {
+      return;
+    }
+
+    if (!isDiff) {
+      await this._handleReviewDiff(code, 'text', targetPath);
+      return;
+    }
+
+    const patches = parsePatch(code);
+    if (patches.length !== 1) {
+      this._postMessage({
+        type: 'error',
+        message: 'Preview supports single-file diffs only. Apply will still work for multi-file diffs.'
+      });
+      return;
+    }
+
+    const patch = patches[0];
+    const patchPath = this._sanitizePatchPath(patch.newFileName) || this._sanitizePatchPath(patch.oldFileName);
+    if (!patchPath) {
+      return;
+    }
+    const uri = await this._resolveExistingTarget(targetPath ?? patchPath);
+    const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+    const updated = applyPatch(current, patch);
+    if (updated === false) {
+      return;
+    }
+    await this._handleReviewDiff(updated, 'text', uri.fsPath);
+  }
+
+  private async _resolveExistingTarget(targetPath?: string): Promise<vscode.Uri> {
+    if (targetPath) {
+      if (path.isAbsolute(targetPath)) {
+        const uri = vscode.Uri.file(targetPath);
+        await vscode.workspace.fs.stat(uri);
+        return uri;
+      }
+
+      const files = await vscode.workspace.findFiles(targetPath, null, 2);
+      if (files.length === 1) {
+        return files[0];
+      }
+      if (files.length > 1) {
+        throw new Error(`Multiple files match ${targetPath}. Please be more specific.`);
+      }
+
+      throw new Error(`File not found: ${targetPath}. Refusing to create new files.`);
+    }
+
+    if (vscode.window.activeTextEditor) {
+      return vscode.window.activeTextEditor.document.uri;
+    }
+
+    throw new Error('No target file specified and no active editor');
+  }
+
+  private _isUnifiedDiff(content: string): boolean {
+    return /^\s*diff --git/m.test(content) || (/^\s*---\s+/m.test(content) && /^\s*\+\+\+\s+/m.test(content));
+  }
+
+  private _sanitizePatchPath(patchPath?: string | null): string | null {
+    if (!patchPath || patchPath === '/dev/null') {
+      return null;
+    }
+    return patchPath.replace(/^[ab]\//, '');
+  }
+
+  private async _applyUnifiedDiff(diffContent: string, targetPath?: string) {
+    const patches = parsePatch(diffContent);
+    if (patches.length === 0) {
+      throw new Error('Diff is empty or invalid.');
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      throw new Error('No workspace folder open');
+    }
+
+    const applySinglePatch = async (patch: ReturnType<typeof parsePatch>[number]) => {
+      const patchPath = this._sanitizePatchPath(patch.newFileName) || this._sanitizePatchPath(patch.oldFileName);
+      if (!patchPath) {
+        throw new Error('Creating or deleting files via diff is not supported.');
+      }
+      const uri = await this._resolveExistingTarget(patchPath);
+      const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+      const updated = applyPatch(current, patch);
+      if (updated === false) {
+        throw new Error(`Failed to apply diff to ${patchPath}. File might be out of date.`);
+      }
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(updated));
+      return uri;
+    };
+
+    if (targetPath) {
+      const resolved = await this._resolveExistingTarget(targetPath);
+      const approved = await this._requestApproval({
+        kind: 'apply',
+        title: 'Apply diff',
+        description: `Apply diff to ${path.basename(resolved.fsPath)}?`,
+        detail: 'This will merge changes from a unified diff.',
+        path: resolved.fsPath
+      });
+      if (!approved) return;
+
+      const current = new TextDecoder().decode(await vscode.workspace.fs.readFile(resolved));
+      const updated = applyPatch(current, diffContent);
+      if (updated === false) {
+        throw new Error(`Failed to apply diff to ${targetPath}. File might be out of date.`);
+      }
+      await vscode.workspace.fs.writeFile(resolved, new TextEncoder().encode(updated));
+      vscode.window.showInformationMessage(`Diff applied to ${path.basename(resolved.fsPath)}`);
+      return;
+    }
+
+    const touched: string[] = [];
+    for (const patch of patches) {
+      const patchPath = this._sanitizePatchPath(patch.newFileName) || this._sanitizePatchPath(patch.oldFileName);
+      if (!patchPath) {
+        throw new Error('Creating or deleting files via diff is not supported.');
+      }
+      touched.push(patchPath);
+    }
+
+    const approved = await this._requestApproval({
+      kind: 'apply',
+      title: 'Apply diff',
+      description: `Apply diff to ${patches.length} file(s)?`,
+      detail: `Targets: ${touched.join(', ')}`,
+      path: workspaceFolder.uri.fsPath
+    });
+    if (!approved) return;
+
+    const applied: string[] = [];
+    for (const patch of patches) {
+      const uri = await applySinglePatch(patch);
+      applied.push(path.basename(uri.fsPath));
+    }
+    if (touched.length > 0) {
+      vscode.window.showInformationMessage(`Diff applied to ${applied.join(', ')}`);
+    }
+  }
+
   private async _processToolCalls(response: string): Promise<string | null> {
     const readFileRegex = /<read_file>(.*?)<\/read_file>/s;
     const listFilesRegex = /<list_files>(.*?)<\/list_files>/s;
@@ -770,6 +906,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const readMatch = readFileRegex.exec(response);
     if (readMatch) {
       const path = readMatch[1].trim();
+      if (!path) {
+        return 'Error: <read_file> path is empty.';
+      }
       try {
         const approved = await this._requestApproval({
           kind: 'read',
@@ -791,6 +930,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const listMatch = listFilesRegex.exec(response);
     if (listMatch) {
       const path = listMatch[1].trim();
+      if (!path) {
+        return 'Error: <list_files> path is empty.';
+      }
       try {
         const approved = await this._requestApproval({
           kind: 'list',
@@ -813,6 +955,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (writeMatch) {
       const path = writeMatch[1].trim();
       const content = writeMatch[2].trim();
+      if (!path) {
+        return 'Error: <write_file> path is empty.';
+      }
       try {
          const approved = await this._requestApproval({
            kind: 'write',

@@ -21,7 +21,7 @@ export function useContextSearch() {
     triggerIndex: -1
   });
 
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastQueryRef = useRef<string>('');
   const lastTriggerRef = useRef<number>(-1);
 
