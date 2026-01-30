@@ -590,16 +590,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       try {
         this._abortController = new AbortController();
+        const suppressStreaming = this._isAutoApproveEnabled();
 
         await provider.complete(this._messages.slice(0, -1), {
           onToken: (token) => {
             fullResponse += token;
-            this._messages[userMessageIndex].content = fullResponse;
-            this._postMessage({
-              type: 'streamToken',
-              messageIndex: userMessageIndex,
-              token
-            });
+            if (!suppressStreaming) {
+              this._messages[userMessageIndex].content = fullResponse;
+              this._postMessage({
+                type: 'streamToken',
+                messageIndex: userMessageIndex,
+                token
+              });
+            }
           },
           onComplete: (response) => {
             fullResponse = response;
@@ -613,9 +616,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this._postMessage({ type: 'streamComplete' });
         
         if (this._isAutoApproveEnabled() && !this._containsToolTags(fullResponse)) {
-          const autoApplySummary = await this._maybeAutoApplyResponse(fullResponse);
-          if (autoApplySummary) {
-            this._messages[userMessageIndex].content = autoApplySummary;
+          const autoApplyResult = await this._maybeAutoApplyResponse(fullResponse);
+          if (autoApplyResult) {
+            if (autoApplyResult.applied) {
+              this._messages.splice(userMessageIndex, 1);
+            } else {
+              this._messages[userMessageIndex].content = autoApplyResult.message;
+            }
             this._postMessage({
               type: 'messages',
               messages: this._messages,
@@ -651,6 +658,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
           continue;
         } else {
+          if (suppressStreaming) {
+            this._messages[userMessageIndex].content = fullResponse;
+            this._postMessage({
+              type: 'messages',
+              messages: this._messages,
+              conversationId: this._conversationId
+            });
+          }
           break;
         }
 
@@ -675,7 +690,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return /<read_file>|<list_files>|<write_file|<run_command>/s.test(content);
   }
 
-  private async _maybeAutoApplyResponse(content: string): Promise<string | null> {
+  private async _maybeAutoApplyResponse(
+    content: string
+  ): Promise<{ applied: boolean; message: string } | null> {
     const blocks = this._extractCodeBlocks(content);
     if (blocks.length === 0) {
       return null;
@@ -685,14 +702,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (diffBlock) {
       try {
         await this._handleApplyDiff(diffBlock.content);
-        return '✅ Changes applied automatically (diff).';
+        return { applied: true, message: '✅ Changes applied.' };
       } catch (error: any) {
-        return `⚠️ Auto-apply failed: ${error.message}`;
+        return { applied: false, message: `⚠️ Auto-apply failed: ${error.message}` };
       }
     }
 
     if (this._isDiffOnlyEnabled()) {
-      return '⚠️ Auto-apply skipped: diff-only mode requires a unified diff.';
+      return { applied: false, message: '⚠️ Auto-apply skipped: diff-only mode requires a unified diff.' };
     }
 
     const fileBlock = blocks.find((block) => block.language === 'file' || block.language === 'FILE');
@@ -700,16 +717,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       return null;
     }
 
-    const targetPath = this._extractFilePathMarker(fileBlock.content);
+    let targetPath = this._extractFilePathMarker(fileBlock.content);
     if (!targetPath) {
-      return '⚠️ Auto-apply skipped: missing file path marker.';
+      targetPath = await this._extractTargetPathFromResponse(content);
+    }
+    if (!targetPath) {
+      return { applied: false, message: '⚠️ Auto-apply skipped: missing file path marker.' };
     }
 
     try {
       await this._handleApplyDiff(fileBlock.content, targetPath);
-      return `✅ Changes applied automatically to ${path.basename(targetPath)}.`;
+      return { applied: true, message: '✅ Changes applied.' };
     } catch (error: any) {
-      return `⚠️ Auto-apply failed: ${error.message}`;
+      return { applied: false, message: `⚠️ Auto-apply failed: ${error.message}` };
     }
   }
 
@@ -735,6 +755,48 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (block) return block[1];
       const plain = line.match(/file:\s*([^\s]+)/i);
       if (plain) return plain[1];
+    }
+    return null;
+  }
+
+  private async _extractTargetPathFromResponse(content: string): Promise<string | null> {
+    const fileMarker = content.match(/file:\s*([^\s]+)/i);
+    if (fileMarker?.[1]) {
+      const resolved = await this._resolvePathIfExists(fileMarker[1]);
+      if (resolved) return resolved;
+    }
+
+    const candidates = Array.from(
+      new Set(
+        (content.match(/[A-Za-z0-9._\-\\/]+\.[A-Za-z0-9]+/g) || [])
+          .map((match) => match.trim())
+          .slice(0, 6)
+      )
+    );
+
+    for (const candidate of candidates) {
+      const resolved = await this._resolvePathIfExists(candidate);
+      if (resolved) return resolved;
+    }
+
+    return null;
+  }
+
+  private async _resolvePathIfExists(inputPath: string): Promise<string | null> {
+    if (!inputPath) return null;
+    try {
+      if (path.isAbsolute(inputPath)) {
+        const uri = vscode.Uri.file(inputPath);
+        await vscode.workspace.fs.stat(uri);
+        return uri.fsPath;
+      }
+
+      const files = await vscode.workspace.findFiles(inputPath, '**/{node_modules,.git,dist,out,build,coverage}/**', 1);
+      if (files[0]) {
+        return files[0].fsPath;
+      }
+    } catch {
+      return null;
     }
     return null;
   }

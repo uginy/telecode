@@ -11,12 +11,32 @@ interface ChatContainerProps {
 
 export function ChatContainer({ onSendMessage, onAbort }: ChatContainerProps) {
   const { messages, isLoading, error } = useChatStore();
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
+    if (!isAtBottomRef.current) {
+      return;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const container = messagesAreaRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const threshold = 48;
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      isAtBottomRef.current = distanceFromBottom < threshold;
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleSend = (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -25,7 +45,7 @@ export function ChatContainer({ onSendMessage, onAbort }: ChatContainerProps) {
 
   return (
     <div className="chat-container">
-      <div className="messages-area">
+      <div className="messages-area" ref={messagesAreaRef}>
         {messages.length === 0 ? (
           <WelcomeScreen />
         ) : (
