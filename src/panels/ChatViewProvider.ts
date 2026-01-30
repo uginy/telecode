@@ -10,6 +10,7 @@ import type { ApprovalRequest, WebviewMessage } from '../types/bridge';
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
   private static readonly maxTerminalChars = 4000;
+  private static readonly maxProblemsChars = 8000;
 
   private _view?: vscode.WebviewView;
   private _messages: Message[] = [];
@@ -175,20 +176,47 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
     } else if (type === 'problems') {
       const diagnostics = vscode.languages.getDiagnostics();
+      let errorCount = 0;
+      let warningCount = 0;
+      let infoCount = 0;
+      let hintCount = 0;
+
       const problemStrings = diagnostics.map(([uri, diags]) => {
         if (diags.length === 0) return null;
         const filename = vscode.workspace.asRelativePath(uri);
+        for (const diag of diags) {
+          switch (diag.severity) {
+            case vscode.DiagnosticSeverity.Error:
+              errorCount++;
+              break;
+            case vscode.DiagnosticSeverity.Warning:
+              warningCount++;
+              break;
+            case vscode.DiagnosticSeverity.Information:
+              infoCount++;
+              break;
+            case vscode.DiagnosticSeverity.Hint:
+              hintCount++;
+              break;
+          }
+        }
         return `File: ${filename}\n` + diags.map(d => 
-          `- [${vscode.DiagnosticSeverity[d.severity]}] Line ${d.range.start.line + 1}: ${d.message}`
+          `- [${vscode.DiagnosticSeverity[d.severity]}] Line ${d.range.start.line + 1}:${d.range.start.character + 1} ${d.message}`
         ).join('\n');
       }).filter(Boolean).join('\n\n');
+
+      const summary = `Problems summary: ${errorCount} errors, ${warningCount} warnings, ${infoCount} info, ${hintCount} hints`;
+      const content = problemStrings ? `${summary}\n\n${problemStrings}` : 'No problems found.';
+      const trimmed = content.length > ChatViewProvider.maxProblemsChars
+        ? content.slice(0, ChatViewProvider.maxProblemsChars) + '\n\n[Truncated]'
+        : content;
 
       this._postMessage({
         type: 'contextAdded',
         context: {
           id: 'problems',
           name: 'Problems',
-          content: problemStrings || 'No problems found.',
+          content: trimmed,
           type: 'problems',
           path: 'problems'
         }
