@@ -5,35 +5,10 @@ interface HeaderProps {
 }
 
 export function Header({ onNewChat }: HeaderProps) {
-  const { openSettings, config } = useSettingsStore();
+  const { openSettings, openHistory } = useSettingsStore();
 
   return (
     <header className="app-header">
-      <div className="header-left">
-        <div className="header-logo">
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <defs>
-              <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#6366f1"/>
-                <stop offset="100%" stopColor="#8b5cf6"/>
-              </linearGradient>
-            </defs>
-            <circle cx="12" cy="12" r="11" fill="url(#logoGrad)"/>
-            <path 
-              d="M8 10L12 6L16 10M8 14L12 18L16 14M12 9V15" 
-              stroke="white" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="header-title">AIS Code</span>
-        </div>
-        <div className="header-model">
-          <span className="model-badge">{config.model}</span>
-        </div>
-      </div>
-      
       <div className="header-actions">
         <button 
           className="header-button" 
@@ -42,6 +17,15 @@ export function Header({ onNewChat }: HeaderProps) {
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+        </button>
+        <button 
+          className="header-button" 
+          onClick={openHistory}
+          title="History"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M13 3a9 9 0 1 0 8.95 10h-2.02A7 7 0 1 1 13 5V3zm-1 4h2v6l4 2-.8 1.8L12 14V7zm9-3v6h-6l2.2-2.2A9.95 9.95 0 0 0 13 2C7.48 2 3 6.48 3 12h2a8 8 0 0 1 8-8c2.12 0 4.07.83 5.5 2.2L21 4z"/>
           </svg>
         </button>
         <button 

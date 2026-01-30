@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent, useLayoutEffect } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
 import { useChatStore } from '../../stores/chatStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useContextSearch } from '../../hooks/useContextSearch';
 import { ContextMenu } from './ContextMenu';
 import { ContextItem } from '../../types/context';
@@ -18,6 +19,7 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
   const caretPositionRef = useRef<number>(0);
   const { postMessage } = useVSCode();
   const { attachments, removeContext, clearContext } = useChatStore();
+  const { config } = useSettingsStore();
   
   const { 
     isActive, 
@@ -211,6 +213,9 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
         </div>
       </div>
       <div className="input-footer">
+        <span className="input-brand">
+          AIS Code · {config.model}
+        </span>
         <span className="hint">
           Type <b>@</b> to add context • <kbd>Enter</kbd> to send
         </span>

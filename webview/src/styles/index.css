@@ -424,13 +424,20 @@ body {
 
 .input-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-top: var(--spacing-xs);
+  gap: var(--spacing-sm);
 }
 
 .hint {
   font-size: 11px;
   color: var(--text-muted);
+}
+
+.input-brand {
+  font-size: 11px;
+  color: var(--text-secondary);
 }
 
 .hint kbd {
@@ -614,7 +621,7 @@ body {
 
 .app-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
   background: var(--bg-secondary);
@@ -1635,4 +1642,71 @@ body {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   margin-bottom: var(--spacing-md);
+}
+
+/* ===========================================
+   History Page Layout
+   =========================================== */
+
+.history-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+.history-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.history-page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.history-page-icon {
+  font-size: 22px;
+}
+
+.history-page-title-text {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.history-page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.history-page-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.history-page-button {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.history-page-body {
+  flex: 1;
+  overflow: hidden;
+  padding: var(--spacing-xl);
+}
+
+.history-page-body .chat-history {
+  height: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
 }

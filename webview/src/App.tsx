@@ -2,6 +2,7 @@ import { ChatContainer } from './components/Chat/ChatContainer';
 import { Header } from './components/Header/Header';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { ChatHistory } from './components/History/ChatHistory';
+import { HistoryPage } from './components/History/HistoryPage';
 import { ApprovalModal } from './components/Approvals/ApprovalModal';
 import { ApprovalPanel } from './components/Approvals/ApprovalPanel';
 import { ConfirmModal } from './components/Approvals/ConfirmModal';
@@ -16,7 +17,7 @@ import type { ExtensionMessage, WebviewMessage } from './types/bridge';
 function App() {
   const { postMessage, onMessage } = useVSCode();
   const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, saveCurrentChat } = useChatStore();
-  const { isOpen, closeSettings, config, setConfig } = useSettingsStore();
+  const { isOpen, closeSettings, config, setConfig, isHistoryOpen, closeHistory } = useSettingsStore();
   const { setChats, setCurrentChatId, loadHistory } = useHistoryStore();
   const enqueueApproval = useApprovalStore((state) => state.enqueue);
 
@@ -147,6 +148,14 @@ function App() {
           config={config}
           onSave={handleSaveSettings}
         />
+      </div>
+    );
+  }
+
+  if (isHistoryOpen) {
+    return (
+      <div className="app settings-only">
+        <HistoryPage onClose={closeHistory} />
       </div>
     );
   }
