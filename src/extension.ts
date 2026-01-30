@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ChatViewProvider } from './panels/ChatViewProvider';
 import { ProviderRegistry } from './providers/registry';
+import { DiffContentProvider } from './providers/diffProvider';
 
 let chatViewProvider: ChatViewProvider | undefined;
 
@@ -9,9 +10,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Initialize provider registry
   const providerRegistry = new ProviderRegistry();
+  
+  // Initialize diff provider
+  const diffContentProvider = new DiffContentProvider();
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(DiffContentProvider.scheme, diffContentProvider)
+  );
 
   // Register the chat view provider
-  chatViewProvider = new ChatViewProvider(context.extensionUri, providerRegistry);
+  chatViewProvider = new ChatViewProvider(context.extensionUri, providerRegistry, diffContentProvider);
   
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
