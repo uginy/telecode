@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
 import type { WebviewMessage } from '../../types/bridge';
+import { ToolCallCard, ToolCallPayload } from './ToolCallCard';
 
 interface CodeBlockProps {
   language: string;
@@ -8,6 +9,13 @@ interface CodeBlockProps {
 }
 
 export function CodeBlock({ language, code }: CodeBlockProps) {
+  if (language === 'tool') {
+    const payload = parseToolPayload(code);
+    if (payload) {
+      return <ToolCallCard payload={payload} />;
+    }
+  }
+
   const [copied, setCopied] = useState(false);
   const { postMessage } = useVSCode();
   const isContextBlock = language.includes(':');
@@ -161,6 +169,18 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
       )}
     </div>
   );
+}
+
+function parseToolPayload(content: string): ToolCallPayload | null {
+  try {
+    const parsed = JSON.parse(content.trim());
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    return parsed as ToolCallPayload;
+  } catch {
+    return null;
+  }
 }
 
 function looksLikeCommand(content: string) {

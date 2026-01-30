@@ -51,7 +51,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   attachments: [],
 
   addMessage: (message) => {
-    const newMessages = [...get().messages, message];
+    const normalizedMessage = normalizeToolTagsInMessage(message);
+    const newMessages = [...get().messages, normalizedMessage];
     set({ messages: newMessages, error: null });
     triggerAutoSave(get().conversationId, newMessages);
   },
@@ -60,9 +61,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const messages = [...state.messages];
       if (messages[index]) {
+        const mergedContent = messages[index].content + token;
         messages[index] = {
           ...messages[index],
-          content: messages[index].content + token
+          content: normalizeToolTags(mergedContent)
         };
       }
       return { messages };
@@ -70,8 +72,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setMessages: (messages) => {
-    set({ messages });
-    triggerAutoSave(get().conversationId, messages);
+    const normalizedMessages = messages.map(normalizeToolTagsInMessage);
+    set({ messages: normalizedMessages });
+    triggerAutoSave(get().conversationId, normalizedMessages);
   },
   
   setLoading: (isLoading) => set({ isLoading }),
@@ -110,3 +113,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   }
 }));
+
+function normalizeToolTagsInMessage(message: Message) {
+  if (!message.content) {
+    return message;
+  }
+  return {
+    ...message,
+    content: normalizeToolTags(message.content)
+  };
+}
+
+function normalizeToolTags(content: string) {
+  if (!content) return content;
+
+  let next = content;
+  next = next.replace(/<run_command>([\s\S]*?)<\/run_command>/g, (_match, cmd) => {
+    const command = String(cmd).trim();
+    return buildToolBlock({ type: 'run_command', command });
+  });
+  next = next.replace(/<read_file>([\s\S]*?)<\/read_file>/g, (_match, path) => {
+    const target = String(path).trim();
+    return buildToolBlock({ type: 'read_file', path: target });
+  });
+  next = next.replace(/<list_files>([\s\S]*?)<\/list_files>/g, (_match, path) => {
+    const target = String(path).trim();
+    return buildToolBlock({ type: 'list_files', path: target });
+  });
+  next = next.replace(/<write_file\s+path="([^"]+)">([\s\S]*?)<\/write_file>/g, (_match, path, body) => {
+    const target = String(path).trim();
+    const size = typeof body === 'string' ? body.length : 0;
+    return buildToolBlock({ type: 'write_file', path: target, size });
+  });
+
+  return next;
+}
+
+function buildToolBlock(payload: Record<string, unknown>) {
+  return `\n\n\`\`\`tool\n${JSON.stringify(payload)}\n\`\`\`\n\n`;
+}
