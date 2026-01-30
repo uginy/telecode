@@ -37,8 +37,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.newConversation', () => {
-      chatViewProvider?.newConversation();
+    vscode.commands.registerCommand('aisCode.newConversation', async () => {
+      await chatViewProvider?.newConversation();
     })
   );
 

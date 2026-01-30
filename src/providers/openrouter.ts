@@ -168,7 +168,7 @@ export class OpenRouterProvider extends BaseProvider {
                 accumulated += content;
                 callbacks.onToken(content);
               }
-            } catch (e) {
+            } catch {
               // ignore
             }
           }
@@ -230,7 +230,7 @@ export class OpenRouterProvider extends BaseProvider {
           } else {
             try {
               resolve(JSON.parse(responseBody));
-            } catch (e) {
+            } catch {
               reject(new Error(`Invalid JSON: ${responseBody}`));
             }
           }

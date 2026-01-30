@@ -154,7 +154,7 @@ function App() {
   };
 
   const handleNewChat = () => {
-    postMessage({ type: 'newConversation' });
+    postMessage({ type: 'createChat' });
   };
 
   const handleSaveSettings = (newConfig: typeof config) => {

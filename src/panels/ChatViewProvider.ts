@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ProviderRegistry } from '../providers/registry';
-import { Message, StreamCallbacks } from '../providers/base';
+import { Message } from '../providers/base';
 import { FileSystemTools } from '../tools/fileSystem';
 import { DiffContentProvider } from '../providers/diffProvider';
-import { ChatStorage, ChatMetadata } from '../storage/ChatStorage';
+import { ChatStorage } from '../storage/ChatStorage';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
@@ -13,6 +13,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _messages: Message[] = [];
   private _conversationId: string;
   private _chatStorage: ChatStorage;
+  private _didRestoreOnStartup = false;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -52,6 +53,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+    // Restore last chat (or create a fresh one) once, when the webview is first created.
+    // Don't await here to avoid blocking render.
+    void this._restoreLastChatOnStartup();
+
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
       this._log(`Received message from webview: ${data.type}`, data);
@@ -77,7 +82,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           console.log('[ChatViewProvider] Aborting generation.');
           break;
         case 'newConversation':
-          this.newConversation();
+          await this.newConversation();
           break;
         case 'getContext':
           this._handleGetContext();
@@ -245,6 +250,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
       }
 
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+      if (!workspaceFolder) {
+        throw new Error('Target path is outside the current workspace');
+      }
+
+      const confirm = await vscode.window.showWarningMessage(
+        `Apply changes to ${path.basename(uri.fsPath)}?`,
+        { modal: true, detail: 'This will overwrite the file contents.' },
+        'Apply',
+        'Cancel'
+      );
+      if (confirm !== 'Apply') {
+        return;
+      }
+
       await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(code));
       vscode.window.showInformationMessage(`Changes applied to ${path.basename(uri.fsPath)}`);
     } catch (error: any) {
@@ -355,10 +375,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   public newConversation() {
-    this._messages = [];
-    this._conversationId = this._generateId();
-    this._sendMessagesToWebview();
-    this._postMessage({ type: 'conversationCleared' });
+    return this._handleCreateChat();
+  }
+
+  private async _restoreLastChatOnStartup(): Promise<void> {
+    if (this._didRestoreOnStartup) return;
+    this._didRestoreOnStartup = true;
+
+    try {
+      const chats = await this._chatStorage.getAllChats();
+      const latest = chats[0];
+
+      if (latest) {
+        const chat = await this._chatStorage.getChat(latest.id);
+        if (chat) {
+          this._conversationId = latest.id;
+          this._messages = chat.messages;
+          this._sendMessagesToWebview();
+          this._postMessage({ type: 'chatLoaded', chatId: latest.id, messages: chat.messages });
+          return;
+        }
+      }
+
+      // No existing chats (or failed to load) -> start a fresh chat.
+      await this._handleCreateChat();
+    } catch (error: any) {
+      this._log('Failed to restore chat on startup', error?.message ?? error);
+      // Fallback to an in-memory conversation if storage fails.
+      this._messages = [];
+      this._conversationId = this._generateId();
+      this._sendMessagesToWebview();
+    }
   }
 
   private async _handleLoadHistory() {
@@ -603,6 +650,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return Math.random().toString(36).substring(2, 15);
   }
 
+  private _resolveWorkspacePath(inputPath: string): string {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+      throw new Error('No workspace folder open');
+    }
+
+    const uri = inputPath.startsWith('/')
+      ? vscode.Uri.file(inputPath)
+      : vscode.Uri.joinPath(workspaceFolders[0].uri, inputPath);
+
+    // Only allow paths within an opened workspace folder.
+    const wf = vscode.workspace.getWorkspaceFolder(uri);
+    if (!wf) {
+      throw new Error('Path is outside the current workspace');
+    }
+
+    return uri.fsPath;
+  }
+
   private async _processToolCalls(response: string): Promise<string | null> {
     const readFileRegex = /<read_file>(.*?)<\/read_file>/s;
     const listFilesRegex = /<list_files>(.*?)<\/list_files>/s;
@@ -612,7 +678,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (readMatch) {
       const path = readMatch[1].trim();
       try {
-        const content = await FileSystemTools.readFile(this._resolvePath(path));
+        const confirm = await vscode.window.showInformationMessage(
+          `AIS Code wants to read: ${path}`,
+          { modal: true },
+          'Allow',
+          'Deny'
+        );
+        if (confirm !== 'Allow') {
+          return `Denied reading file ${path}`;
+        }
+
+        const content = await FileSystemTools.readFile(this._resolveWorkspacePath(path));
         return `File content of ${path}:\n\`\`\`\n${content}\n\`\`\``;
       } catch (e: any) {
         return `Error reading file ${path}: ${e.message}`;
@@ -623,7 +699,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (listMatch) {
       const path = listMatch[1].trim();
       try {
-        const files = await FileSystemTools.listFiles(this._resolvePath(path));
+        const confirm = await vscode.window.showInformationMessage(
+          `AIS Code wants to list files in: ${path}`,
+          { modal: true },
+          'Allow',
+          'Deny'
+        );
+        if (confirm !== 'Allow') {
+          return `Denied listing directory ${path}`;
+        }
+
+        const files = await FileSystemTools.listFiles(this._resolveWorkspacePath(path));
         return `Files in ${path}:\n${files.join('\n')}`;
       } catch (e: any) {
         return `Error listing directory ${path}: ${e.message}`;
@@ -635,7 +721,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const path = writeMatch[1].trim();
       const content = writeMatch[2].trim();
       try {
-         await FileSystemTools.writeFile(this._resolvePath(path), content);
+         const confirm = await vscode.window.showWarningMessage(
+           `AIS Code wants to write: ${path}`,
+           { modal: true, detail: `This will overwrite the file contents (${content.length} chars).` },
+           'Allow',
+           'Deny'
+         );
+         if (confirm !== 'Allow') {
+           return `Denied writing file ${path}`;
+         }
+
+         await FileSystemTools.writeFile(this._resolveWorkspacePath(path), content);
          return `Successfully wrote to file ${path}`;
       } catch (e: any) {
         return `Error writing file ${path}: ${e.message}`;

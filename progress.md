@@ -33,7 +33,6 @@ A specialized AI coding assistant for VS Code.
 
 - [x] **Direct Apply**: One-click "Apply" button to merge changes from Diff View.
 - [ ] **Terminal Context**: Ability to `@terminal` to include last output in context.
-- [x] **History Persistence**: Save conversations to local storage.
 - [ ] **Indexing**: Better file search using workspace indexing (for large projects).
 
 ## 🛠 Current Debug Logs
