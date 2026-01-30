@@ -65,6 +65,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
+    const isDevelopment = this.context.extensionMode === vscode.ExtensionMode.Development;
+    const devServerUrl = 'http://localhost:5173';
+
+    if (isDevelopment) {
+      return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; script-src 'unsafe-eval' 'unsafe-inline' ${devServerUrl}; style-src 'unsafe-inline' ${devServerUrl}; connect-src ${devServerUrl} ws://localhost:5173 http://localhost:5173; font-src ${devServerUrl}; frame-src ${devServerUrl};">
+          <title>AIS Code (Dev)</title>
+          <script type="module">
+            import { injectIntoGlobalHook } from "${devServerUrl}/@react-refresh";
+            injectIntoGlobalHook(window);
+            window.$RefreshReg$ = () => {};
+            window.$RefreshSig$ = () => (type) => type;
+            window.__vite_plugin_react_preamble_installed__ = true;
+          </script>
+          <script type="module" src="${devServerUrl}/@vite/client"></script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <script type="module" src="${devServerUrl}/src/main.tsx"></script>
+          <script>
+            const vscode = acquireVsCodeApi();
+            window.vscode = vscode;
+          </script>
+        </body>
+        </html>`;
+    }
+
     const distPath = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(distPath, 'index.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(distPath, 'index.css'));
@@ -74,6 +105,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; script-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
         <link href="${styleUri}" rel="stylesheet">
         <title>AIS Code</title>
       </head>
