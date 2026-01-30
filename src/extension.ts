@@ -1,3 +1,6 @@
+import * as vscode from 'vscode';
+import { ChatViewProvider } from './panels/ChatViewProvider';
+import { ProviderRegistry } from './providers/registry';
 import { DiffContentProvider } from './providers/diffProvider';
 
 let chatViewProvider: ChatViewProvider | undefined;
@@ -34,19 +37,17 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.openChat', () => {
-      // Focus on the chat view
-      vscode.commands.executeCommand('aisCode.chatView.focus');
-    })
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.newConversation', () => {
+    vscode.commands.registerCommand('aisCode.newChat', () => {
       chatViewProvider?.newConversation();
     })
   );
 
-  // Listen for configuration changes
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aisCode.openSettings', () => {
+      // settings are handled in webview
+    })
+  );
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('aisCode')) {
@@ -56,6 +57,4 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-export function deactivate() {
-  chatViewProvider = undefined;
-}
+export function deactivate() {}

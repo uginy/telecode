@@ -15,9 +15,20 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _providerRegistry: ProviderRegistry,
-    private readonly _diffContentProvider: DiffContentProvider
+    private readonly _diffContentProvider: DiffContentProvider,
+    private readonly _outputChannel?: vscode.OutputChannel
   ) {
     this._conversationId = this._generateId();
+    this._log('ChatViewProvider initialized');
+  }
+
+  private _log(message: string, ...args: any[]) {
+    const timestamp = new Date().toLocaleTimeString();
+    const formatted = `[${timestamp}] ${message}`;
+    if (this._outputChannel) {
+       this._outputChannel.appendLine(formatted + (args.length ? ' ' + JSON.stringify(args) : ''));
+    }
+    console.log(formatted, ...args);
   }
 
 
@@ -39,7 +50,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
-      console.log('[ChatViewProvider] Received message:', data.type, data);
+      this._log(`Received message from webview: ${data.type}`, data);
       switch (data.type) {
         case 'sendMessage':
           await this._handleUserMessage(data.content);
@@ -461,7 +472,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private _postMessage(message: unknown) {
+  private _postMessage(message: any) {
+    this._log(`Posting message to webview: ${message.type}`);
     this._view?.webview.postMessage(message);
   }
 
