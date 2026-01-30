@@ -27,7 +27,7 @@ export interface ChatMetadata {
   messageCount: number;
 }
 
-export type ApprovalKind = 'read' | 'write' | 'list' | 'apply' | 'delete';
+export type ApprovalKind = 'read' | 'write' | 'list' | 'apply' | 'delete' | 'command';
 
 export interface ApprovalRequest {
   requestId: string;

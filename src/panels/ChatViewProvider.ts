@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { exec } from 'child_process';
 import { ProviderRegistry } from '../providers/registry';
 import { Message } from '../providers/base';
 import { FileSystemTools } from '../tools/fileSystem';
@@ -10,6 +11,7 @@ import type { ApprovalRequest, WebviewMessage } from '../types/bridge';
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
   private static readonly maxProblemsChars = 8000;
+  private static readonly maxTerminalChars = 8000;
 
   private _view?: vscode.WebviewView;
   private _messages: Message[] = [];
@@ -17,6 +19,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _chatStorage: ChatStorage;
   private _didRestoreOnStartup = false;
   private _pendingApprovals = new Map<string, (approved: boolean) => void>();
+  private _lastCommandOutput = '';
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -212,18 +215,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         }
       });
     } else if (type === 'terminal') {
-       const activeTerminal = vscode.window.activeTerminal;
-       const terminalName = activeTerminal?.name || 'terminal';
-       this._postMessage({
-          type: 'contextAdded',
-          context: {
-            id: 'terminal',
-            name: 'Terminal',
-            content: `Terminal (${terminalName}) output capture is not available without VS Code proposed API. Run the extension with --enable-proposed-api or disable terminal context.`,
-            type: 'terminal',
-            path: 'terminal'
-          }
-        });
+      const content = this._lastCommandOutput
+        ? this._trimOutput(this._lastCommandOutput, ChatViewProvider.maxTerminalChars)
+        : 'No terminal output captured yet. Use <run_command> in chat to execute a command and capture its output.';
+      this._postMessage({
+        type: 'contextAdded',
+        context: {
+          id: 'terminal',
+          name: 'Terminal',
+          content,
+          type: 'terminal',
+          path: 'terminal'
+        }
+      });
     }
   }
 
@@ -758,6 +762,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const readFileRegex = /<read_file>(.*?)<\/read_file>/s;
     const listFilesRegex = /<list_files>(.*?)<\/list_files>/s;
     const writeFileRegex = /<write_file\s+path="([^"]+)">(.*?)<\/write_file>/s;
+    const runCommandRegex = /<run_command>(.*?)<\/run_command>/s;
 
     const readMatch = readFileRegex.exec(response);
     if (readMatch) {
@@ -824,14 +829,69 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
+    const commandMatch = runCommandRegex.exec(response);
+    if (commandMatch) {
+      const command = commandMatch[1].trim();
+      if (!command) {
+        return 'Error: <run_command> is empty.';
+      }
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        return 'Error: No workspace folder open.';
+      }
+
+      const approved = await this._requestApproval({
+        kind: 'command',
+        title: 'Run command',
+        description: `Allow AIS Code to run: ${command}?`,
+        detail: `Working directory: ${workspaceFolder.uri.fsPath}`
+      });
+      if (!approved) {
+        return `Denied running command: ${command}`;
+      }
+
+      try {
+        const result = await this._execCommand(command, workspaceFolder.uri.fsPath);
+        const combined = [result.stdout, result.stderr].filter(Boolean).join(result.stdout && result.stderr ? '\n\n' : '');
+        const output = combined || '(no output)';
+        const summary = `Command: ${command}\nExit code: ${result.exitCode}${result.signal ? ` (${result.signal})` : ''}\n\n${output}`;
+        this._lastCommandOutput = summary;
+        return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
+      } catch (e: any) {
+        const summary = `Command: ${command}\nExit code: 1\n\n${e.message}`;
+        this._lastCommandOutput = summary;
+        return this._trimOutput(summary, ChatViewProvider.maxTerminalChars);
+      }
+    }
+
     return null;
   }
 
-  private _resolvePath(path: string): string {
-    if (path.startsWith('/')) return path; // Absolute
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) return path; // No workspace, assume absolute or fail
-    return vscode.Uri.joinPath(workspaceFolders[0].uri, path).fsPath;
+  private _trimOutput(content: string, maxChars: number): string {
+    if (content.length <= maxChars) {
+      return content;
+    }
+    return `${content.slice(0, maxChars)}\n\n[Truncated]`;
+  }
+
+  private _execCommand(command: string, cwd: string): Promise<{ stdout: string; stderr: string; exitCode: number; signal?: string }> {
+    return new Promise((resolve) => {
+      exec(
+        command,
+        { cwd, timeout: 20000, maxBuffer: 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (error) {
+            const err: any = error;
+            const exitCode = typeof err.code === 'number' ? err.code : 1;
+            const signal = typeof err.signal === 'string' ? err.signal : undefined;
+            resolve({ stdout, stderr, exitCode, signal });
+            return;
+          }
+          resolve({ stdout, stderr, exitCode: 0 });
+        }
+      );
+    });
   }
 
   private _handleGetContext() {
