@@ -137,7 +137,7 @@
         },
         "aisCode.autoApprove": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Auto-approve tool actions and file changes (Agent mode)"
         },
         "aisCode.diffOnly": {

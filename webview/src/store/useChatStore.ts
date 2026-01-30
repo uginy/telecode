@@ -7,6 +7,7 @@ interface Settings {
   apiKey?: string;
   maxTokens: number;
   temperature: number;
+  autoApprove: boolean;
 }
 
 interface ChatState {
@@ -37,6 +38,7 @@ export const useChatStore = create<ChatState>((set) => ({
     apiKey: '',
     maxTokens: 4096,
     temperature: 0.7,
+    autoApprove: true,
   },
   usage: { used: 0, total: 200000 },
 
@@ -68,17 +70,22 @@ export const useChatStore = create<ChatState>((set) => ({
   updateUsage: (usage: { used: number; total: number }) => set({ usage }),
 
   addToolResult: (result: ToolResult) =>
-    set((state) => ({
-      messages: state.messages.map((m) => {
-        if (m.role === 'assistant') {
-          // Check toolCalls in content or if explicitly added (we'll detect in content later)
-          // For now, let's just use the result and we'll link it in UI
-          return {
-            ...m,
-            toolResults: { ...(m.toolResults || {}), [result.toolCallId]: result },
-          };
-        }
-        return m;
-      }),
-    })),
+    set((state) => {
+      // We assume the tool result belongs to the last assistant message
+      // In a more robust system, we might need message IDs, but for streaming flow this works
+      const messages = [...state.messages];
+      const lastIdx = messages.findLastIndex(m => m.role === 'assistant');
+      
+      if (lastIdx !== -1) {
+        messages[lastIdx] = {
+          ...messages[lastIdx],
+          toolResults: { 
+            ...(messages[lastIdx].toolResults || {}), 
+            [result.toolCallId]: result 
+          }
+        };
+      }
+      
+      return { messages };
+    }),
 }));

@@ -52,6 +52,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     
     // Use matchAll to avoid biome lint on assignment in expression
     const matches = Array.from(content.matchAll(toolRegex));
+    const resultValues = Object.values(message.toolResults || {});
+    let toolCallIndex = 0;
 
     for (const match of matches) {
       const matchIndex = match.index || 0;
@@ -73,13 +75,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       if (tagName === 'run_command') args.command = toolContent;
       if (tagName === 'write_file') args.content = toolContent;
 
-      // Find tool result if available
-      const toolResults = message.toolResults || {};
-      const resultKey = Object.keys(toolResults).find(_ => {
-        // Still using a placeholder match logic as we don't have stable IDs in tags yet
-        return true; 
-      });
-      const result = resultKey ? toolResults[resultKey] : undefined;
+      // Find tool result by index
+      const result = resultValues[toolCallIndex] as ToolResult | undefined;
+      toolCallIndex++;
 
       parts.push(
         <ToolCallItem 

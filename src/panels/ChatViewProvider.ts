@@ -66,6 +66,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         apiKey: config.get('openrouter.apiKey') || '',
         maxTokens: config.get('maxTokens') || 4096,
         temperature: config.get('temperature') || 0.7,
+        autoApprove: config.get('autoApprove') ?? true,
       }
     });
   }
@@ -77,6 +78,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (settings.provider) await config.update('provider', settings.provider, vscode.ConfigurationTarget.Global);
     if (settings.maxTokens) await config.update('maxTokens', settings.maxTokens, vscode.ConfigurationTarget.Global);
     if (settings.temperature) await config.update('temperature', settings.temperature, vscode.ConfigurationTarget.Global);
+    if (settings.autoApprove !== undefined) await config.update('autoApprove', settings.autoApprove, vscode.ConfigurationTarget.Global);
     
     // Update provider specific settings
     if (settings.provider === 'openrouter') {

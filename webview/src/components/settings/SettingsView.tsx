@@ -18,17 +18,21 @@ type SettingsTab = 'api' | 'features' | 'browser' | 'terminal' | 'general' | 'ab
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, setView } = useChatStore();
   const [localSettings, setLocalSettings] = useState(settings);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('api');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isShowKey, setIsShowKey] = useState(false);
   const [isFreeOnly, setIsFreeOnly] = useState(false);
 
   const handleSave = () => {
-    updateSettings(localSettings);
-    vscode.postMessage({
-      type: 'updateSettings',
-      settings: localSettings
-    });
+    const hasChanges = JSON.stringify(settings) !== JSON.stringify(localSettings);
+    
+    if (hasChanges) {
+      updateSettings(localSettings);
+      vscode.postMessage({
+        type: 'updateSettings',
+        settings: localSettings
+      });
+    }
     setView('chat');
   };
 
@@ -80,18 +84,18 @@ export const SettingsView: React.FC = () => {
         {/* Sidebar */}
         <aside className="w-48 border-r border-white/5 bg-black/40 flex flex-col shrink-0">
           <nav className="flex-1 py-3 px-1.5 space-y-0.5">
+            <NavItem id="general" label="General" icon={Settings} />
             <NavItem id="api" label="API Configuration" icon={SlidersHorizontal} />
             <NavItem id="features" label="Features" icon={Sparkles} />
             <NavItem id="browser" label="Browser" icon={Globe} />
             <NavItem id="terminal" label="Terminal" icon={Terminal} />
-            <NavItem id="general" label="General" icon={Settings} />
             <NavItem id="about" label="About" icon={Info} />
           </nav>
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 flex flex-col min-w-0 bg-[#0a0a0a]">
-          <ScrollArea className="flex-1">
+        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#0a0a0a]">
+          <ScrollArea className="h-full">
             <div className="p-8 max-w-2xl mx-auto w-full space-y-12 animate-in fade-in duration-500">
               
               {activeTab === 'api' && (
@@ -266,12 +270,47 @@ export const SettingsView: React.FC = () => {
                           />
                           <p className="text-[9px] text-muted-foreground/40 leading-relaxed">Maximum amount of tokens the model will generate in a single response.</p>
                         </div>
+
+                        <div className="space-y-4">
+                          <label className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/60">Response Token Ceiling</label>
+                          <Input 
+                            type="number" step="1024"
+                            value={localSettings.maxTokens}
+                            onChange={(e) => setLocalSettings({...localSettings, maxTokens: Number.parseInt(e.target.value)})}
+                            className="bg-black/60 border-white/5 h-12 rounded-2xl focus:ring-1 ring-primary/20 transition-all"
+                          />
+                          <p className="text-[9px] text-muted-foreground/40 leading-relaxed">Maximum amount of tokens the model will generate in a single response.</p>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
+              {activeTab === 'general' && (
+                <div className="space-y-10">
+                  <header>
+                    <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                      <Settings className="w-6 h-6 text-primary" />
+                      General Settings
+                    </h2>
+                    <p className="text-[11px] font-medium text-muted-foreground mt-1.5 opacity-50 uppercase tracking-widest">Customize your agent experience</p>
+                  </header>
+
+                  <div className="flex items-center justify-between p-4 bg-white/[0.03] rounded-2xl border border-white/5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Auto-Approve Changes</label>
+                      <p className="text-[9px] text-muted-foreground/50">Automatically execute tool calls (edits, commands) without manual confirmation.</p>
+                    </div>
+                    <Switch 
+                      checked={localSettings.autoApprove ?? true} 
+                      onCheckedChange={(checked) => setLocalSettings({...localSettings, autoApprove: checked})} 
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab !== 'api' && activeTab !== 'general' && (
                 <div className="flex flex-col items-center justify-center py-32 opacity-20 select-none animate-in fade-in duration-700">
                   {activeTab === 'features' && <Sparkles className="w-20 h-20 mb-6 text-primary" />}
                   {activeTab === 'browser' && <Globe className="w-20 h-20 mb-6 text-primary" />}
@@ -281,6 +320,7 @@ export const SettingsView: React.FC = () => {
                   <h3 className="text-3xl font-black tracking-tighter uppercase">Module Locked</h3>
                   <p className="text-xs font-mono opacity-60 mt-2">Available in upcoming release v1.1.0</p>
                 </div>
+              )}
 
             </div>
           </ScrollArea>
