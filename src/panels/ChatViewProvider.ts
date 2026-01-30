@@ -25,6 +25,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _indexReady = false;
   private _indexRebuildTimer?: NodeJS.Timeout;
   private _indexInFlight = false;
+  private _lastStreamAppliedDiff?: string;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -310,6 +311,29 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const items: any[] = [];
     const lowerQuery = query.toLowerCase();
 
+    // 0. Open tabs
+    if (!type || type === 'file') {
+      const openEditors = vscode.window.visibleTextEditors
+        .map((editor) => editor.document?.uri)
+        .filter((uri): uri is vscode.Uri => !!uri && uri.scheme === 'file');
+
+      const uniqueOpen = Array.from(new Map(openEditors.map((uri) => [uri.fsPath, uri])).values());
+      for (const uri of uniqueOpen.slice(0, 10)) {
+        const relativePath = vscode.workspace.asRelativePath(uri, false);
+        const name = relativePath.split('/').pop() || relativePath;
+        if (!lowerQuery || name.toLowerCase().includes(lowerQuery) || relativePath.toLowerCase().includes(lowerQuery)) {
+          items.push({
+            id: uri.fsPath,
+            name,
+            description: `Open tab • ${relativePath}`,
+            type: 'file',
+            path: uri.fsPath,
+            icon: 'file-code'
+          });
+        }
+      }
+    }
+
     // 1. Static items (Terminal, Problems)
     if (!type || type === 'terminal') {
       if ('terminal'.includes(lowerQuery)) {
@@ -549,8 +573,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async _handleUserMessage(content: string) {
     if (!content.trim()) return;
 
+    let finalContent = content.trim();
+    if (!/Context:\s*```/i.test(finalContent)) {
+      const editor = vscode.window.activeTextEditor;
+      if (editor && editor.document?.uri?.scheme === 'file') {
+        const fileName = path.basename(editor.document.fileName);
+        const fileContent = editor.document.getText();
+        finalContent = `${finalContent}\n\nContext:\n\`\`\`file:${fileName}\n${fileContent}\n\`\`\``;
+      }
+    }
+
     // Add user message
-    this._messages.push({ role: 'user', content: content.trim(), timestamp: Date.now() });
+    this._messages.push({ role: 'user', content: finalContent, timestamp: Date.now() });
     
     // Notify webview
     this._postMessage({ 
@@ -683,12 +717,18 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         } else {
           if (!suppressStreaming && assistantIndex >= 0) {
             this._messages[assistantIndex].content = fullResponse;
-            this._postMessage({
-              type: 'messages',
-              messages: this._messages,
-              conversationId: this._conversationId
+          } else if (suppressStreaming) {
+            this._messages.push({
+              role: 'assistant',
+              content: fullResponse,
+              timestamp: Date.now()
             });
           }
+          this._postMessage({
+            type: 'messages',
+            messages: this._messages,
+            conversationId: this._conversationId
+          });
           break;
         }
 
@@ -721,37 +761,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     const diffBlock = completedBlocks.find((block) => this._isUnifiedDiff(block.content) || block.language === 'diff');
     if (diffBlock) {
+      if (this._lastStreamAppliedDiff === diffBlock.content) {
+        return false;
+      }
       try {
         await this._handleApplyDiff(diffBlock.content);
+        this._lastStreamAppliedDiff = diffBlock.content;
         return true;
       } catch {
         return false;
       }
     }
 
-    if (this._isDiffOnlyEnabled()) {
-      return false;
-    }
-
-    const fileBlock = completedBlocks.find((block) => block.language === 'file' || block.language === 'text');
-    if (!fileBlock) {
-      return false;
-    }
-
-    let targetPath = this._extractFilePathMarker(fileBlock.content);
-    if (!targetPath) {
-      targetPath = await this._extractTargetPathFromResponse(content);
-    }
-    if (!targetPath) {
-      return false;
-    }
-
-    try {
-      await this._handleApplyDiff(fileBlock.content, targetPath);
-      return true;
-    } catch {
-      return false;
-    }
+    return false;
   }
 
   private async _maybeAutoApplyResponse(
