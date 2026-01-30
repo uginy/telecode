@@ -138,6 +138,19 @@ function App() {
     postMessage(payload);
   };
 
+  if (isOpen) {
+    return (
+      <div className="app settings-only">
+        <SettingsPanel
+          isOpen={isOpen}
+          onClose={closeSettings}
+          config={config}
+          onSave={handleSaveSettings}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <div className="sidebar">
@@ -149,12 +162,6 @@ function App() {
         <ChatContainer 
           onSendMessage={handleSendMessage}
           onAbort={handleAbort}
-        />
-        <SettingsPanel
-          isOpen={isOpen}
-          onClose={closeSettings}
-          config={config}
-          onSave={handleSaveSettings}
         />
         <ApprovalModal />
         <ConfirmModal />

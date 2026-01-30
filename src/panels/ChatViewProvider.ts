@@ -347,6 +347,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (typeof config.autoApprove === 'boolean') {
       await wsConfig.update('autoApprove', config.autoApprove, vscode.ConfigurationTarget.Global);
     }
+    if (typeof config.maxTokens === 'number') {
+      await wsConfig.update('maxTokens', config.maxTokens, vscode.ConfigurationTarget.Global);
+    }
+    if (typeof config.temperature === 'number') {
+      await wsConfig.update('temperature', config.temperature, vscode.ConfigurationTarget.Global);
+    }
     
     if (config.provider === 'openrouter') {
       if (config.apiKey) await wsConfig.update('openrouter.apiKey', config.apiKey, vscode.ConfigurationTarget.Global);
