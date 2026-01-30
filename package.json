@@ -59,18 +59,30 @@
       "properties": {
         "aisCode.provider": {
           "type": "string",
-          "default": "openai-compatible",
+          "default": "openrouter",
           "enum": [
+            "openrouter",
             "openai-compatible",
             "anthropic",
             "openai"
           ],
           "enumDescriptions": [
-            "OpenAI-compatible API (Ollama, LM Studio, OpenRouter, etc.)",
+            "OpenRouter (free models available)",
+            "OpenAI-compatible API (Ollama, LM Studio)",
             "Anthropic Claude (requires API key)",
             "OpenAI GPT (requires API key)"
           ],
           "description": "AI provider to use"
+        },
+        "aisCode.openrouter.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenRouter API key (get at openrouter.ai)"
+        },
+        "aisCode.openrouter.model": {
+          "type": "string",
+          "default": "google/gemini-2.0-flash-exp:free",
+          "description": "OpenRouter model ID"
         },
         "aisCode.openaiCompatible.baseUrl": {
           "type": "string",

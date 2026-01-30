@@ -14,6 +14,7 @@ export interface Model {
   contextWindow: number;
   maxOutput: number;
   supportsVision: boolean;
+  isFree?: boolean;
   pricing?: {
     inputPerMillion: number;
     outputPerMillion: number;

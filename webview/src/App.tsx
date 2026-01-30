@@ -1,6 +1,9 @@
 import { ChatContainer } from './components/Chat/ChatContainer';
+import { Header } from './components/Header/Header';
+import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { useVSCode } from './hooks/useVSCode';
 import { useChatStore, type Message } from './stores/chatStore';
+import { useSettingsStore } from './stores/settingsStore';
 import { useEffect } from 'react';
 
 // Types for messages from VS Code extension
@@ -11,14 +14,21 @@ interface VSCodeMessage {
   messageIndex?: number;
   token?: string;
   isStreaming?: boolean;
+  config?: {
+    provider: string;
+    baseUrl: string;
+    apiKey: string;
+    model: string;
+  };
 }
 
 function App() {
   const { postMessage, onMessage } = useVSCode();
   const { addMessage, updateStreamingMessage, setMessages, setError, setLoading } = useChatStore();
+  const { isOpen, closeSettings, config, setConfig } = useSettingsStore();
 
   useEffect(() => {
-    // Request initial messages
+    // Request initial data
     postMessage({ type: 'getMessages' });
     postMessage({ type: 'getConfig' });
 
@@ -28,6 +38,11 @@ function App() {
         case 'messages':
           if (message.messages) {
             setMessages(message.messages);
+          }
+          break;
+        case 'config':
+          if (message.config) {
+            setConfig(message.config);
           }
           break;
         case 'messageAdded':
@@ -59,7 +74,7 @@ function App() {
     });
 
     return cleanup;
-  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading]);
+  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setConfig]);
 
   const handleSendMessage = (content: string) => {
     postMessage({ type: 'sendMessage', content });
@@ -69,11 +84,27 @@ function App() {
     postMessage({ type: 'abortGeneration' });
   };
 
+  const handleNewChat = () => {
+    postMessage({ type: 'newConversation' });
+  };
+
+  const handleSaveSettings = (newConfig: typeof config) => {
+    setConfig(newConfig);
+    postMessage({ type: 'saveConfig', config: newConfig });
+  };
+
   return (
     <div className="app">
+      <Header onNewChat={handleNewChat} />
       <ChatContainer 
         onSendMessage={handleSendMessage}
         onAbort={handleAbort}
+      />
+      <SettingsPanel
+        isOpen={isOpen}
+        onClose={closeSettings}
+        config={config}
+        onSave={handleSaveSettings}
       />
     </div>
   );

@@ -1,6 +1,6 @@
-import type OpenAI from 'openai';
+import OpenAI from 'openai';
 import * as vscode from 'vscode';
-import { BaseProvider, Message, Model, StreamCallbacks, UsageStats } from './base';
+import { BaseProvider, type Message, type Model, type StreamCallbacks, type UsageStats } from './base';
 
 /**
  * OpenAI-Compatible provider for local/free APIs:
