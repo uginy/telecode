@@ -22,7 +22,11 @@ export class AgentOrbit {
     return this.context.getUsage();
   }
 
-  async run(userInput: string, onUpdate: (chunk: string) => void) {
+  async run(
+    userInput: string, 
+    onUpdate: (chunk: string) => void,
+    onToolResult?: (result: ToolResult) => void
+  ) {
     if (this.isRunning) return;
     this.isRunning = true;
 
@@ -64,6 +68,7 @@ export class AgentOrbit {
           const results = await this.executeTools(toolCalls);
           
           for (const result of results) {
+            if (onToolResult) onToolResult(result);
             this.context.addMessage({
               id: crypto.randomUUID(),
               role: 'tool',

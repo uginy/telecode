@@ -61,6 +61,9 @@ const App: React.FC = () => {
         case 'updateUsage':
           useChatStore.getState().updateUsage(message.usage);
           break;
+        case 'toolResult':
+          useChatStore.getState().addToolResult(message.result);
+          break;
       }
     };
 

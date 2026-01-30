@@ -110,9 +110,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({ type: 'setStreaming', value: true });
     
     try {
-      await this._agent.run(text, (chunk: string) => {
-        this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
-      });
+      await this._agent.run(
+        text, 
+        (chunk: string) => {
+          this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
+        },
+        (result) => {
+          this._view?.webview.postMessage({ type: 'toolResult', result });
+        }
+      );
       
       // Update usage after each run
       const usage = this._agent.getUsage();

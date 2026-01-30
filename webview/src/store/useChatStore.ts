@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Message } from '@/components/chat/MessageItem';
+import type { Message, ToolResult } from '@/components/chat/MessageItem';
 
 interface Settings {
   provider: string;
@@ -24,6 +24,7 @@ interface ChatState {
   setView: (view: 'chat' | 'settings') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   updateUsage: (usage: { used: number; total: number }) => void;
+  addToolResult: (result: ToolResult) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -39,10 +40,10 @@ export const useChatStore = create<ChatState>((set) => ({
   },
   usage: { used: 0, total: 200000 },
 
-  addMessage: (message) => 
+  addMessage: (message: Message) => 
     set((state) => ({ messages: [...state.messages, message] })),
 
-  updateLastMessage: (content) =>
+  updateLastMessage: (content: string) =>
     set((state) => {
       const last = state.messages[state.messages.length - 1];
       if (last && last.role === 'assistant') {
@@ -57,12 +58,27 @@ export const useChatStore = create<ChatState>((set) => ({
 
   clearHistory: () => set({ messages: [] }),
 
-  setStreaming: (isStreaming) => set({ isStreaming }),
+  setStreaming: (isStreaming: boolean) => set({ isStreaming }),
 
-  setView: (activeView) => set({ activeView }),
+  setView: (activeView: 'chat' | 'settings') => set({ activeView }),
 
-  updateSettings: (newSettings) =>
+  updateSettings: (newSettings: Partial<Settings>) =>
     set((state) => ({ settings: { ...state.settings, ...newSettings } })),
 
-  updateUsage: (usage) => set({ usage }),
+  updateUsage: (usage: { used: number; total: number }) => set({ usage }),
+
+  addToolResult: (result: ToolResult) =>
+    set((state) => ({
+      messages: state.messages.map((m) => {
+        if (m.role === 'assistant') {
+          // Check toolCalls in content or if explicitly added (we'll detect in content later)
+          // For now, let's just use the result and we'll link it in UI
+          return {
+            ...m,
+            toolResults: { ...(m.toolResults || {}), [result.toolCallId]: result },
+          };
+        }
+        return m;
+      }),
+    })),
 }));
