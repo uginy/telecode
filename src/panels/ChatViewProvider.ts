@@ -33,10 +33,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    webviewView.webview.onDidReceiveMessage(async (data: { type: string, text: string }) => {
+    webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
-          await this._handleSendMessage(data.text);
+          await this._handleSendMessage(data.text as string);
+          break;
+        case 'updateSettings':
+          await this._handleUpdateSettings(data.settings as Record<string, unknown>);
           break;
       }
     });
@@ -58,12 +61,33 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._view.webview.postMessage({
       type: 'setSettings',
       settings: {
-        provider: 'openrouter',
+        provider: config.get('provider') || 'openrouter',
         modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free',
+        apiKey: config.get('openrouter.apiKey') || '',
         maxTokens: config.get('maxTokens') || 4096,
         temperature: config.get('temperature') || 0.7,
       }
     });
+  }
+
+  private async _handleUpdateSettings(settings: Record<string, unknown>) {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    
+    // Update global settings
+    if (settings.provider) await config.update('provider', settings.provider, vscode.ConfigurationTarget.Global);
+    if (settings.maxTokens) await config.update('maxTokens', settings.maxTokens, vscode.ConfigurationTarget.Global);
+    if (settings.temperature) await config.update('temperature', settings.temperature, vscode.ConfigurationTarget.Global);
+    
+    // Update provider specific settings
+    if (settings.provider === 'openrouter') {
+      if (settings.modelId) await config.update('openrouter.model', settings.modelId, vscode.ConfigurationTarget.Global);
+      if (settings.apiKey !== undefined) await config.update('openrouter.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
+    }
+
+    vscode.window.showInformationMessage('AIS Code: Settings updated');
+    
+    // Force agent re-initialization on next message
+    this._agent = undefined;
   }
 
   private async _handleSendMessage(text: string) {
@@ -89,6 +113,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       await this._agent.run(text, (chunk: string) => {
         this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
       });
+      
+      // Update usage after each run
+      const usage = this._agent.getUsage();
+      this._view?.webview.postMessage({ type: 'updateUsage', usage });
     } finally {
       this._view?.webview.postMessage({ type: 'setStreaming', value: false });
     }

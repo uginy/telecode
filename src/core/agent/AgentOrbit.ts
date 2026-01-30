@@ -1,6 +1,6 @@
-import { Message, ToolCall, ToolResult } from "../types";
+import type { Message, ToolCall, ToolResult } from "../types";
 import { ContextManager } from "../context/manager";
-import { ToolRegistry } from "../tools/registry";
+import type { ToolRegistry } from "../tools/registry";
 
 export interface AIProvider {
   complete(messages: Message[], options: { stream?: boolean }): Promise<AsyncIterable<string> | string>;
@@ -16,6 +16,10 @@ export class AgentOrbit {
     this.provider = provider;
     this.registry = registry;
     this.context = new ContextManager(maxTokens);
+  }
+
+  getUsage() {
+    return this.context.getUsage();
   }
 
   async run(userInput: string, onUpdate: (chunk: string) => void) {

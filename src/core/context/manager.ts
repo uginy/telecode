@@ -1,12 +1,12 @@
 import { getEncoding } from "js-tiktoken";
-import { Message, AgentContext } from "../types";
+import type { Message, AgentContext } from "../types";
 
 export class ContextManager {
   private messages: Message[] = [];
   private encoding = getEncoding("cl100k_base");
   private maxTokens: number;
 
-  constructor(maxTokens: number = 200000) {
+  constructor(maxTokens = 200000) {
     this.maxTokens = maxTokens;
   }
 
@@ -24,11 +24,19 @@ export class ContextManager {
     this.pruneIfNeeded();
   }
 
+  getUsage() {
+    return {
+      used: this.calculateTokens(),
+      total: this.maxTokens
+    };
+  }
+
   getContext(): AgentContext {
+    const usage = this.getUsage();
     return {
       messages: this.messages,
-      totalTokens: this.calculateTokens(),
-      modelId: "gpt-4o", // Placeholder, should be dynamic
+      totalTokens: usage.used,
+      modelId: "experimental", // Placeholder
     };
   }
 

@@ -1,9 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import type React from 'react';
+import { useEffect, useCallback } from 'react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { useChatStore } from '@/store/useChatStore';
+import { SettingsView } from '@/components/settings/SettingsView';
 
 interface VsCodeApi {
   postMessage: (message: unknown) => void;
@@ -13,7 +15,21 @@ interface VsCodeApi {
 
 declare const vscode: VsCodeApi;
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const VsCodeApp: React.FC<{ onSend: (text: string) => void }> = ({ onSend }) => {
+  const { activeView } = useChatStore();
+
+  if (activeView === 'settings') {
+    return <SettingsView />;
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
+      <ChatHeader />
+      <MessageList />
+      <ChatInput onSend={onSend} />
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const { 
@@ -42,6 +58,9 @@ const App: React.FC = () => {
         case 'setStreaming':
           setStreaming(!!message.value);
           break;
+        case 'updateUsage':
+          useChatStore.getState().updateUsage(message.usage);
+          break;
       }
     };
 
@@ -50,17 +69,13 @@ const App: React.FC = () => {
   }, [updateLastMessage, updateSettings, setStreaming]);
 
   const handleSend = useCallback((text: string) => {
-    addMessage({ id: generateId(), role: 'user', content: text });
+    addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });
     vscode.postMessage({ type: 'sendMessage', text });
   }, [addMessage]);
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
-        <ChatHeader />
-        <MessageList />
-        <ChatInput onSend={handleSend} />
-      </div>
+      <VsCodeApp onSend={handleSend} />
     </TooltipProvider>
   );
 };
