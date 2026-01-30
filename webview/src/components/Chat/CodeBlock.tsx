@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
+import type { WebviewMessage } from '../../types/bridge';
 
 interface CodeBlockProps {
   language: string;
@@ -27,7 +28,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
       code,
       language,
       targetPath
-    });
+    } as WebviewMessage);
   };
 
   const handleApply = () => {
@@ -36,7 +37,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
       type: 'applyDiff',
       code,
       targetPath
-    });
+    } as WebviewMessage);
   };
 
   const extractTargetPath = (code: string): string | undefined => {

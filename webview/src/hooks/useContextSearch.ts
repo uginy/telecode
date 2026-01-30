@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVSCode } from './useVSCode';
 import { ContextItem } from '../types/context';
+import type { ExtensionMessage, WebviewMessage } from '../types/bridge';
 
 interface ContextSearchState {
   isActive: boolean;
@@ -23,9 +24,9 @@ export function useContextSearch() {
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
-    return onMessage((message) => {
+    return onMessage((message: ExtensionMessage) => {
       if (message.type === 'searchContextResults') {
-        const items = (message.items as ContextItem[]) || [];
+        const items = message.items || [];
         setState(prev => ({
           ...prev,
           results: items,
@@ -60,7 +61,8 @@ export function useContextSearch() {
           if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
           searchTimeoutRef.current = setTimeout(() => {
             console.log('[useContextSearch] Sending searchContext query:', query);
-            postMessage({ type: 'searchContext', query });
+            const payload: WebviewMessage = { type: 'searchContext', query };
+            postMessage(payload);
           }, 150);
           return;
         }

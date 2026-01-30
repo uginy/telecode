@@ -4,6 +4,7 @@ import { useChatStore } from '../../stores/chatStore';
 import { useContextSearch } from '../../hooks/useContextSearch';
 import { ContextMenu } from './ContextMenu';
 import { ContextItem } from '../../types/context';
+import type { WebviewMessage } from '../../types/bridge';
 
 interface MessageInputProps {
   onSend: (content: string) => void;
@@ -87,11 +88,12 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
     // Reset textarea cursor position (optional, hard to do perfectly in React)
     
     // Request backend to load this context item
-    postMessage({ 
+    const payload: WebviewMessage = { 
       type: 'requestContextItem', 
       path: item.path,
       contextType: item.type 
-    });
+    };
+    postMessage(payload);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -127,7 +129,8 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
   };
 
   const handleAttach = () => {
-    postMessage({ type: 'getContext' }); // Old behavior: attach active file
+    const payload: WebviewMessage = { type: 'getContext' };
+    postMessage(payload); // Old behavior: attach active file
   };
 
   return (

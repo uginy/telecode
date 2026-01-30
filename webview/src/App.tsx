@@ -2,61 +2,29 @@ import { ChatContainer } from './components/Chat/ChatContainer';
 import { Header } from './components/Header/Header';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { ChatHistory } from './components/History/ChatHistory';
+import { ApprovalModal } from './components/Approvals/ApprovalModal';
+import { ConfirmModal } from './components/Approvals/ConfirmModal';
 import { useVSCode } from './hooks/useVSCode';
-import { useChatStore, type Message } from './stores/chatStore';
+import { useChatStore } from './stores/chatStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useHistoryStore } from './stores/historyStore';
+import { useApprovalStore } from './stores/approvalStore';
 import { useEffect } from 'react';
-
-interface Model {
-  id: string;
-  name: string;
-  contextWindow: number;
-  isFree?: boolean;
-}
-
-interface ContextItem {
-  id: string;
-  name: string;
-  content: string;
-  type: 'file' | 'selection';
-  path: string;
-}
-
-interface VSCodeMessage {
-  type: string;
-  messages?: Message[];
-  message?: Message | string;
-  messageIndex?: number;
-  token?: string;
-  isStreaming?: boolean;
-  config?: {
-    provider: string;
-    baseUrl: string;
-    apiKey: string;
-    model: string;
-  };
-  provider?: string;
-  models?: Model[];
-  context?: ContextItem;
-  chatId?: string;
-  chats?: any[];
-  metadata?: any;
-  conversationId?: string;
-}
+import type { ExtensionMessage, WebviewMessage } from './types/bridge';
 
 function App() {
   const { postMessage, onMessage } = useVSCode();
   const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, saveCurrentChat } = useChatStore();
   const { isOpen, closeSettings, config, setConfig } = useSettingsStore();
   const { setChats, setCurrentChatId, loadHistory } = useHistoryStore();
+  const enqueueApproval = useApprovalStore((state) => state.enqueue);
 
   useEffect(() => {
     postMessage({ type: 'getMessages' });
     postMessage({ type: 'getConfig' });
     postMessage({ type: 'loadHistory' });
 
-    const cleanup = onMessage((message: VSCodeMessage) => {
+    const cleanup = onMessage((message: ExtensionMessage) => {
       console.log('[App] Received message from extension:', message.type, message);
       switch (message.type) {
         case 'messages':
@@ -139,6 +107,9 @@ function App() {
             loadHistory();
           }
           break;
+        case 'approvalRequest':
+          enqueueApproval(message.request);
+          break;
       }
     });
 
@@ -146,20 +117,24 @@ function App() {
   }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setConfig, setChats, setCurrentChatId, loadHistory, saveCurrentChat]);
 
   const handleSendMessage = (content: string) => {
-    postMessage({ type: 'sendMessage', content });
+    const payload: WebviewMessage = { type: 'sendMessage', content };
+    postMessage(payload);
   };
 
   const handleAbort = () => {
-    postMessage({ type: 'abortGeneration' });
+    const payload: WebviewMessage = { type: 'abortGeneration' };
+    postMessage(payload);
   };
 
   const handleNewChat = () => {
-    postMessage({ type: 'createChat' });
+    const payload: WebviewMessage = { type: 'createChat' };
+    postMessage(payload);
   };
 
   const handleSaveSettings = (newConfig: typeof config) => {
     setConfig(newConfig);
-    postMessage({ type: 'saveConfig', config: newConfig });
+    const payload: WebviewMessage = { type: 'saveConfig', config: newConfig };
+    postMessage(payload);
   };
 
   return (
@@ -179,6 +154,8 @@ function App() {
           config={config}
           onSave={handleSaveSettings}
         />
+        <ApprovalModal />
+        <ConfirmModal />
       </div>
     </div>
   );

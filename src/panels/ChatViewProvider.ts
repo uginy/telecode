@@ -5,6 +5,7 @@ import { Message } from '../providers/base';
 import { FileSystemTools } from '../tools/fileSystem';
 import { DiffContentProvider } from '../providers/diffProvider';
 import { ChatStorage } from '../storage/ChatStorage';
+import type { ApprovalRequest, WebviewMessage } from '../types/bridge';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
@@ -14,6 +15,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _conversationId: string;
   private _chatStorage: ChatStorage;
   private _didRestoreOnStartup = false;
+  private _pendingApprovals = new Map<string, (approved: boolean) => void>();
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -58,7 +60,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     void this._restoreLastChatOnStartup();
 
     // Handle messages from the webview
-    webviewView.webview.onDidReceiveMessage(async (data) => {
+    webviewView.webview.onDidReceiveMessage(async (data: WebviewMessage) => {
       this._log(`Received message from webview: ${data.type}`, data);
       switch (data.type) {
         case 'sendMessage':
@@ -114,6 +116,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'createChat':
           await this._handleCreateChat();
+          break;
+        case 'approvalResponse':
+          this._handleApprovalResponse(data.requestId, data.decision);
           break;
       }
     });
@@ -255,13 +260,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         throw new Error('Target path is outside the current workspace');
       }
 
-      const confirm = await vscode.window.showWarningMessage(
-        `Apply changes to ${path.basename(uri.fsPath)}?`,
-        { modal: true, detail: 'This will overwrite the file contents.' },
-        'Apply',
-        'Cancel'
-      );
-      if (confirm !== 'Apply') {
+      const approved = await this._requestApproval({
+        kind: 'apply',
+        title: 'Apply changes',
+        description: `Apply changes to ${path.basename(uri.fsPath)}?`,
+        detail: 'This will overwrite the file contents.',
+        path: uri.fsPath
+      });
+      if (!approved) {
         return;
       }
 
@@ -650,6 +656,37 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return Math.random().toString(36).substring(2, 15);
   }
 
+  private _handleApprovalResponse(requestId: string, decision: 'approve' | 'deny') {
+    const resolver = this._pendingApprovals.get(requestId);
+    if (resolver) {
+      this._pendingApprovals.delete(requestId);
+      resolver(decision === 'approve');
+    }
+  }
+
+  private _requestApproval(request: Omit<ApprovalRequest, 'requestId'>): Promise<boolean> {
+    if (!this._view) {
+      return Promise.resolve(false);
+    }
+
+    const requestId = this._generateId();
+    const payload: ApprovalRequest = { requestId, ...request };
+
+    this._postMessage({ type: 'approvalRequest', request: payload });
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        this._pendingApprovals.delete(requestId);
+        resolve(false);
+      }, 60000);
+
+      this._pendingApprovals.set(requestId, (approved) => {
+        clearTimeout(timeout);
+        resolve(approved);
+      });
+    });
+  }
+
   private _resolveWorkspacePath(inputPath: string): string {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -678,13 +715,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (readMatch) {
       const path = readMatch[1].trim();
       try {
-        const confirm = await vscode.window.showInformationMessage(
-          `AIS Code wants to read: ${path}`,
-          { modal: true },
-          'Allow',
-          'Deny'
-        );
-        if (confirm !== 'Allow') {
+        const approved = await this._requestApproval({
+          kind: 'read',
+          title: 'Read file',
+          description: `Allow AIS Code to read ${path}?`,
+          path
+        });
+        if (!approved) {
           return `Denied reading file ${path}`;
         }
 
@@ -699,13 +736,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (listMatch) {
       const path = listMatch[1].trim();
       try {
-        const confirm = await vscode.window.showInformationMessage(
-          `AIS Code wants to list files in: ${path}`,
-          { modal: true },
-          'Allow',
-          'Deny'
-        );
-        if (confirm !== 'Allow') {
+        const approved = await this._requestApproval({
+          kind: 'list',
+          title: 'List directory',
+          description: `Allow AIS Code to list files in ${path}?`,
+          path
+        });
+        if (!approved) {
           return `Denied listing directory ${path}`;
         }
 
@@ -721,13 +758,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       const path = writeMatch[1].trim();
       const content = writeMatch[2].trim();
       try {
-         const confirm = await vscode.window.showWarningMessage(
-           `AIS Code wants to write: ${path}`,
-           { modal: true, detail: `This will overwrite the file contents (${content.length} chars).` },
-           'Allow',
-           'Deny'
-         );
-         if (confirm !== 'Allow') {
+         const approved = await this._requestApproval({
+           kind: 'write',
+           title: 'Write file',
+           description: `Allow AIS Code to write ${path}?`,
+           detail: `This will overwrite the file contents (${content.length} chars).`,
+           path
+         });
+         if (!approved) {
            return `Denied writing file ${path}`;
          }
 

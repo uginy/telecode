@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useVSCode } from '../../hooks/useVSCode';
+import type { WebviewMessage } from '../../types/bridge';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -93,11 +94,12 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
   const fetchModels = () => {
     if (!localConfig.apiKey) return;
     setIsLoadingModels(true);
-    postMessage({ 
+    const payload: WebviewMessage = { 
       type: 'fetchModels', 
       provider: localConfig.provider,
       apiKey: localConfig.apiKey
-    });
+    };
+    postMessage(payload);
   };
 
   const handleSave = () => {

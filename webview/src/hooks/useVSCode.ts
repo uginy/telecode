@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { getVSCodeApi } from '../lib/vscodeApi';
 
-interface VSCodeMessage {
-  type: string;
-  [key: string]: unknown;
-}
+type VSCodeMessage = { type: string } & Record<string, unknown>;
 
 export function useVSCode() {
   const listenersRef = useRef<Set<(message: VSCodeMessage) => void>>(new Set());
@@ -20,14 +17,14 @@ export function useVSCode() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const postMessage = useCallback((message: VSCodeMessage) => {
+  const postMessage = useCallback(<T extends VSCodeMessage>(message: T) => {
     getVSCodeApi().postMessage(message);
   }, []);
 
-  const onMessage = useCallback((callback: (message: VSCodeMessage) => void) => {
-    listenersRef.current.add(callback);
+  const onMessage = useCallback(<T extends VSCodeMessage>(callback: (message: T) => void) => {
+    listenersRef.current.add(callback as (message: VSCodeMessage) => void);
     return () => {
-      listenersRef.current.delete(callback);
+      listenersRef.current.delete(callback as (message: VSCodeMessage) => void);
     };
   }, []);
 
