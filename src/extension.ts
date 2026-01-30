@@ -1,11 +1,11 @@
-import * as vscode from 'vscode';
-import { ChatViewProvider } from './panels/ChatViewProvider';
-import { ProviderRegistry } from './providers/registry';
 import { DiffContentProvider } from './providers/diffProvider';
 
 let chatViewProvider: ChatViewProvider | undefined;
+let outputChannel: vscode.OutputChannel;
 
 export function activate(context: vscode.ExtensionContext) {
+  outputChannel = vscode.window.createOutputChannel('AIS Code');
+  outputChannel.appendLine('AIS Code is now active!');
   console.log('AIS Code is now active!');
 
   // Initialize provider registry
@@ -18,7 +18,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register the chat view provider
-  chatViewProvider = new ChatViewProvider(context.extensionUri, providerRegistry, diffContentProvider);
+  chatViewProvider = new ChatViewProvider(context.extensionUri, providerRegistry, diffContentProvider, outputChannel);
   
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

@@ -87,6 +87,7 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
+    console.log('[MessageInput] Input changed:', newValue, 'Caret at:', e.target.selectionStart);
     setValue(newValue);
     handleInput(newValue, e.target.selectionStart || 0);
   };

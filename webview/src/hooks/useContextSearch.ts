@@ -58,6 +58,7 @@ export function useContextSearch() {
           // Debounce search
           if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
           searchTimeoutRef.current = setTimeout(() => {
+            console.log('[useContextSearch] Sending searchContext query:', query);
             postMessage({ type: 'searchContext', query });
           }, 300); // 300ms debounce
           return;

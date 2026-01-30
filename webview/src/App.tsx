@@ -51,6 +51,7 @@ function App() {
 
     // Listen for messages from extension
     const cleanup = onMessage((message: VSCodeMessage) => {
+      console.log('[App] Received message from extension:', message.type, message);
       switch (message.type) {
         case 'messages':
           if (message.messages) {

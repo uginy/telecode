@@ -39,6 +39,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (data) => {
+      console.log('[ChatViewProvider] Received message:', data.type, data);
       switch (data.type) {
         case 'sendMessage':
           await this._handleUserMessage(data.content);
@@ -58,6 +59,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'abortGeneration':
           this._abortGeneration();
+          console.log('[ChatViewProvider] Aborting generation.');
           break;
         case 'newConversation':
           this.newConversation();
@@ -66,6 +68,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           this._handleGetContext();
           break;
         case 'searchContext':
+          console.log('[ChatViewProvider] Handling searchContext query:', data.query, 'type:', data.type);
           this._handleSearchContext(data.query, data.type);
           break;
         case 'requestContextItem':
@@ -520,6 +523,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (editor) {
       const selection = editor.selection;
       const text = selection.isEmpty ? editor.document.getText() : editor.document.getText(selection);
+      console.log('[ChatViewProvider] Getting context from active editor. Selection empty:', selection.isEmpty);
       const fileName = editor.document.fileName.split('/').pop() || 'Untitled';
       
       this._postMessage({
