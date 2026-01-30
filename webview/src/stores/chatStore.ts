@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ContextItem } from '../types/context';
+import { useHistoryStore } from './historyStore';
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -15,7 +16,6 @@ interface ChatState {
   conversationId: string | null;
   attachments: ContextItem[];
   
-  // Actions
   addMessage: (message: Message) => void;
   updateStreamingMessage: (index: number, token: string) => void;
   setMessages: (messages: Message[]) => void;
@@ -26,22 +26,37 @@ interface ChatState {
   updateContext: (id: string, updates: Partial<ContextItem>) => void;
   removeContext: (id: string) => void;
   clearContext: () => void;
+  saveCurrentChat: () => void;
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const triggerAutoSave = (chatId: string | null, messages: Message[]) => {
+  if (!chatId) return;
+  
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  
+  saveTimeout = setTimeout(() => {
+    useHistoryStore.getState().saveCurrentChat(chatId, messages);
+  }, 2000);
+};
+
+export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
   error: null,
   conversationId: null,
   attachments: [],
 
-  addMessage: (message) =>
-    set((state) => ({
-      messages: [...state.messages, message],
-      error: null
-    })),
+  addMessage: (message) => {
+    const newMessages = [...get().messages, message];
+    set({ messages: newMessages, error: null });
+    triggerAutoSave(get().conversationId, newMessages);
+  },
 
-  updateStreamingMessage: (index, token) =>
+  updateStreamingMessage: (index, token) => {
     set((state) => {
       const messages = [...state.messages];
       if (messages[index]) {
@@ -51,21 +66,25 @@ export const useChatStore = create<ChatState>((set) => ({
         };
       }
       return { messages };
-    }),
+    });
+  },
 
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages) => {
+    set({ messages });
+    triggerAutoSave(get().conversationId, messages);
+  },
+  
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
   
   clearMessages: () => set({ 
     messages: [], 
     error: null, 
-    conversationId: null // Reset conversation on clear
+    conversationId: null
   }),
 
   addContext: (context) => 
     set((state) => {
-      // Avoid duplicates
       if (state.attachments.some(a => a.id === context.id)) return state;
       return { attachments: [...state.attachments, context] };
     }),
@@ -82,5 +101,12 @@ export const useChatStore = create<ChatState>((set) => ({
       attachments: state.attachments.filter(a => a.id !== id)
     })),
 
-  clearContext: () => set({ attachments: [] })
+  clearContext: () => set({ attachments: [] }),
+
+  saveCurrentChat: () => {
+    const { conversationId, messages } = get();
+    if (conversationId && messages.length > 0) {
+      useHistoryStore.getState().saveCurrentChat(conversationId, messages);
+    }
+  }
 }));

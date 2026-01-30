@@ -1,9 +1,11 @@
 import { ChatContainer } from './components/Chat/ChatContainer';
 import { Header } from './components/Header/Header';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
+import { ChatHistory } from './components/History/ChatHistory';
 import { useVSCode } from './hooks/useVSCode';
 import { useChatStore, type Message } from './stores/chatStore';
 import { useSettingsStore } from './stores/settingsStore';
+import { useHistoryStore } from './stores/historyStore';
 import { useEffect } from 'react';
 
 interface Model {
@@ -37,25 +39,33 @@ interface VSCodeMessage {
   provider?: string;
   models?: Model[];
   context?: ContextItem;
+  chatId?: string;
+  chats?: any[];
+  metadata?: any;
+  conversationId?: string;
 }
 
 function App() {
   const { postMessage, onMessage } = useVSCode();
-  const { addMessage, updateStreamingMessage, setMessages, setError, setLoading } = useChatStore();
+  const { addMessage, updateStreamingMessage, setMessages, setError, setLoading, saveCurrentChat } = useChatStore();
   const { isOpen, closeSettings, config, setConfig } = useSettingsStore();
+  const { setChats, setCurrentChatId, loadHistory } = useHistoryStore();
 
   useEffect(() => {
-    // Request initial data
     postMessage({ type: 'getMessages' });
     postMessage({ type: 'getConfig' });
+    postMessage({ type: 'loadHistory' });
 
-    // Listen for messages from extension
     const cleanup = onMessage((message: VSCodeMessage) => {
       console.log('[App] Received message from extension:', message.type, message);
       switch (message.type) {
         case 'messages':
           if (message.messages) {
             setMessages(message.messages);
+          }
+          if (message.conversationId) {
+            useChatStore.setState({ conversationId: message.conversationId });
+            setCurrentChatId(message.conversationId);
           }
           break;
         case 'config':
@@ -65,7 +75,6 @@ function App() {
           break;
         case 'modelsFound':
           if (message.models) {
-            // Dispatch event to settings panel
             window.dispatchEvent(new CustomEvent('modelsFound', { 
               detail: { models: message.models } 
             }));
@@ -91,6 +100,7 @@ function App() {
           break;
         case 'streamComplete':
           setLoading(false);
+          saveCurrentChat();
           break;
         case 'error':
           if (typeof message.message === 'string') {
@@ -101,11 +111,39 @@ function App() {
         case 'conversationCleared':
           setMessages([]);
           break;
+        case 'historyLoaded':
+          if (message.chats) {
+            setChats(message.chats);
+          }
+          break;
+        case 'chatLoaded':
+          if (message.messages) {
+            setMessages(message.messages);
+          }
+          if (message.chatId) {
+            setCurrentChatId(message.chatId);
+            useChatStore.setState({ conversationId: message.chatId });
+          }
+          break;
+        case 'chatSaved':
+          loadHistory();
+          break;
+        case 'chatDeleted':
+          loadHistory();
+          break;
+        case 'chatCreated':
+          if (message.metadata) {
+            setMessages([]);
+            setCurrentChatId(message.metadata.id);
+            useChatStore.setState({ conversationId: message.metadata.id });
+            loadHistory();
+          }
+          break;
       }
     });
 
     return cleanup;
-  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setConfig]);
+  }, [postMessage, onMessage, addMessage, updateStreamingMessage, setMessages, setError, setLoading, setConfig, setChats, setCurrentChatId, loadHistory, saveCurrentChat]);
 
   const handleSendMessage = (content: string) => {
     postMessage({ type: 'sendMessage', content });
@@ -126,17 +164,22 @@ function App() {
 
   return (
     <div className="app">
-      <Header onNewChat={handleNewChat} />
-      <ChatContainer 
-        onSendMessage={handleSendMessage}
-        onAbort={handleAbort}
-      />
-      <SettingsPanel
-        isOpen={isOpen}
-        onClose={closeSettings}
-        config={config}
-        onSave={handleSaveSettings}
-      />
+      <div className="sidebar">
+        <ChatHistory />
+      </div>
+      <div className="main-content">
+        <Header onNewChat={handleNewChat} />
+        <ChatContainer 
+          onSendMessage={handleSendMessage}
+          onAbort={handleAbort}
+        />
+        <SettingsPanel
+          isOpen={isOpen}
+          onClose={closeSettings}
+          config={config}
+          onSave={handleSaveSettings}
+        />
+      </div>
     </div>
   );
 }

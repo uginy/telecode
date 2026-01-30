@@ -103,13 +103,15 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
     // handleInput is called in useLayoutEffect to avoid race condition
   };
 
+  const { saveCurrentChat } = useChatStore();
+
   const handleSend = () => {
     if ((!value.trim() && attachments.length === 0) || isLoading) return;
     
     // Combine content with attachments
     let finalContent = value;
     if (attachments.length > 0) {
-      const contextStr = attachments.map(a => 
+      const contextStr = attachments.map(a =>
         `\n\`\`\`${a.type}:${a.name}\n${a.content}\n\`\`\``
       ).join('\n');
       finalContent = `${value}\n\nContext:\n${contextStr}`;
@@ -119,6 +121,9 @@ export function MessageInput({ onSend, onAbort, isLoading }: MessageInputProps) 
     setValue('');
     clearContext();
     clearSearch();
+    
+    // Trigger immediate save
+    setTimeout(() => saveCurrentChat(), 100);
   };
 
   const handleAttach = () => {

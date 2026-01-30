@@ -4,6 +4,7 @@ import { ProviderRegistry } from '../providers/registry';
 import { Message, StreamCallbacks } from '../providers/base';
 import { FileSystemTools } from '../tools/fileSystem';
 import { DiffContentProvider } from '../providers/diffProvider';
+import { ChatStorage, ChatMetadata } from '../storage/ChatStorage';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'aisCode.chatView';
@@ -11,14 +12,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _messages: Message[] = [];
   private _conversationId: string;
+  private _chatStorage: ChatStorage;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _providerRegistry: ProviderRegistry,
     private readonly _diffContentProvider: DiffContentProvider,
+    private readonly _context: vscode.ExtensionContext,
     private readonly _outputChannel?: vscode.OutputChannel
   ) {
     this._conversationId = this._generateId();
+    this._chatStorage = new ChatStorage(_context);
     this._log('ChatViewProvider initialized');
   }
 
@@ -90,6 +94,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'applyDiff':
           await this._handleApplyDiff(data.code, data.targetPath);
+          break;
+        case 'loadHistory':
+          await this._handleLoadHistory();
+          break;
+        case 'loadChat':
+          await this._handleLoadChat(data.chatId);
+          break;
+        case 'saveChat':
+          await this._handleSaveChat(data.chatId, data.messages);
+          break;
+        case 'deleteChat':
+          await this._handleDeleteChat(data.chatId);
+          break;
+        case 'createChat':
+          await this._handleCreateChat();
           break;
       }
     });
@@ -340,6 +359,71 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._conversationId = this._generateId();
     this._sendMessagesToWebview();
     this._postMessage({ type: 'conversationCleared' });
+  }
+
+  private async _handleLoadHistory() {
+    try {
+      const chats = await this._chatStorage.getAllChats();
+      this._postMessage({ type: 'historyLoaded', chats });
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Failed to load history: ${error.message}`);
+      this._postMessage({ type: 'error', message: error.message });
+    }
+  }
+
+  private async _handleLoadChat(chatId: string) {
+    try {
+      const chat = await this._chatStorage.getChat(chatId);
+      if (chat) {
+        this._conversationId = chatId;
+        this._messages = chat.messages;
+        this._sendMessagesToWebview();
+        this._postMessage({ type: 'chatLoaded', chatId, messages: chat.messages });
+      } else {
+        this._postMessage({ type: 'error', message: 'Chat not found' });
+      }
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Failed to load chat: ${error.message}`);
+      this._postMessage({ type: 'error', message: error.message });
+    }
+  }
+
+  private async _handleSaveChat(chatId: string, messages: Message[]) {
+    try {
+      const metadata = await this._chatStorage.saveChat(chatId, messages);
+      this._postMessage({ type: 'chatSaved', metadata });
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Failed to save chat: ${error.message}`);
+      this._postMessage({ type: 'error', message: error.message });
+    }
+  }
+
+  private async _handleDeleteChat(chatId: string) {
+    try {
+      await this._chatStorage.deleteChat(chatId);
+      if (this._conversationId === chatId) {
+        this._messages = [];
+        this._conversationId = this._generateId();
+        this._sendMessagesToWebview();
+      }
+      this._postMessage({ type: 'chatDeleted', chatId });
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Failed to delete chat: ${error.message}`);
+      this._postMessage({ type: 'error', message: error.message });
+    }
+  }
+
+  private async _handleCreateChat() {
+    try {
+      const metadata = await this._chatStorage.createChat();
+      this._conversationId = metadata.id;
+      this._messages = [];
+      this._sendMessagesToWebview();
+      this._postMessage({ type: 'chatCreated', metadata });
+    } catch (error: any) {
+      vscode.window.showErrorMessage(`Failed to create chat: ${error.message}`);
+      this._postMessage({ type: 'error', message: error.message });
+    }
   }
 
   public updateConfiguration() {
