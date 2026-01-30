@@ -1,14 +1,13 @@
-import React from 'react';
+import type React from 'react';
 import { Plus, Settings, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useChatStore } from '@/store/useChatStore';
 
-interface ChatHeaderProps {
-  onNewChat: () => void;
-}
+export const ChatHeader: React.FC = () => {
+  const clearHistory = useChatStore((state) => state.clearHistory);
 
-export const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewChat }) => {
   return (
     <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-20">
       <div className="flex items-center gap-2">
@@ -17,7 +16,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewChat }) => {
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onNewChat}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={clearHistory}>
               <Plus className="w-4 h-4" />
             </Button>
           </TooltipTrigger>

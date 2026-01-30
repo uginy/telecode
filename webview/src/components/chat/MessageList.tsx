@@ -1,20 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import type React from 'react';
+import { useRef, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageItem, type Message } from './MessageItem';
+import { MessageItem } from './MessageItem';
+import { useChatStore } from '@/store/useChatStore';
 
-interface MessageListProps {
-  messages: Message[];
-}
-
-export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+export const MessageList: React.FC = () => {
+  const messages = useChatStore((state) => state.messages);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]); // Changed to full messages array to satisfy linter
+  }, [messages.length]); 
 
   if (messages.length === 0) {
     return (

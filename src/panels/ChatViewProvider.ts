@@ -40,12 +40,36 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
+
+    // Handle configuration changes
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('aisCode')) {
+        this._updateWebviewSettings();
+      }
+    });
+
+    // Initial settings sync
+    this._updateWebviewSettings();
+  }
+
+  private _updateWebviewSettings() {
+    if (!this._view) return;
+    const config = vscode.workspace.getConfiguration('aisCode');
+    this._view.webview.postMessage({
+      type: 'setSettings',
+      settings: {
+        provider: 'openrouter',
+        modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free',
+        maxTokens: config.get('maxTokens') || 4096,
+        temperature: config.get('temperature') || 0.7,
+      }
+    });
   }
 
   private async _handleSendMessage(text: string) {
     if (!this._agent) {
       const config = vscode.workspace.getConfiguration('aisCode');
-      const apiKey = config.get<string>('openrouter.apiKey');
+      const apiKey = config.get<string>('openrouter.apiKey') || '';
       const modelId = config.get<string>('openrouter.model') || 'google/gemini-2.0-flash-exp:free';
 
       const provider = new OpenRouterProvider({
@@ -59,9 +83,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this._agent = new AgentOrbit(provider, this._toolRegistry);
     }
 
-    await this._agent.run(text, (chunk: string) => {
-      this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
-    });
+    this._view?.webview.postMessage({ type: 'setStreaming', value: true });
+    
+    try {
+      await this._agent.run(text, (chunk: string) => {
+        this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
+      });
+    } finally {
+      this._view?.webview.postMessage({ type: 'setStreaming', value: false });
+    }
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
@@ -70,7 +100,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     if (isDevelopment) {
       return `<!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" class="dark">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -101,7 +131,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(distPath, 'index.css'));
 
     return `<!DOCTYPE html>
-      <html lang="en">
+      <html lang="en" class="dark">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
