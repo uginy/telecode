@@ -1,20 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-
-declare function acquireVsCodeApi(): {
-  postMessage(message: unknown): void;
-  getState(): unknown;
-  setState(state: unknown): void;
-};
-
-// Cache the VS Code API instance
-let vscodeApi: ReturnType<typeof acquireVsCodeApi> | null = null;
-
-function getVSCodeAPI() {
-  if (!vscodeApi) {
-    vscodeApi = acquireVsCodeApi();
-  }
-  return vscodeApi;
-}
+import { getVSCodeApi } from '../lib/vscodeApi';
 
 interface VSCodeMessage {
   type: string;
@@ -36,7 +21,7 @@ export function useVSCode() {
   }, []);
 
   const postMessage = useCallback((message: VSCodeMessage) => {
-    getVSCodeAPI().postMessage(message);
+    getVSCodeApi().postMessage(message);
   }, []);
 
   const onMessage = useCallback((callback: (message: VSCodeMessage) => void) => {
@@ -47,11 +32,11 @@ export function useVSCode() {
   }, []);
 
   const getState = useCallback(() => {
-    return getVSCodeAPI().getState();
+    return getVSCodeApi().getState();
   }, []);
 
   const setState = useCallback((state: unknown) => {
-    getVSCodeAPI().setState(state);
+    getVSCodeApi().setState(state);
   }, []);
 
   return {

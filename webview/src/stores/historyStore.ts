@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ChatMetadata } from '../types/history';
 import { Message } from './chatStore';
+import { getVSCodeApi } from '../lib/vscodeApi';
 
 interface HistoryState {
   chats: ChatMetadata[];
@@ -23,25 +24,25 @@ export const useHistoryStore = create<HistoryState>((set) => ({
 
   loadHistory: () => {
     set({ isLoading: true });
-    window.parent.postMessage({ type: 'loadHistory' }, '*');
+    getVSCodeApi().postMessage({ type: 'loadHistory' });
   },
 
   loadChat: (chatId: string) => {
     set({ currentChatId: chatId, isLoading: true });
-    window.parent.postMessage({ type: 'loadChat', chatId }, '*');
+    getVSCodeApi().postMessage({ type: 'loadChat', chatId });
   },
 
   saveCurrentChat: (chatId: string, messages: Message[]) => {
-    window.parent.postMessage({ type: 'saveChat', chatId, messages }, '*');
+    getVSCodeApi().postMessage({ type: 'saveChat', chatId, messages });
   },
 
   deleteChat: (chatId: string) => {
-    window.parent.postMessage({ type: 'deleteChat', chatId }, '*');
+    getVSCodeApi().postMessage({ type: 'deleteChat', chatId });
   },
 
   createChat: () => {
     set({ isLoading: true });
-    window.parent.postMessage({ type: 'createChat' }, '*');
+    getVSCodeApi().postMessage({ type: 'createChat' });
   },
 
   setCurrentChatId: (id: string | null) => set({ currentChatId: id }),

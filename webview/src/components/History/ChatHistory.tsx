@@ -1,40 +1,9 @@
-import { useEffect } from 'react';
 import { useHistoryStore } from '../../stores/historyStore';
 import { ChatHistoryItem } from './ChatHistoryItem';
 import { NewChatButton } from './NewChatButton';
 
 export function ChatHistory() {
-  const { chats, currentChatId, isLoading, loadHistory, loadChat, deleteChat, createChat, setChats } = useHistoryStore();
-
-  useEffect(() => {
-    loadHistory();
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      
-      switch (message.type) {
-        case 'historyLoaded':
-          if (message.chats) {
-            setChats(message.chats);
-          }
-          break;
-        case 'chatSaved':
-          loadHistory();
-          break;
-        case 'chatDeleted':
-          loadHistory();
-          break;
-        case 'chatCreated':
-          if (message.metadata) {
-            setChats([message.metadata, ...chats]);
-          }
-          break;
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [loadHistory, setChats, chats]);
+  const { chats, currentChatId, isLoading, loadChat, deleteChat, createChat } = useHistoryStore();
 
   const handleDelete = (e: React.MouseEvent, chatId: string) => {
     e.stopPropagation();

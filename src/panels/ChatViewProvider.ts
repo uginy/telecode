@@ -83,8 +83,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           this._handleGetContext();
           break;
         case 'searchContext':
-          console.log('[ChatViewProvider] Handling searchContext query:', data.query, 'type:', data.type);
-          this._handleSearchContext(data.query, data.type);
+          console.log('[ChatViewProvider] Handling searchContext query:', data.query, 'contextType:', data.contextType);
+          this._handleSearchContext(data.query, data.contextType);
           break;
         case 'requestContextItem':
           this._handleRequestContextItem(data.path, data.contextType);

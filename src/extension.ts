@@ -37,14 +37,15 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.newChat', () => {
+    vscode.commands.registerCommand('aisCode.newConversation', () => {
       chatViewProvider?.newConversation();
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.openSettings', () => {
-      // settings are handled in webview
+    vscode.commands.registerCommand('aisCode.openChat', async () => {
+      // Focus the AIS Code container in the activity bar.
+      await vscode.commands.executeCommand('workbench.view.extension.ais-code');
     })
   );
 

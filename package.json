@@ -20,7 +20,11 @@
     "agent",
     "copilot"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:aisCode.chatView",
+    "onCommand:aisCode.openChat",
+    "onCommand:aisCode.newConversation"
+  ],
   "main": "./dist/extension.js",
   "icon": "media/icon.png",
   "contributes": {

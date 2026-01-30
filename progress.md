@@ -25,11 +25,15 @@ A specialized AI coding assistant for VS Code.
 - [x] **Bug Fixes**: Resolve issue where `@` menu doesn't appear for some users.
 - [x] **Bug Fixes**: Improve Markdown parsing for LLM responses (ensure code blocks are always detected).
 
+### ✅ Recent Updates
+
+- [x] **History Persistence**: Save conversations to file-based storage with sidebar UI
+
 ### 🚀 Upcoming Features
 
 - [x] **Direct Apply**: One-click "Apply" button to merge changes from Diff View.
 - [ ] **Terminal Context**: Ability to `@terminal` to include last output in context.
-- [ ] **History Persistence**: Save conversations to local storage.
+- [x] **History Persistence**: Save conversations to local storage.
 - [ ] **Indexing**: Better file search using workspace indexing (for large projects).
 
 ## 🛠 Current Debug Logs
