@@ -14,15 +14,15 @@
   --text-secondary: #9d9d9d;
   --text-muted: #6d6d6d;
 
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
-  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --accent-primary: #5b66d8;
+  --accent-secondary: #6f7be2;
+  --accent-gradient: linear-gradient(135deg, #4f5dd6 0%, #6a75df 100%);
 
   --border-color: var(--vscode-panel-border, #3c3c3c);
   --shadow-color: rgba(0, 0, 0, 0.3);
 
-  --user-bubble-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  --ai-bubble-bg: #2a2a2a;
+  --user-bubble-bg: linear-gradient(135deg, #3c3f66 0%, #34385b 100%);
+  --ai-bubble-bg: #242424;
 
   --error-color: #f87171;
   --success-color: #34d399;
@@ -306,6 +306,12 @@ body {
   letter-spacing: 0.5px;
 }
 
+.code-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .copy-button {
   display: flex;
   align-items: center;
@@ -362,7 +368,7 @@ body {
   margin-left: var(--spacing-sm);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-color);
   font-size: 10px;
   text-transform: uppercase;
