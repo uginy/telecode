@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useVSCode } from '../../hooks/useVSCode';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -14,7 +15,21 @@ export interface SettingsConfig {
   model: string;
 }
 
+interface Model {
+  id: string;
+  name: string;
+  isFree?: boolean;
+  contextWindow?: number;
+}
+
 const PROVIDERS = [
+  { 
+    id: 'openrouter', 
+    name: 'OpenRouter',
+    description: 'Free & Paid Models (Gemini, Llama, DeepSeek)',
+    requiresApiKey: true,
+    hasDynamicModels: true
+  },
   { 
     id: 'openai-compatible', 
     name: 'OpenAI Compatible',
@@ -35,64 +50,67 @@ const PROVIDERS = [
   }
 ];
 
-const PRESET_URLS = [
-  { label: 'Ollama (local)', url: 'http://localhost:11434/v1' },
-  { label: 'LM Studio (local)', url: 'http://localhost:1234/v1' },
-  { label: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
-  { label: 'Custom', url: '' }
-];
-
-const MODELS_BY_PROVIDER: Record<string, string[]> = {
-  'openai-compatible': [
-    'llama3.2',
-    'qwen2.5-coder:7b',
-    'deepseek-coder-v2',
-    'codestral',
-    'mistral',
-  ],
-  'anthropic': [
-    'claude-sonnet-4-20250514',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-5-haiku-20241022',
-    'claude-3-opus-20240229'
-  ],
-  'openai': [
-    'gpt-4o',
-    'gpt-4o-mini',
-    'gpt-4-turbo',
-    'o1-preview',
-    'o1-mini'
-  ]
-};
-
 export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanelProps) {
+  const { postMessage } = useVSCode();
   const [localConfig, setLocalConfig] = useState<SettingsConfig>(config);
-  const [customModel, setCustomModel] = useState('');
+  // Removed unused customModel state
+  const [models, setModels] = useState<Model[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelSearch, setModelSearch] = useState('');
+  const [onlyFree, setOnlyFree] = useState(true);
+
+  // Update local config when prop changes
+  useEffect(() => {
+    setLocalConfig(config);
+  }, [config]);
+
+  // Listen for models found
+  useEffect(() => {
+    const handleModelsFound = (e: CustomEvent) => {
+      setModels(e.detail.models);
+      setIsLoadingModels(false);
+    };
+
+    window.addEventListener('modelsFound', handleModelsFound as EventListener);
+    return () => window.removeEventListener('modelsFound', handleModelsFound as EventListener);
+  }, []);
 
   if (!isOpen) return null;
 
   const currentProvider = PROVIDERS.find(p => p.id === localConfig.provider);
-  const availableModels = MODELS_BY_PROVIDER[localConfig.provider] || [];
 
   const handleProviderChange = (providerId: string) => {
-    const models = MODELS_BY_PROVIDER[providerId] || [];
-    setLocalConfig({
-      ...localConfig,
+    setLocalConfig(prev => ({
+      ...prev,
       provider: providerId,
-      model: models[0] || '',
+      // Keep existing values if switching back
       baseUrl: providerId === 'openai-compatible' ? 'http://localhost:11434/v1' : '',
-      apiKey: ''
+      model: prev.provider === providerId ? prev.model : ''
+    }));
+    setModels([]);
+  };
+
+  const fetchModels = () => {
+    if (!localConfig.apiKey) return;
+    setIsLoadingModels(true);
+    postMessage({ 
+      type: 'fetchModels', 
+      provider: localConfig.provider,
+      apiKey: localConfig.apiKey
     });
   };
 
   const handleSave = () => {
-    const finalConfig = {
-      ...localConfig,
-      model: customModel || localConfig.model
-    };
-    onSave(finalConfig);
+    // Save current local config directly
+    onSave(localConfig);
     onClose();
   };
+
+  const filteredModels = models.filter(m => {
+    if (onlyFree && !m.isFree) return false;
+    if (modelSearch && !m.name.toLowerCase().includes(modelSearch.toLowerCase()) && !m.id.toLowerCase().includes(modelSearch.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div className="settings-overlay" onClick={onClose}>
@@ -115,9 +133,6 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
                 >
                   <span className="provider-name">{provider.name}</span>
                   <span className="provider-desc">{provider.description}</span>
-                  {provider.requiresApiKey && (
-                    <span className="provider-badge">API Key</span>
-                  )}
                 </button>
               ))}
             </div>
@@ -127,17 +142,6 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           {localConfig.provider === 'openai-compatible' && (
             <div className="settings-section">
               <label className="settings-label">Base URL</label>
-              <div className="preset-buttons">
-                {PRESET_URLS.map(preset => (
-                  <button
-                    key={preset.label}
-                    className={`preset-button ${localConfig.baseUrl === preset.url ? 'active' : ''}`}
-                    onClick={() => setLocalConfig({ ...localConfig, baseUrl: preset.url })}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
               <input
                 type="text"
                 className="settings-input"
@@ -152,40 +156,83 @@ export function SettingsPanel({ isOpen, onClose, config, onSave }: SettingsPanel
           {currentProvider?.requiresApiKey && (
             <div className="settings-section">
               <label className="settings-label">API Key</label>
-              <input
-                type="password"
-                className="settings-input"
-                value={localConfig.apiKey}
-                onChange={e => setLocalConfig({ ...localConfig, apiKey: e.target.value })}
-                placeholder={`Enter your ${currentProvider.name} API key`}
-              />
+              <div className="api-key-wrapper">
+                <input
+                  type="password"
+                  className="settings-input"
+                  value={localConfig.apiKey}
+                  onChange={e => setLocalConfig({ ...localConfig, apiKey: e.target.value })}
+                  placeholder={`Enter your ${currentProvider.name} API key`}
+                />
+                {currentProvider.hasDynamicModels && (
+                  <button 
+                    className="fetch-button"
+                    onClick={fetchModels}
+                    disabled={!localConfig.apiKey || isLoadingModels}
+                  >
+                    {isLoadingModels ? 'Fetching...' : 'Get Models'}
+                  </button>
+                )}
+              </div>
+              {localConfig.provider === 'openrouter' && (
+                <p className="settings-hint">
+                  Get your key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai</a>
+                </p>
+              )}
             </div>
           )}
 
           {/* Model Selection */}
           <div className="settings-section">
             <label className="settings-label">Model</label>
-            <div className="model-grid">
-              {availableModels.map(model => (
-                <button
-                  key={model}
-                  className={`model-button ${localConfig.model === model ? 'active' : ''}`}
-                  onClick={() => {
-                    setLocalConfig({ ...localConfig, model });
-                    setCustomModel('');
-                  }}
-                >
-                  {model}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              className="settings-input"
-              value={customModel || (availableModels.includes(localConfig.model) ? '' : localConfig.model)}
-              onChange={e => setCustomModel(e.target.value)}
-              placeholder="Or enter custom model name..."
-            />
+            
+            {currentProvider?.hasDynamicModels && models.length > 0 ? (
+              <div className="model-selector">
+                <div className="model-search-bar">
+                  <input
+                    type="text"
+                    className="settings-input search-input"
+                    placeholder="Search models..."
+                    value={modelSearch}
+                    onChange={e => setModelSearch(e.target.value)}
+                  />
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={onlyFree}
+                      onChange={e => setOnlyFree(e.target.checked)}
+                    />
+                    Free only
+                  </label>
+                </div>
+                
+                <div className="model-list">
+                  {filteredModels.map(model => (
+                    <button
+                      key={model.id}
+                      className={`model-item ${localConfig.model === model.id ? 'active' : ''}`}
+                      onClick={() => setLocalConfig({ ...localConfig, model: model.id })}
+                    >
+                      <div className="model-info">
+                        <span className="model-name">{model.name}</span>
+                        <span className="model-id">{model.id}</span>
+                      </div>
+                      {model.isFree && <span className="free-badge">FREE</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="manual-model-input">
+                <input
+                  type="text"
+                  className="settings-input"
+                  value={localConfig.model}
+                  onChange={e => setLocalConfig({ ...localConfig, model: e.target.value })}
+                  placeholder="Enter model ID (e.g. google/gemini-2.0-flash-exp:free)"
+                />
+              </div>
+            )}
           </div>
         </div>
 

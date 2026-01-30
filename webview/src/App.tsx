@@ -7,6 +7,13 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useEffect } from 'react';
 
 // Types for messages from VS Code extension
+interface Model {
+  id: string;
+  name: string;
+  contextWindow: number;
+  isFree?: boolean;
+}
+
 interface VSCodeMessage {
   type: string;
   messages?: Message[];
@@ -20,6 +27,8 @@ interface VSCodeMessage {
     apiKey: string;
     model: string;
   };
+  provider?: string;
+  models?: Model[];
 }
 
 function App() {
@@ -43,6 +52,14 @@ function App() {
         case 'config':
           if (message.config) {
             setConfig(message.config);
+          }
+          break;
+        case 'modelsFound':
+          if (message.models) {
+            // Dispatch event to settings panel
+            window.dispatchEvent(new CustomEvent('modelsFound', { 
+              detail: { models: message.models } 
+            }));
           }
           break;
         case 'messageAdded':

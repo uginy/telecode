@@ -35,7 +35,10 @@ export class OpenRouterProvider extends BaseProvider {
         }
       });
     }
-    return this._client!;
+    if (!this._client) {
+      throw new Error('OpenRouter client not initialized. Check API Key.');
+    }
+    return this._client;
   }
 
   private getApiKey(): string | undefined {
@@ -90,29 +93,43 @@ export class OpenRouterProvider extends BaseProvider {
     try {
       const response = await fetch('https://openrouter.ai/api/v1/models', {
         headers: {
-          Authorization: `Bearer ${apiKey}`
+          'Authorization': `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://github.com/ais-code/vscode-extension',
+          'X-Title': 'AIS Code',
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText} (${errorText})`);
       }
 
       const data = await response.json() as { data: OpenRouterModel[] };
       
-      this._cachedModels = data.data.map((m: OpenRouterModel) => ({
-        id: m.id,
-        name: m.name || m.id,
-        contextWindow: m.context_length || 4096,
-        maxOutput: 4096,
-        supportsVision: m.id.includes('vision') || m.id.includes('gemini'),
-        isFree: m.pricing?.prompt === '0' && m.pricing?.completion === '0'
-      }));
+      this._cachedModels = data.data.map((m: OpenRouterModel) => {
+        const promptPrice = parseFloat(m.pricing?.prompt || '0');
+        const completionPrice = parseFloat(m.pricing?.completion || '0');
+        const isFree = promptPrice === 0 && completionPrice === 0;
+
+        return {
+          id: m.id,
+          name: m.name || m.id,
+          contextWindow: m.context_length || 4096,
+          maxOutput: 4096,
+          supportsVision: m.id.includes('vision') || m.id.includes('gemini'),
+          isFree,
+          pricing: {
+            inputPerMillion: parseFloat(m.pricing?.prompt || '0') * 1000000,
+            outputPerMillion: parseFloat(m.pricing?.completion || '0') * 1000000
+          }
+        };
+      });
 
       return this._cachedModels;
     } catch (error) {
       console.error('Failed to fetch OpenRouter models:', error);
-      return this.getModels(); // Return defaults on error
+      throw error; // Re-throw to show in UI
     }
   }
 
