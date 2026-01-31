@@ -66,6 +66,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'searchFiles':
           await this._handleSearchFiles(data.query as string);
           break;
+        case 'resolveContextItems':
+          await this._handleResolveContextItems(data.paths as string[]);
+          break;
       }
     });
 
@@ -287,6 +290,42 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         console.error('Search files error:', e);
         this._view.webview.postMessage({ type: 'searchResults', results: [] });
     }
+  }
+
+  private async _handleResolveContextItems(paths: string[]) {
+    if (!this._view) return;
+    const items: { type: 'file' | 'folder' | 'terminal', label: string, value: string }[] = [];
+    
+    for (const p of paths) {
+        try {
+            // Check if path is valid uri
+            // If it's a file path string from VS Code drag event, it likely is file:///...
+            // If it's just a path, Uri.file might be needed. 
+            // We'll try parse first, if scheme is 'file', good.
+            let uri = vscode.Uri.parse(p);
+            
+            // If parse didn't give a scheme, maybe it's a raw path
+            if (uri.scheme !== 'file' && !p.startsWith('file:')) {
+                uri = vscode.Uri.file(p);
+            }
+            
+            const stat = await vscode.workspace.fs.stat(uri);
+            const relativePath = vscode.workspace.asRelativePath(uri);
+            
+            if (stat.type === vscode.FileType.Directory) {
+                 items.push({ type: 'folder', label: relativePath, value: uri.fsPath });
+            } else {
+                 items.push({ type: 'file', label: relativePath, value: relativePath });
+            }
+        } catch (e) {
+            console.warn('Failed to resolve path:', p, e);
+        }
+    }
+    
+    this._view.webview.postMessage({
+        type: 'addContextItems',
+        items
+    });
   }
 
   private async _handleSendMessage(text: string, contextItems?: { type: string, value: string }[]) {

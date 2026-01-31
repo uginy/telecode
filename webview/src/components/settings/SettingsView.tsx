@@ -16,7 +16,7 @@ import { PROVIDERS, getProviderById } from '@/config/providers';
 type SettingsTab = 'api' | 'features' | 'browser' | 'terminal' | 'general' | 'about';
 
 export const SettingsView: React.FC = () => {
-  const { settings, updateSettings, setView } = useChatStore();
+  const { settings, updateSettings, setView, updateUsage, usage } = useChatStore();
   const [localSettings, setLocalSettings] = useState(settings);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -26,12 +26,22 @@ export const SettingsView: React.FC = () => {
   const handleSave = () => {
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(localSettings);
     
+    // Find selected model context limit to update usage
+    const selectedProvider = getProviderById(localSettings.provider);
+    const selectedModel = selectedProvider?.models.find(m => m.id === localSettings.modelId);
+
+    if (selectedModel?.contextLimit) {
+        updateUsage({ used: usage.used, total: selectedModel.contextLimit });
+    }
+
     if (hasChanges) {
       updateSettings(localSettings);
-      vscode.postMessage({
-        type: 'updateSettings',
-        settings: localSettings
-      });
+      if ((window as any).vscode) {
+          (window as any).vscode.postMessage({
+            type: 'updateSettings',
+            settings: localSettings
+          });
+      }
     }
     setView('chat');
   };

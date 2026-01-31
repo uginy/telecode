@@ -1,9 +1,9 @@
-import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
-import { Send, X, File as FileIcon, Folder as FolderIcon, Terminal as TerminalIcon } from 'lucide-react';
+import { Send, X, File as FileIcon, Folder as FolderIcon, Terminal as TerminalIcon, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useChatStore, type SearchResult } from '@/store/useChatStore';
 import { cn } from '@/lib/utils';
+import { useFileDrop } from '@/hooks/useFileDrop';
 
 interface ChatInputProps {
   onSend: (text: string, contextItems: SearchResult[]) => void;
@@ -12,12 +12,20 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
   const [value, setValue] = useState('');
-  const [contextItems, setContextItems] = useState<SearchResult[]>([]);
+  
+  // Use global store for context items
+  const contextItems = useChatStore((state) => state.contextItems);
+  const setContextItems = useChatStore((state) => state.setContextItems);
+  const addContextItem = useChatStore((state) => state.addContextItem);
+  const removeContextItem = useChatStore((state) => state.removeContextItem);
+  
   const isStreaming = useChatStore((state) => state.isStreaming);
   const searchResults = useChatStore((state) => state.searchResults);
   
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  const { isDragging, handleDragOver, handleDragEnter, handleDragLeave, handleDrop } = useFileDrop();
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -45,9 +53,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
   };
 
   const selectItem = (item: SearchResult) => {
-      if (!contextItems.some(i => i.value === item.value && i.type === item.type)) {
-          setContextItems([...contextItems, item]);
-      }
+      addContextItem(item);
       
       const cursor = textareaRef.current?.selectionStart || 0;
       const textBeforeCursor = value.slice(0, cursor);
@@ -65,7 +71,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
   };
 
   const removeItem = (itemVal: string) => {
-      setContextItems(contextItems.filter(i => i.value !== itemVal));
+      removeContextItem(itemVal);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -112,7 +118,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
   };
 
   return (
-    <footer className="p-2 border-t border-border bg-background/95 backdrop-blur-sm relative">
+    <footer 
+        className="p-2 border-t border-border bg-background/95 backdrop-blur-sm relative"
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+    >
+       {/* Drop Overlay */}
+       {isDragging && (
+        <div className="absolute inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center border-2 border-dashed border-primary rounded-lg animate-in fade-in duration-200 pointer-events-none">
+            <div className="flex flex-col items-center gap-2 text-primary animate-bounce">
+                <UploadCloud className="w-6 h-6" />
+                <span className="font-bold text-xs uppercase tracking-wider">Drop to add context</span>
+            </div>
+        </div>
+       )}
+
        {/* Context Items Chips */}
        {contextItems.length > 0 && (
            <div className="flex flex-wrap gap-2 mb-2 px-1">
@@ -179,7 +201,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
             value={value}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={isStreaming ? "AIS is thinking..." : "Message AIS Code... (Type @ to add files)"}
+            placeholder={isStreaming ? "AIS is thinking..." : "Message AIS Code... (Type @ or drop files)"}
             disabled={isStreaming}
             className="w-full min-h-[40px] max-h-[200px] bg-muted/40 border border-border/50 focus:border-primary/40 focus:bg-muted/40 rounded-xl px-3 py-2.5 text-xs focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-50"
             rows={1}

@@ -44,9 +44,14 @@ interface ChatState {
   addToolResult: (result: ToolResult) => void;
   setSessions: (sessions: Session[]) => void;
   setActiveSessionId: (id: string) => void;
-  
+
   searchResults: SearchResult[];
   setSearchResults: (results: SearchResult[]) => void;
+
+  contextItems: SearchResult[];
+  setContextItems: (items: SearchResult[]) => void;
+  addContextItem: (item: SearchResult) => void;
+  removeContextItem: (value: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -126,4 +131,14 @@ export const useChatStore = create<ChatState>((set) => ({
   
   searchResults: [] as SearchResult[],
   setSearchResults: (results: SearchResult[]) => set({ searchResults: results }),
+
+  contextItems: [] as SearchResult[],
+  setContextItems: (items: SearchResult[]) => set({ contextItems: items }),
+  addContextItem: (item: SearchResult) => set((state) => {
+      if (state.contextItems.some(i => i.value === item.value && i.type === item.type)) return {};
+      return { contextItems: [...state.contextItems, item] };
+  }),
+  removeContextItem: (value: string) => set((state) => ({
+      contextItems: state.contextItems.filter(i => i.value !== value)
+  })),
 }));

@@ -16,6 +16,7 @@ interface VsCodeApi {
 
 declare const vscode: VsCodeApi;
 
+
 const VsCodeApp: React.FC<{ 
   onSend: (text: string, contextItems?: SearchResult[]) => void;
   onSearch: (query: string) => void;
@@ -31,7 +32,7 @@ const VsCodeApp: React.FC<{
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans relative">
       <ChatHeader />
       <MessageList />
       <ChatInput onSend={onSend} onSearch={onSearch} />
@@ -86,6 +87,13 @@ const App: React.FC = () => {
           break;
         case 'searchResults':
           useChatStore.getState().setSearchResults(message.results);
+          break;
+        case 'addContextItems':
+          if (Array.isArray(message.items)) {
+             message.items.forEach((item: SearchResult) => {
+                 useChatStore.getState().addContextItem(item);
+             });
+          }
           break;
       }
     };

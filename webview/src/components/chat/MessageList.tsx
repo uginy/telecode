@@ -1,7 +1,6 @@
 import type React from 'react';
 import { useRef, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageItem } from './MessageItem';
 import { ThinkingBubble } from './ThinkingBubble';
 import { useChatStore } from '@/store/useChatStore';
@@ -21,7 +20,7 @@ export const MessageList: React.FC = () => {
 
   if (messages.length === 0) {
     return (
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 min-h-[300px]">
           <Sparkles className="w-10 h-10 text-primary opacity-20 animate-pulse" />
           <div className="space-y-1">
@@ -31,12 +30,12 @@ export const MessageList: React.FC = () => {
             </p>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <div className="flex-1 overflow-y-auto min-h-0">
       <div className="flex flex-col gap-0 py-2">
         {messages.map((msg) => (
           <MessageItem key={msg.id} message={msg} />
@@ -44,6 +43,6 @@ export const MessageList: React.FC = () => {
         {showThinking && <ThinkingBubble />}
         <div ref={scrollRef} className="h-6" />
       </div>
-    </ScrollArea>
+    </div>
   );
 };
