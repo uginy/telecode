@@ -133,9 +133,36 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     const history = this._sessionManager.activeSession?.messages || [];
     
+    // Pre-process history to attach tool results to assistant messages for the UI logic
+    const processedHistory = history.map((msg, index) => {
+        if (msg.role === 'assistant') {
+            const toolResults: any[] = [];
+            let i = index + 1;
+            while (i < history.length && history[i].role === 'tool') {
+                const toolMsg = history[i];
+                if (toolMsg.toolResult) {
+                    toolResults.push(toolMsg.toolResult);
+                } else {
+                     // Fallback for legacy/missing structure
+                     toolResults.push({ 
+                         toolCallId: 'unknown', 
+                         output: toolMsg.content, 
+                         isError: false 
+                     });
+                }
+                i++;
+            }
+            
+            if (toolResults.length > 0) {
+                return { ...msg, toolResults };
+            }
+        }
+        return msg;
+    });
+    
     this._view.webview.postMessage({
       type: 'hydrateHistory',
-      history
+      history: processedHistory
     });
   }
   
