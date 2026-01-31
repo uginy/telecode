@@ -72,6 +72,16 @@ npm run gherkin:flows -- --exclude=@edge
 npm run gherkin:flows -- --tags=@edge --out=cases/golden/edge.json
 ```
 
+## Rate limiting для реальных LLM прогонов
+
+Если хотите прогонять через реальные запросы к провайдеру, используйте флаг:
+
+```
+npm run smoke:flows -- --real-llm --tags=@real --workspace=tests/fixtures/real-project --delay=2500 --batch=5 --batch-delay=8000
+```
+
+Это добавит паузы между сценариями и защитит от rate limits.
+
 ## LLM для реальных тестов
 
 Для реальных тестов используем текущий провайдер и модель, сохраненные в настройках проекта.

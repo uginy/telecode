@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-31T21:32:51.348Z",
+  "generatedAt": "2026-01-31T22:16:55.167Z",
   "features": [
     {
       "name": "Архитектурный анализ проекта",
@@ -5735,6 +5735,426 @@
             {
               "keyword": "And",
               "text": "tool timeline содержит 1 запись",
+              "table": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Real LLM - создание документа",
+      "file": "cases/40-real-create-doc.feature",
+      "tags": [
+        "@real",
+        "@golden",
+        "@priority-high",
+        "@id:real-create-doc"
+      ],
+      "background": [
+        {
+          "keyword": "Given",
+          "text": "workspace открыт в VS Code",
+          "table": []
+        },
+        {
+          "keyword": "And",
+          "text": "сессия пустая (нет ранее собранного контекста)",
+          "table": []
+        }
+      ],
+      "scenarios": [
+        {
+          "name": "Создать файл с точным содержимым",
+          "tags": [
+            "@real",
+            "@golden",
+            "@priority-high",
+            "@id:real-create-doc"
+          ],
+          "steps": [
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Создай файл REAL_TEST_DOC.md в корне проекта\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "write_file",
+                  "{ \"path\": \"REAL_TEST_DOC.md\", \"content\": \"<generated>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ],
+          "id": "real-create-doc",
+          "resolvedSteps": [
+            {
+              "keyword": "Given",
+              "text": "workspace открыт в VS Code",
+              "table": []
+            },
+            {
+              "keyword": "And",
+              "text": "сессия пустая (нет ранее собранного контекста)",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Создай файл REAL_TEST_DOC.md в корне проекта\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "write_file",
+                  "{ \"path\": \"REAL_TEST_DOC.md\", \"content\": \"<generated>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Real LLM - исправление бага",
+      "file": "cases/41-real-fix-add.feature",
+      "tags": [
+        "@real",
+        "@golden",
+        "@priority-high",
+        "@id:real-fix-add"
+      ],
+      "background": [
+        {
+          "keyword": "Given",
+          "text": "workspace открыт в VS Code",
+          "table": []
+        },
+        {
+          "keyword": "And",
+          "text": "сессия пустая (нет ранее собранного контекста)",
+          "table": []
+        }
+      ],
+      "scenarios": [
+        {
+          "name": "Исправить add в src/math.ts",
+          "tags": [
+            "@real",
+            "@golden",
+            "@priority-high",
+            "@id:real-fix-add"
+          ],
+          "steps": [
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Исправь функцию add\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"src/math.ts\" }"
+                ],
+                [
+                  "2",
+                  "replace_in_file",
+                  "{ \"path\": \"src/math.ts\", \"content\": \"<patch>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ],
+          "id": "real-fix-add",
+          "resolvedSteps": [
+            {
+              "keyword": "Given",
+              "text": "workspace открыт в VS Code",
+              "table": []
+            },
+            {
+              "keyword": "And",
+              "text": "сессия пустая (нет ранее собранного контекста)",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Исправь функцию add\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"src/math.ts\" }"
+                ],
+                [
+                  "2",
+                  "replace_in_file",
+                  "{ \"path\": \"src/math.ts\", \"content\": \"<patch>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Real LLM - рефакторинг переменной",
+      "file": "cases/42-real-refactor-rename.feature",
+      "tags": [
+        "@real",
+        "@golden",
+        "@priority-high",
+        "@id:real-refactor-rename"
+      ],
+      "background": [
+        {
+          "keyword": "Given",
+          "text": "workspace открыт в VS Code",
+          "table": []
+        },
+        {
+          "keyword": "And",
+          "text": "сессия пустая (нет ранее собранного контекста)",
+          "table": []
+        }
+      ],
+      "scenarios": [
+        {
+          "name": "Переименовать переменную в src/strings.ts",
+          "tags": [
+            "@real",
+            "@golden",
+            "@priority-high",
+            "@id:real-refactor-rename"
+          ],
+          "steps": [
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Переименуй badName в goodName\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"src/strings.ts\" }"
+                ],
+                [
+                  "2",
+                  "replace_in_file",
+                  "{ \"path\": \"src/strings.ts\", \"content\": \"<patch>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ],
+          "id": "real-refactor-rename",
+          "resolvedSteps": [
+            {
+              "keyword": "Given",
+              "text": "workspace открыт в VS Code",
+              "table": []
+            },
+            {
+              "keyword": "And",
+              "text": "сессия пустая (нет ранее собранного контекста)",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"Переименуй badName в goodName\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"src/strings.ts\" }"
+                ],
+                [
+                  "2",
+                  "replace_in_file",
+                  "{ \"path\": \"src/strings.ts\", \"content\": \"<patch>\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент пишет краткий отчет",
+              "table": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Real LLM - краткое описание README",
+      "file": "cases/43-real-summary-readme.feature",
+      "tags": [
+        "@real",
+        "@golden",
+        "@priority-medium",
+        "@id:real-summary-readme"
+      ],
+      "background": [
+        {
+          "keyword": "Given",
+          "text": "workspace открыт в VS Code",
+          "table": []
+        },
+        {
+          "keyword": "And",
+          "text": "сессия пустая (нет ранее собранного контекста)",
+          "table": []
+        }
+      ],
+      "scenarios": [
+        {
+          "name": "Кратко описать проект по README",
+          "tags": [
+            "@real",
+            "@golden",
+            "@priority-medium",
+            "@id:real-summary-readme"
+          ],
+          "steps": [
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"О чем этот проект?\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"README.md\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент отвечает в одном предложении",
+              "table": []
+            }
+          ],
+          "id": "real-summary-readme",
+          "resolvedSteps": [
+            {
+              "keyword": "Given",
+              "text": "workspace открыт в VS Code",
+              "table": []
+            },
+            {
+              "keyword": "And",
+              "text": "сессия пустая (нет ранее собранного контекста)",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "пользователь пишет \"О чем этот проект?\"",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "tool calls в порядке:",
+              "table": [
+                [
+                  "step",
+                  "tool",
+                  "args"
+                ],
+                [
+                  "1",
+                  "read_file",
+                  "{ \"path\": \"README.md\" }"
+                ]
+              ]
+            },
+            {
+              "keyword": "And",
+              "text": "ассистент отвечает в одном предложении",
               "table": []
             }
           ]
