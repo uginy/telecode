@@ -15,6 +15,13 @@ interface ContextState {
   used: number;
 }
 
+export interface ContextStrategy {
+  useOpenTabs?: boolean;
+  useTerminals?: boolean;
+  useSearch?: boolean;
+  useSemantic?: boolean;
+}
+
 interface ContextSectionItem {
   label: string;
   content: string;
@@ -320,13 +327,16 @@ export async function buildContext(params: {
   text: string;
   contextItems?: { type: string; value: string }[];
   lastActiveEditor?: vscode.TextEditor;
+  strategy?: ContextStrategy;
 }): Promise<ContextBuildResult> {
   const state: ContextState = { content: '', used: 0 };
   const sections: ContextSection[] = [];
   const summary = await getWorkspaceSummary();
   const hasExplicitContext = !!(params.contextItems && params.contextItems.length > 0);
   const hasMentions = params.text.includes('@');
-  const shouldUseOpenTabs = !hasExplicitContext && !hasMentions;
+  const defaultUseOpenTabs = !hasExplicitContext && !hasMentions;
+  const shouldUseOpenTabs = params.strategy?.useOpenTabs ?? defaultUseOpenTabs;
+  const shouldUseTerminals = params.strategy?.useTerminals ?? shouldUseOpenTabs;
 
   if (hasExplicitContext) {
     await appendExplicitContext(state, params.contextItems || [], sections);
@@ -334,18 +344,22 @@ export async function buildContext(params: {
 
   if (shouldUseOpenTabs) {
     await appendOpenTabContext(state, sections, params.lastActiveEditor);
-    appendTerminalSummary(state, sections);
+    if (shouldUseTerminals) {
+      appendTerminalSummary(state, sections);
+    }
   }
 
   const keywords = extractKeywords(params.text);
   let usedSearch = false;
   let usedSemantic = false;
 
-  if (!hasExplicitContext && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
+  const allowSearch = params.strategy?.useSearch ?? !hasExplicitContext;
+  if (allowSearch && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
     usedSearch = await collectSearchSnippets(state, keywords, sections);
   }
 
-  if (!hasExplicitContext && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
+  const allowSemantic = params.strategy?.useSemantic ?? !hasExplicitContext;
+  if (allowSemantic && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
     usedSemantic = await collectSemanticSnippets(state, keywords, sections);
   }
 

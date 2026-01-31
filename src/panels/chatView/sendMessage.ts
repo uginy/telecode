@@ -4,6 +4,7 @@ import type { ToolRegistry } from '../../core/tools/registry';
 import type { SessionManager } from '../../core/session/SessionManager';
 import type { ProviderAdapter } from '../../core/providers/ProviderAdapter';
 import { buildContext } from './contextBuilder';
+import { inferIntent } from './intent';
 
 interface SendMessageDeps {
   view?: vscode.WebviewView;
@@ -21,8 +22,17 @@ export async function handleSendMessage(
   text: string,
   contextItems?: { type: string; value: string }[]
 ) {
+  let providerAdapter = await deps.createProviderAdapter();
+  let intentResult = null as null | Awaited<ReturnType<typeof inferIntent>>;
+
+  if (providerAdapter) {
+    intentResult = await inferIntent(providerAdapter, text);
+  }
+
   if (!deps.getAgent()) {
-    const providerAdapter = await deps.createProviderAdapter();
+    if (!providerAdapter) {
+      providerAdapter = await deps.createProviderAdapter();
+    }
     if (!providerAdapter) return;
 
     const agent = new AgentOrbit(providerAdapter, deps.toolRegistry);
@@ -43,7 +53,8 @@ export async function handleSendMessage(
     const context = await buildContext({
       text,
       contextItems,
-      lastActiveEditor: deps.lastActiveEditor
+      lastActiveEditor: deps.lastActiveEditor,
+      strategy: intentResult?.strategy
     });
     fullContext = context.contextDetails;
     deps.view?.webview.postMessage({ type: 'contextSnapshot', snapshot: context.snapshot });
@@ -80,7 +91,8 @@ export async function handleSendMessage(
   const needsFileContext =
     trimmedCommand.startsWith('/fix') ||
     trimmedCommand.startsWith('/test') ||
-    trimmedCommand.startsWith('/explain');
+    trimmedCommand.startsWith('/explain') ||
+    !!intentResult?.requireCodeContext;
 
   if (!fullContext && needsFileContext) {
     deps.view?.webview.postMessage({
