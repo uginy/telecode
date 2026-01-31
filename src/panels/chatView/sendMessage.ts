@@ -5,6 +5,8 @@ import type { SessionManager } from '../../core/session/SessionManager';
 import type { ProviderAdapter } from '../../core/providers/ProviderAdapter';
 import { buildContext } from './contextBuilder';
 import { inferIntent } from './intent';
+import { getWorkspaceSummary } from '../../utils/workspace';
+import type { Message as CoreMessage } from '../../core/types';
 
 interface SendMessageDeps {
   view?: vscode.WebviewView;
@@ -48,6 +50,98 @@ export async function handleSendMessage(
       ...(intentModel ? { modelId: intentModel } : {})
     };
     intentResult = await inferIntent(providerAdapter, text, intentOverrides);
+  }
+
+  const trimmedInput = text.trim();
+  const intent = intentResult?.intent ?? 'general';
+  const shouldAvoidTools =
+    intent === 'project_overview' ||
+    (intent === 'general' && !intentResult?.requireCodeContext && trimmedInput.length <= 80);
+
+  const runDirectCompletion = async (options: { includeWorkspaceSummary: boolean }) => {
+    if (!providerAdapter) return false;
+    const activeSession = deps.sessionManager.activeSession;
+    const activeSessionId = deps.sessionManager.activeSessionId;
+    const history = activeSession?.messages ?? [];
+    const userMessage: CoreMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text,
+      timestamp: Date.now()
+    };
+
+    let workspaceSummary = '';
+    if (options.includeWorkspaceSummary) {
+      postStatus('building_context');
+      workspaceSummary = await getWorkspaceSummary();
+    }
+
+    const systemPrompt = `
+You are AIS Code, an expert coding assistant inside VS Code.
+Always respond in the SAME LANGUAGE as the user.
+DO NOT call tools. Respond directly.
+If the information is missing, ask one short clarifying question.
+`.trim();
+
+    const userContent = options.includeWorkspaceSummary
+      ? `WORKSPACE SUMMARY:\n${workspaceSummary}\n\nUSER QUESTION:\n${text}`
+      : text;
+
+    const messages: CoreMessage[] = [
+      { id: 'direct-system', role: 'system', content: systemPrompt, timestamp: Date.now() },
+      ...history,
+      { id: 'direct-user', role: 'user', content: userContent, timestamp: Date.now() }
+    ];
+
+    postStatus('thinking');
+    deps.view?.webview.postMessage({ type: 'setStreaming', value: true });
+
+    let fullContent = '';
+    try {
+      const response = await providerAdapter.complete(messages, { stream: true });
+      if (typeof response === 'string') {
+        fullContent = response;
+        deps.view?.webview.postMessage({ type: 'streamToken', text: fullContent });
+      } else {
+        for await (const chunk of response) {
+          fullContent += chunk;
+          deps.view?.webview.postMessage({ type: 'streamToken', text: chunk });
+        }
+      }
+
+      const assistantMessage: CoreMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: fullContent,
+        timestamp: Date.now()
+      };
+
+      if (activeSessionId) {
+        const merged = [...history, userMessage, assistantMessage];
+        await deps.sessionManager.saveMessages(activeSessionId, merged);
+        deps.view?.webview.postMessage({
+          type: 'updateSessionList',
+          sessions: deps.sessionManager.sessions,
+          activeSessionId: deps.sessionManager.activeSessionId
+        });
+        deps.getAgent()?.setHistory(merged);
+      }
+    } catch (error: unknown) {
+      const e = error as Error;
+      deps.view?.webview.postMessage({ type: 'streamToken', text: `\n\n**Error**: ${e.message || 'Unknown error occurred'}` });
+      console.error('Direct completion error:', e);
+    } finally {
+      deps.view?.webview.postMessage({ type: 'setStreaming', value: false });
+      postStatus(null);
+      await deps.saveHistory();
+    }
+
+    return true;
+  };
+
+  if (shouldAvoidTools) {
+    const handled = await runDirectCompletion({ includeWorkspaceSummary: intent === 'project_overview' });
+    if (handled) return;
   }
 
   if (!deps.getAgent()) {
@@ -117,7 +211,9 @@ export async function handleSendMessage(
     trimmedCommand.startsWith('/explain') ||
     !!intentResult?.requireCodeContext;
 
-  if (!fullContext && needsFileContext) {
+  const hasLikelyFileMention = /(?:^|[\s"`'([{])([A-Za-z0-9_\-./\\]+?\.[A-Za-z0-9]{1,6}|README(?:\.md)?)(?=$|[\s"'`)\]}.,:;!?])/i.test(text);
+
+  if (!fullContext && needsFileContext && !hasLikelyFileMention) {
     postStatus(null);
     deps.view?.webview.postMessage({
       type: 'streamToken',

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { ThinkingBubble } from './ThinkingBubble';
@@ -12,12 +12,31 @@ export const MessageList: React.FC = () => {
   const assistantStatus = useChatStore((state) => state.assistantStatus);
   const statusLocale = useChatStore((state) => state.statusLocale);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
 
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const threshold = 80;
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      setIsPinnedToBottom(distanceFromBottom < threshold);
+    };
+
+    handleScroll();
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!isPinnedToBottom) return;
     if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+      scrollRef.current.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
     }
-  }, [messages, isStreaming]); 
+  }, [messages, isStreaming, isPinnedToBottom]);
 
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
   const statusText = assistantStatus
@@ -91,7 +110,7 @@ export const MessageList: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-0">
+    <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0">
       <div className="flex flex-col gap-3 py-4 px-2 max-w-[920px] w-full mx-auto">
         <ToolTimeline />
         {messages.map((msg) => (

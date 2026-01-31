@@ -92,6 +92,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     // Subscribe to EditManager events
     EditManager.getInstance().onDidProposeEdit((edit) => {
+        const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
+        if (autoApprove) {
+            return;
+        }
         this._view?.webview.postMessage({
             type: 'toolApprovalRequest',
             edit: {
