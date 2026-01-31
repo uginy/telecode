@@ -126,7 +126,7 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
     const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
     const [isExpanded, setIsExpanded] = React.useState(false);
 
-    const handleAction = (action: 'approve_once' | 'approve_session' | 'approve_always' | 'reject') => {
+    const handleAction = (action: 'approve_once' | 'approve_session' | 'approve_tool' | 'reject') => {
         if (action === 'approve_session') {
             (window as any).vscode?.postMessage({
                 type: 'setSessionToolApprovals',
@@ -134,10 +134,11 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
             });
         }
 
-        if (action === 'approve_always') {
+        if (action === 'approve_tool') {
             (window as any).vscode?.postMessage({
-                type: 'updateSettings',
-                settings: { autoApprove: true }
+                type: 'setToolApproval',
+                toolName: data.toolName,
+                allow: true
             });
         }
 
@@ -207,10 +208,10 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
                 <Button 
                     className="flex-1 h-8 text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30"
                     variant="outline"
-                    onClick={() => handleAction('approve_always')}
+                    onClick={() => handleAction('approve_tool')}
                 >
                     <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Always allow
+                    Always allow tool
                 </Button>
                 <Button 
                     className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"

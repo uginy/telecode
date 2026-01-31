@@ -1,14 +1,14 @@
 
 import type React from 'react';
 import { useEffect } from 'react';
-import { ArrowLeft, MessageSquare, Trash2, Clock, History as HistoryIcon, RotateCcw } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Trash2, Clock, History as HistoryIcon, RotateCcw, ShieldCheck, Ban } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils'; // Assuming this exists or similar util
 
 export const HistoryView: React.FC = () => {
-  const { sessions, activeSessionId, setView, checkpoints } = useChatStore();
+  const { sessions, activeSessionId, setView, checkpoints, sessionAllowedTools } = useChatStore();
 
   const handleBack = () => {
     setView('chat');
@@ -31,6 +31,16 @@ export const HistoryView: React.FC = () => {
   const handleRestoreCheckpoint = (checkpointId?: string) => {
     if ((window as any).vscode) {
       (window as any).vscode.postMessage({ type: 'restoreCheckpoint', id: checkpointId });
+    }
+  };
+
+  const handleRevokeTool = (toolName: string) => {
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({
+        type: 'setToolApproval',
+        toolName,
+        allow: false
+      });
     }
   };
 
@@ -153,6 +163,39 @@ export const HistoryView: React.FC = () => {
                   </div>
                   <Button variant="outline" size="sm" onClick={() => handleRestoreCheckpoint(checkpoint.id)}>
                     Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-3 pb-6">
+          <div className="flex items-center justify-between gap-2 py-3 border-t border-border">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-semibold">Approved Tools</h3>
+            </div>
+          </div>
+
+          {sessionAllowedTools.length === 0 ? (
+            <div className="text-center text-muted-foreground py-6 text-sm">
+              No tool approvals for this chat.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sessionAllowedTools.map((toolName) => (
+                <div
+                  key={toolName}
+                  className={cn(
+                    "flex items-center justify-between gap-2 p-3 rounded-lg border transition-all",
+                    "bg-card border-border hover:bg-muted/50"
+                  )}
+                >
+                  <span className="text-sm font-medium">{toolName}</span>
+                  <Button variant="outline" size="sm" onClick={() => handleRevokeTool(toolName)}>
+                    <Ban className="w-3.5 h-3.5 mr-1.5" />
+                    Revoke
                   </Button>
                 </div>
               ))}

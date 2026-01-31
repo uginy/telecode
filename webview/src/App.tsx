@@ -49,7 +49,8 @@ const App: React.FC = () => {
     setStreaming, 
     updateSettings,
     setSessionAllowAllTools,
-    setCheckpoints
+    setCheckpoints,
+    setSessionAllowedTools
   } = useChatStore();
 
   useEffect(() => {
@@ -88,6 +89,9 @@ const App: React.FC = () => {
         case 'toolApprovalState':
           if (typeof message.sessionAllowAllTools === 'boolean') {
             setSessionAllowAllTools(message.sessionAllowAllTools);
+          }
+          if (Array.isArray(message.allowedTools)) {
+            setSessionAllowedTools(message.allowedTools);
           }
           break;
         case 'checkpointList':

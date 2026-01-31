@@ -3,6 +3,11 @@ import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import type { Session, Message } from '../types';
 
+interface ToolApprovalState {
+  allowAll: boolean;
+  tools: string[];
+}
+
 export class SessionManager {
   private static readonly STORAGE_KEY = 'chatSessions';
   private static readonly ACTIVE_ID_KEY = 'activeSessionId';
@@ -67,7 +72,7 @@ export class SessionManager {
       await this.setActiveSession(next ? next.id : '');
     }
 
-    await this.setToolApproval(id, undefined);
+    await this.setToolApprovalState(id, undefined);
   }
 
   public async getSession(id: string): Promise<Session | undefined> {
@@ -80,19 +85,48 @@ export class SessionManager {
     await this.updateSession(sessionId, { messages: uniqueMessages });
   }
 
-  public getToolApproval(sessionId: string): boolean {
-    const approvals = this.context.workspaceState.get<Record<string, boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
-    return approvals[sessionId] ?? false;
+  public getToolApprovalState(sessionId: string): ToolApprovalState {
+    const approvals = this.context.workspaceState.get<Record<string, ToolApprovalState | boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
+    const entry = approvals[sessionId];
+
+    if (typeof entry === 'boolean') {
+      return { allowAll: entry, tools: [] };
+    }
+
+    if (entry && typeof entry === 'object') {
+      return {
+        allowAll: entry.allowAll ?? false,
+        tools: Array.isArray(entry.tools) ? entry.tools : []
+      };
+    }
+
+    return { allowAll: false, tools: [] };
   }
 
-  public async setToolApproval(sessionId: string, value: boolean | undefined) {
-    const approvals = this.context.workspaceState.get<Record<string, boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
-    if (value === undefined) {
+  public async setToolApprovalState(sessionId: string, state: ToolApprovalState | undefined) {
+    const approvals = this.context.workspaceState.get<Record<string, ToolApprovalState | boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
+    if (!state) {
       delete approvals[sessionId];
     } else {
-      approvals[sessionId] = value;
+      approvals[sessionId] = state;
     }
     await this.context.workspaceState.update(SessionManager.TOOL_APPROVALS_KEY, approvals);
+  }
+
+  public async setToolApprovalAllowAll(sessionId: string, allowAll: boolean) {
+    const current = this.getToolApprovalState(sessionId);
+    await this.setToolApprovalState(sessionId, { ...current, allowAll });
+  }
+
+  public async setToolApprovalForTool(sessionId: string, toolName: string, allow: boolean) {
+    const current = this.getToolApprovalState(sessionId);
+    const tools = new Set(current.tools);
+    if (allow) {
+      tools.add(toolName);
+    } else {
+      tools.delete(toolName);
+    }
+    await this.setToolApprovalState(sessionId, { ...current, tools: Array.from(tools) });
   }
 
   private async _migrateLegacyHistory() {
