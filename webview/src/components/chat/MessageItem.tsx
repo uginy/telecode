@@ -23,6 +23,11 @@ export interface Message {
   toolResults?: Record<string, ToolResult>;
 }
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github-dark.css';
+
 interface MessageItemProps {
   message: Message;
 }
@@ -35,7 +40,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const renderContent = () => {
     if (isUser) {
       return (
-        <div className="text-foreground bg-muted/50 px-3 py-1.5 rounded-2xl rounded-tr-none shadow-sm">
+        <div className="text-foreground bg-muted/50 px-3 py-1.5 rounded-2xl rounded-tr-none shadow-sm whitespace-pre-wrap">
           {message.content}
         </div>
       );
@@ -59,11 +64,38 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       const matchIndex = match.index || 0;
       // Add text before the tool call
       if (matchIndex > lastIndex) {
-        parts.push(
-          <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
-            {content.substring(lastIndex, matchIndex)}
-          </span>
-        );
+        const textPart = content.substring(lastIndex, matchIndex);
+        if (textPart.trim()) {
+          parts.push(
+            <div key={`text-${lastIndex}`} className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]} 
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                  code: ({node, className, children, ...props}) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return match ? (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    ) : (
+                      <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  pre: ({children}) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
+                  ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                  ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                  a: ({href, children}) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
+                }}
+              >
+                {textPart}
+              </ReactMarkdown>
+            </div>
+          );
+        }
       }
 
       const tagName = match[1] || match[5];
@@ -93,35 +125,90 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
     // Add remaining text
     if (lastIndex < content.length) {
-      parts.push(
-        <span key={`text-${lastIndex}`} className="whitespace-pre-wrap">
-          {content.substring(lastIndex)}
-        </span>
-      );
+      const textPart = content.substring(lastIndex);
+      if (textPart.trim()) {
+        parts.push(
+          <div key={`text-${lastIndex}`} className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]} 
+              rehypePlugins={[rehypeHighlight]}
+              components={{
+                p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                code: ({node, className, children, ...props}) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  return match ? (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  ) : (
+                    <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({children}) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
+                ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                a: ({href, children}) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
+              }}
+            >
+              {textPart}
+            </ReactMarkdown>
+          </div>
+        );
+      }
     }
 
     return (
-      <div className="text-foreground pl-1 font-medium">
-        {parts.length > 0 ? parts : message.content}
+      <div className="text-foreground pl-1 font-medium w-full">
+        {parts.length > 0 ? parts : (
+           <div className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
+             <ReactMarkdown 
+               remarkPlugins={[remarkGfm]} 
+               rehypePlugins={[rehypeHighlight]}
+               components={{
+                 p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                 code: ({node, className, children, ...props}) => {
+                    const match = /language-(\w+)/.exec(className || '');
+                    return match ? (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    ) : (
+                      <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
+                        {children}
+                      </code>
+                    );
+                 },
+                 pre: ({children}) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
+                 ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                 ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                 a: ({href, children}) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
+               }}
+             >
+               {message.content}
+             </ReactMarkdown>
+           </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className={cn(
-      "px-4 py-2 flex flex-col gap-1 transition-colors",
+      "px-4 py-2 flex flex-col gap-1 transition-colors w-full",
       isUser 
         ? "items-end bg-background" 
         : "items-start border-l-2 border-primary/30 bg-primary/10"
     )}>
-      <div className="flex items-center gap-1.5 px-0.5 mt-1">
+      <div className="flex items-center gap-1.5 px-0.5 mt-1 w-full relative">
         <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">
           {isUser ? 'You' : 'AIS'}
         </span>
       </div>
       <div className={cn(
-        "text-xs leading-relaxed max-w-[95%] break-words",
-        isUser ? "pb-1" : ""
+        "text-xs leading-relaxed max-w-full break-words w-full",
+        isUser ? "pb-1 max-w-[95%]" : ""
       )}>
         {renderContent()}
       </div>

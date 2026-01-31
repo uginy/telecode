@@ -7,7 +7,17 @@ import { useChatStore } from '@/store/useChatStore';
 import { ContextUsage } from './ContextUsage';
 
 export const ChatHeader: React.FC = () => {
-  const { clearHistory, setView } = useChatStore();
+  const { setView } = useChatStore();
+
+  const handleNewChat = () => {
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'createSession' });
+    }
+  };
+
+  const handleHistory = () => {
+    setView('history');
+  };
 
   return (
     <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-20">
@@ -22,7 +32,7 @@ export const ChatHeader: React.FC = () => {
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={clearHistory}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNewChat}>
               <Plus className="w-4 h-4" />
             </Button>
           </TooltipTrigger>
@@ -31,7 +41,7 @@ export const ChatHeader: React.FC = () => {
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleHistory}>
               <History className="w-4 h-4" />
             </Button>
           </TooltipTrigger>

@@ -35,3 +35,10 @@ export interface ProviderConfig {
   maxTokens?: number;
   temperature?: number;
 }
+
+export interface Session {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
+}

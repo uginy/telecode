@@ -6,6 +6,7 @@ import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { useChatStore } from '@/store/useChatStore';
 import { SettingsView } from '@/components/settings/SettingsView';
+import { HistoryView } from '@/components/history/HistoryView';
 
 interface VsCodeApi {
   postMessage: (message: unknown) => void;
@@ -22,6 +23,10 @@ const VsCodeApp: React.FC<{ onSend: (text: string) => void }> = ({ onSend }) => 
     return <SettingsView />;
   }
 
+  if (activeView === 'history') {
+    return <HistoryView />;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <ChatHeader />
@@ -32,23 +37,28 @@ const VsCodeApp: React.FC<{ onSend: (text: string) => void }> = ({ onSend }) => 
 };
 
 const App: React.FC = () => {
-  const { 
+    const { 
     addMessage, 
+    setMessages,
     updateLastMessage, 
     setStreaming, 
     updateSettings 
   } = useChatStore();
 
   useEffect(() => {
-    console.log('[AIS] Webview initialized');
-    
+    // Notify backend that we are ready
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'webviewLoaded' });
+    }
+
     const handler = (event: MessageEvent) => {
       const message = event.data;
       if (!message || typeof message !== 'object' || !message.type) return;
 
-      console.log('[AIS] Received message:', message.type);
-
       switch (message.type) {
+        case 'hydrateHistory':
+          setMessages(message.history);
+          break;
         case 'streamToken':
           updateLastMessage(message.text || '');
           break;
@@ -57,6 +67,13 @@ const App: React.FC = () => {
           break;
         case 'setStreaming':
           setStreaming(!!message.value);
+          break;
+        case 'updateSessionList':
+          // Update sessions and active ID
+          useChatStore.getState().setSessions(message.sessions);
+          if (message.activeSessionId) {
+            useChatStore.getState().setActiveSessionId(message.activeSessionId);
+          }
           break;
         case 'updateUsage':
           useChatStore.getState().updateUsage(message.usage);

@@ -10,26 +10,40 @@ interface Settings {
   autoApprove: boolean;
 }
 
+export interface Session {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: number;
+}
+
 interface ChatState {
   messages: Message[];
+  sessions: Session[];
+  activeSessionId: string | null;
   isStreaming: boolean;
-  activeView: 'chat' | 'settings';
+  activeView: 'chat' | 'settings' | 'history'; // Added 'history' view?
   settings: Settings;
   usage: { used: number; total: number };
   
   // Actions
   addMessage: (message: Message) => void;
+  setMessages: (messages: Message[]) => void;
   updateLastMessage: (content: string) => void;
   clearHistory: () => void;
   setStreaming: (isStreaming: boolean) => void;
-  setView: (view: 'chat' | 'settings') => void;
+  setView: (view: 'chat' | 'settings' | 'history') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   updateUsage: (usage: { used: number; total: number }) => void;
   addToolResult: (result: ToolResult) => void;
+  setSessions: (sessions: Session[]) => void;
+  setActiveSessionId: (id: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
+  sessions: [],
+  activeSessionId: null,
   isStreaming: false,
   activeView: 'chat',
   settings: {
@@ -44,6 +58,8 @@ export const useChatStore = create<ChatState>((set) => ({
 
   addMessage: (message: Message) => 
     set((state) => ({ messages: [...state.messages, message] })),
+
+  setMessages: (messages: Message[]) => set({ messages }),
 
   updateLastMessage: (content: string) =>
     set((state) => {
@@ -71,7 +87,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setStreaming: (isStreaming: boolean) => set({ isStreaming }),
 
-  setView: (activeView: 'chat' | 'settings') => set({ activeView }),
+  setView: (activeView: 'chat' | 'settings' | 'history') => set({ activeView }),
 
   updateSettings: (newSettings: Partial<Settings>) =>
     set((state) => ({ settings: { ...state.settings, ...newSettings } })),
@@ -80,8 +96,6 @@ export const useChatStore = create<ChatState>((set) => ({
 
   addToolResult: (result: ToolResult) =>
     set((state) => {
-      // We assume the tool result belongs to the last assistant message
-      // In a more robust system, we might need message IDs, but for streaming flow this works
       const messages = [...state.messages];
       const lastIdx = messages.findLastIndex(m => m.role === 'assistant');
       
@@ -97,4 +111,7 @@ export const useChatStore = create<ChatState>((set) => ({
       
       return { messages };
     }),
+
+  setSessions: (sessions: Session[]) => set({ sessions }),
+  setActiveSessionId: (id: string) => set({ activeSessionId: id }),
 }));

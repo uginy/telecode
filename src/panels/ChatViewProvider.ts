@@ -4,11 +4,13 @@ import { ToolRegistry } from '../core/tools/registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool } from '../core/tools/implementations/FileSystem';
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
 import { getWorkspaceSummary } from '../utils/workspace';
+import { SessionManager } from '../core/session/SessionManager';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _agent?: AgentOrbit;
   private _toolRegistry: ToolRegistry;
+  private _sessionManager: SessionManager;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -18,6 +20,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new ReadFileTool());
     this._toolRegistry.register(new WriteFileTool());
     this._toolRegistry.register(new ListFilesTool());
+    
+    this._sessionManager = new SessionManager(context);
   }
 
   public resolveWebviewView(
@@ -41,6 +45,21 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'updateSettings':
           await this._handleUpdateSettings(data.settings as Record<string, unknown>);
+          break;
+        case 'webviewLoaded':
+          this._updateWebviewSettings();
+          await this._sessionManager.init(); // Ensure we are ready
+          await this._hydrateHistory();
+          await this._sendSessionList();
+          break;
+        case 'createSession':
+          await this._handleCreateSession();
+          break;
+        case 'loadSession':
+          await this._handleLoadSession(data.sessionId as string);
+          break;
+        case 'deleteSession':
+          await this._handleDeleteSession(data.sessionId as string);
           break;
       }
     });
@@ -93,6 +112,125 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._agent = undefined;
   }
 
+  private async _hydrateHistory() {
+    if (!this._view) return;
+    
+    // Ensure we have an active session, if not create one
+    if (!this._sessionManager.activeSessionId && this._sessionManager.sessions.length === 0) {
+      await this._sessionManager.createSession('New Chat');
+    } else if (!this._sessionManager.activeSessionId && this._sessionManager.sessions.length > 0) {
+      // Set first available as active
+      await this._sessionManager.setActiveSession(this._sessionManager.sessions[0].id);
+    }
+
+    const history = this._sessionManager.activeSession?.messages || [];
+    
+    this._view.webview.postMessage({
+      type: 'hydrateHistory',
+      history
+    });
+  }
+  
+  private async _sendSessionList() {
+    if (!this._view) return;
+    this._view.webview.postMessage({
+      type: 'updateSessionList',
+      sessions: this._sessionManager.sessions,
+      activeSessionId: this._sessionManager.activeSessionId
+    });
+  }
+
+  private async _saveHistory() {
+    if (!this._agent) return;
+    const messages = this._agent.getMessages();
+    const activeId = this._sessionManager.activeSessionId;
+    if (activeId) {
+       await this._sessionManager.saveMessages(activeId, messages);
+       await this._sendSessionList(); // Update list to show new timestamp
+       
+       // Trigger summarization if needed
+       this._checkAndSummarize(activeId, messages);
+    }
+  }
+
+  private async _checkAndSummarize(sessionId: string, messages: any[]) {
+    const session = await this._sessionManager.getSession(sessionId);
+    if (!session || session.title !== 'New Chat') return;
+
+    // Summarize after we have at least user message and assistant response (so length >= 2 typically, excluding system)
+    const contentMessages = messages.filter(m => m.role !== 'system');
+    if (contentMessages.length >= 2 && contentMessages.length <= 4) {
+      this._summarizeTitle(sessionId, contentMessages);
+    }
+  }
+
+  private async _summarizeTitle(sessionId: string, messages: any[]) {
+      try {
+        const config = vscode.workspace.getConfiguration('aisCode');
+        const provider = new OpenRouterProvider({
+          provider: 'openrouter',
+          apiKey: config.get('openrouter.apiKey') || '',
+          modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free', // Use same model
+          maxTokens: 50, // Short output
+          temperature: 0.5
+        });
+
+        const prompt = `
+Analyze the conversation below and generate a concise title (3-5 words) in Russian that summarizes the main topic.
+Output ONLY the title text. Do not use quotes.
+
+Conversation:
+${messages.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\n')}
+        `.trim();
+
+        const response = await provider.complete([
+          { role: 'user', content: prompt, id: 'summary-request', timestamp: Date.now() }
+        ], { stream: false });
+
+        let title = typeof response === 'string' ? response : '';
+        if (!title && typeof response !== 'string') {
+             for await (const chunk of response) {
+                 title += chunk;
+             }
+        }
+        
+        title = title.trim().replace(/^["']|["']$/g, '');
+        
+        if (title) {
+            await this._sessionManager.updateSession(sessionId, { title });
+            await this._sendSessionList();
+        }
+      } catch (e) {
+          console.error('Failed to summarize title:', e);
+      }
+  }
+
+  private async _handleCreateSession() {
+    const session = await this._sessionManager.createSession();
+    this._agent = undefined; // clear agent
+    await this._hydrateHistory();
+    await this._sendSessionList();
+  }
+
+  private async _handleLoadSession(sessionId: string) {
+    if (this._sessionManager.activeSessionId === sessionId) return;
+    
+    await this._sessionManager.setActiveSession(sessionId);
+    this._agent = undefined; // clear agent to reload context
+    await this._hydrateHistory();
+    await this._sendSessionList();
+  }
+
+  private async _handleDeleteSession(sessionId: string) {
+    await this._sessionManager.deleteSession(sessionId);
+    // If active was deleted, _hydrateHistory (called next) will pick a new one or create fresh
+    if (!this._sessionManager.activeSessionId) {
+        this._agent = undefined;
+        await this._hydrateHistory();
+    }
+    await this._sendSessionList();
+  }
+
   private async _handleSendMessage(text: string) {
     if (!this._agent) {
       const config = vscode.workspace.getConfiguration('aisCode');
@@ -108,6 +246,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       });
 
       this._agent = new AgentOrbit(provider, this._toolRegistry);
+
+      // Load History from Active Session
+      const history = this._sessionManager.activeSession?.messages || [];
+      if (history.length > 0) {
+        this._agent.setHistory(history);
+      }
 
       // Inject Workspace Context
       try {
@@ -139,6 +283,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       console.error('Chat execution error:', error);
     } finally {
       this._view?.webview.postMessage({ type: 'setStreaming', value: false });
+      await this._saveHistory();
     }
   }
 

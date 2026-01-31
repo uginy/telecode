@@ -48,6 +48,14 @@ When user asks "what is this project about?", analyze the file structure and any
     return this.context.getUsage();
   }
 
+  getMessages() {
+    return this.context.getMessages();
+  }
+
+  setHistory(messages: Message[]) {
+    this.context.setMessages(messages);
+  }
+
   async run(
     userInput: string, 
     onUpdate: (chunk: string) => void,
