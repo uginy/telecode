@@ -20,6 +20,7 @@ export class ToolRegistry {
       'read_file',
       'list_files',
       'search_files',
+      'codebase_search',
       'run_command',
       'get_problems'
     ]);

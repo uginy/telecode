@@ -26,17 +26,23 @@ export class AnthropicProvider extends BaseProvider {
 
   private getModel(): string {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<string>('anthropic.model') || 'claude-sonnet-4-20250514';
+    return this.requestOverrides?.modelId
+      || config.get<string>('anthropic.model')
+      || 'claude-sonnet-4-20250514';
   }
 
   private getMaxTokens(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('maxTokens') || 4096;
+    return this.requestOverrides?.maxTokens
+      || config.get<number>('maxTokens')
+      || 4096;
   }
 
   private getTemperature(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('temperature') || 0.7;
+    return this.requestOverrides?.temperature
+      ?? config.get<number>('temperature')
+      ?? 0.7;
   }
 
   isConfigured(): boolean {

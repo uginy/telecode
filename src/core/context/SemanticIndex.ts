@@ -13,7 +13,7 @@ interface FileVector {
   norm: number;
 }
 
-interface SearchResult {
+export interface SemanticSearchResult {
   path: string;
   score: number;
 }
@@ -116,7 +116,7 @@ export class SemanticIndex {
     this._lastBuilt = now;
   }
 
-  async search(query: string, topK = 6): Promise<SearchResult[]> {
+  async search(query: string, topK = 6): Promise<SemanticSearchResult[]> {
     await this.buildIndex();
     const tokens = this.tokenize(query);
     if (tokens.length === 0) return [];
@@ -143,7 +143,7 @@ export class SemanticIndex {
       }
     }
 
-    const results: SearchResult[] = [];
+    const results: SemanticSearchResult[] = [];
     for (const [path, dot] of scores.entries()) {
       const norm = this._fileVectors.get(path)?.norm || 1;
       const score = dot / (norm * queryNorm);

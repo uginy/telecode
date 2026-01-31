@@ -37,6 +37,12 @@ export interface CompletionParams {
   systemPrompt?: string;
 }
 
+export interface CompletionOverrides {
+  modelId?: string;
+  maxTokens?: number;
+  temperature?: number;
+}
+
 export interface UsageStats {
   inputTokens: number;
   outputTokens: number;
@@ -80,9 +86,18 @@ export abstract class BaseProvider implements AIProvider {
   abstract complete(messages: Message[], callbacks: StreamCallbacks): Promise<UsageStats>;
 
   protected systemPromptOverride: string | null = null;
+  protected requestOverrides: CompletionOverrides | null = null;
 
   setSystemPromptOverride(prompt?: string): void {
     this.systemPromptOverride = prompt?.trim() ? prompt : null;
+  }
+
+  setRequestOverrides(overrides?: CompletionOverrides): void {
+    this.requestOverrides = overrides && Object.keys(overrides).length > 0 ? overrides : null;
+  }
+
+  clearRequestOverrides(): void {
+    this.requestOverrides = null;
   }
 
   async testConnection(): Promise<boolean> {

@@ -5,7 +5,18 @@ import type { ToolRegistry } from "../tools/registry";
 import { CORE_SYSTEM_PROMPT } from '../prompts';
 
 export interface AIProvider {
-  complete(messages: Message[], options: { stream?: boolean, signal?: AbortSignal }): Promise<AsyncIterable<string> | string>;
+  complete(
+    messages: Message[],
+    options: {
+      stream?: boolean;
+      signal?: AbortSignal;
+      overrides?: {
+        modelId?: string;
+        maxTokens?: number;
+        temperature?: number;
+      };
+    }
+  ): Promise<AsyncIterable<string> | string>;
 }
 
 export class AgentOrbit {
@@ -137,7 +148,7 @@ export class AgentOrbit {
     const toolCalls: ToolCall[] = [];
     
     // Improved Regexes: more flexible with spaces and attributes
-    const blockToolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]+)")?\s*>([\s\S]*?)<\/\1>/g;
+    const blockToolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|codebase_search|get_problems)(?:\s+path\s*=\s*"([^"]+)")?\s*>([\s\S]*?)<\/\1>/g;
     const selfClosingRegex = /<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]+)"\s*\/>/g;
 
     // 1. Detect Block Tools
@@ -164,6 +175,25 @@ export class AgentOrbit {
         case 'search_files':
           args.query = innerContent;
           break;
+        case 'codebase_search': {
+          const trimmed = innerContent.trim();
+          if (trimmed.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(trimmed) as { query?: string; path?: string | null };
+              if (parsed.query) {
+                args.query = parsed.query;
+              }
+              if (parsed.path !== undefined) {
+                args.path = parsed.path;
+              }
+            } catch {
+              args.query = innerContent;
+            }
+          } else {
+            args.query = innerContent;
+          }
+          break;
+        }
         case 'get_problems':
         case 'read_file':
         case 'list_files':

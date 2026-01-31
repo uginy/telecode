@@ -25,8 +25,17 @@ export async function handleSendMessage(
   let providerAdapter = await deps.createProviderAdapter();
   let intentResult = null as null | Awaited<ReturnType<typeof inferIntent>>;
 
-  if (providerAdapter) {
-    intentResult = await inferIntent(providerAdapter, text);
+  const config = vscode.workspace.getConfiguration('aisCode');
+  const intentEnabled = config.get<boolean>('intentRouting.enabled') ?? true;
+
+  if (providerAdapter && intentEnabled) {
+    const intentModel = (config.get<string>('intentRouting.model') || '').trim();
+    const intentOverrides = {
+      maxTokens: config.get<number>('intentRouting.maxTokens') || 256,
+      temperature: config.get<number>('intentRouting.temperature') ?? 0,
+      ...(intentModel ? { modelId: intentModel } : {})
+    };
+    intentResult = await inferIntent(providerAdapter, text, intentOverrides);
   }
 
   if (!deps.getAgent()) {

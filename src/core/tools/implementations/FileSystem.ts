@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { Tool } from '../registry';
 import { EditManager } from '../../edits/EditManager';
 import { getWorkspaceRoot, resolveWorkspacePath } from '../../../utils/workspace';
+import { FileContextTracker } from '../../context/FileContextTracker';
 
 export class ReadFileTool implements Tool {
   name = 'read_file';
@@ -19,6 +20,7 @@ export class ReadFileTool implements Tool {
 
     const uri = vscode.Uri.file(resolved.resolvedPath);
     const content = await vscode.workspace.fs.readFile(uri);
+    await FileContextTracker.getInstance().trackRead(resolved.resolvedPath);
     return new TextDecoder().decode(content);
   }
 }

@@ -1,5 +1,6 @@
 import type { Message } from '../../core/types';
 import type { ProviderAdapter } from '../../core/providers/ProviderAdapter';
+import type { CompletionOverrides } from '../../providers/base';
 import type { ContextStrategy } from './contextBuilder';
 
 export interface IntentResult {
@@ -55,7 +56,11 @@ function normalizeStrategy(input: unknown): ContextStrategy | undefined {
   return Object.keys(strategy).length > 0 ? strategy : undefined;
 }
 
-export async function inferIntent(provider: ProviderAdapter, text: string): Promise<IntentResult> {
+export async function inferIntent(
+  provider: ProviderAdapter,
+  text: string,
+  overrides?: CompletionOverrides
+): Promise<IntentResult> {
   const messages: Message[] = [
     {
       id: 'intent-system',
@@ -72,7 +77,7 @@ export async function inferIntent(provider: ProviderAdapter, text: string): Prom
   ];
 
   try {
-    const raw = await provider.complete(messages, { stream: false });
+    const raw = await provider.complete(messages, { stream: false, overrides });
     const output = typeof raw === 'string' ? raw : '';
     const parsed = extractJson(output);
 

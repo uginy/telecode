@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Message, ToolResult } from '@/components/chat/MessageItem';
 
-interface Settings {
+export interface Settings {
   provider: string;
   modelId: string;
   apiKey?: string;
@@ -9,6 +9,19 @@ interface Settings {
   maxTokens: number;
   temperature: number;
   autoApprove: boolean;
+  intentRoutingEnabled: boolean;
+  intentRoutingModel: string;
+  intentRoutingMaxTokens: number;
+  intentRoutingTemperature: number;
+  contextUseOpenTabs: boolean;
+  contextUseTerminals: boolean;
+  contextUseSearch: boolean;
+  contextUseSemantic: boolean;
+  contextSemanticFirst: boolean;
+  contextMaxOpenTabs: number;
+  contextMaxSearchSnippets: number;
+  contextTrackFiles: boolean;
+  contextWarnStale: boolean;
 }
 
 export interface Session {
@@ -105,6 +118,19 @@ export const useChatStore = create<ChatState>((set) => ({
     maxTokens: 4096,
     temperature: 0.7,
     autoApprove: true,
+    intentRoutingEnabled: true,
+    intentRoutingModel: '',
+    intentRoutingMaxTokens: 256,
+    intentRoutingTemperature: 0,
+    contextUseOpenTabs: true,
+    contextUseTerminals: true,
+    contextUseSearch: true,
+    contextUseSemantic: true,
+    contextSemanticFirst: true,
+    contextMaxOpenTabs: 8,
+    contextMaxSearchSnippets: 8,
+    contextTrackFiles: true,
+    contextWarnStale: true,
   },
   usage: { used: 0, total: 200000 },
   sessionAllowAllTools: false,

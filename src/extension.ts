@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ChatViewProvider } from './panels/ChatViewProvider';
 import { DiffContentProvider } from './core/edits/DiffContentProvider';
 import { CheckpointManager } from './core/edits/CheckpointManager';
+import { FileContextTracker } from './core/context/FileContextTracker';
 
 export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('AIS Code');
@@ -21,6 +22,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
     )
   );
+
+  context.subscriptions.push(FileContextTracker.getInstance());
 
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider(

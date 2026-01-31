@@ -155,6 +155,79 @@
           "type": "boolean",
           "default": true,
           "description": "Enable workspace indexing for faster context search"
+        },
+        "aisCode.intentRouting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable intent routing using a micro-model before building context"
+        },
+        "aisCode.intentRouting.model": {
+          "type": "string",
+          "default": "",
+          "description": "Optional model ID for intent routing (leave empty to use the primary model)"
+        },
+        "aisCode.intentRouting.maxTokens": {
+          "type": "number",
+          "default": 256,
+          "minimum": 16,
+          "maximum": 2048,
+          "description": "Max tokens for intent routing responses"
+        },
+        "aisCode.intentRouting.temperature": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Temperature for intent routing (lower is more deterministic)"
+        },
+        "aisCode.context.useOpenTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include open editor tabs in context by default"
+        },
+        "aisCode.context.useTerminals": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include terminal list/history in context by default"
+        },
+        "aisCode.context.useSearch": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include regex-based code search snippets in context"
+        },
+        "aisCode.context.useSemantic": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include semantic search snippets in context"
+        },
+        "aisCode.context.semanticFirst": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefer semantic context before regex search when exploring code"
+        },
+        "aisCode.context.maxOpenTabs": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max number of open tabs to include in context"
+        },
+        "aisCode.context.maxSearchSnippets": {
+          "type": "number",
+          "default": 8,
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max number of search/semantic snippets to include in context"
+        },
+        "aisCode.context.trackFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Track files read/edited to detect stale context"
+        },
+        "aisCode.context.warnStale": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn when tracked files change outside AIS Code"
         }
       }
     }

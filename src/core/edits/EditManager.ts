@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { CheckpointManager } from './CheckpointManager';
+import { FileContextTracker } from '../context/FileContextTracker';
 
 export interface PendingEdit {
     id: string;
@@ -75,6 +76,8 @@ export class EditManager {
         );
 
         await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(edit.newContent));
+
+        await FileContextTracker.getInstance().trackEdit(edit.filePath);
         
         // Ensure the document is visible so the user sees the change
         await vscode.window.showTextDocument(uri, { preview: true, preserveFocus: true });

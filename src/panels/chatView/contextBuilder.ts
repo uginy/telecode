@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { getWorkspaceSummary, resolveWorkspacePath } from '../../utils/workspace';
 import { TerminalHistory } from '../../core/tools/TerminalHistory';
-import { SemanticIndex } from './semanticIndex';
+import { SemanticIndex } from '../../core/context/SemanticIndex';
+import { FileContextTracker } from '../../core/context/FileContextTracker';
 
 const MAX_TOTAL_CONTEXT_CHARS = 120000;
 const MAX_FILE_CONTEXT_CHARS = 20000;
@@ -162,7 +163,8 @@ function findSnippetByKeywords(text: string, keywords: string[]): string {
 async function collectSearchSnippets(
   state: ContextState,
   keywords: string[],
-  sections: ContextSection[]
+  sections: ContextSection[],
+  maxSnippets: number
 ) {
   if (keywords.length === 0) return false;
 
@@ -172,9 +174,9 @@ async function collectSearchSnippets(
 
   await vscode.workspace.findTextInFiles(
     { pattern, isRegExp: true },
-    { include: '**/*', exclude, maxResults: MAX_SEARCH_SNIPPETS },
+    { include: '**/*', exclude, maxResults: maxSnippets },
     (result) => {
-      if (results.length >= MAX_SEARCH_SNIPPETS) return;
+      if (results.length >= maxSnippets) return;
       const line = result.ranges[0]?.recognized ? result.ranges[0].recognized.start.line : result.ranges[0].start.line;
       results.push({ uri: result.uri, line });
     }
@@ -203,13 +205,14 @@ async function collectSearchSnippets(
 async function collectSemanticSnippets(
   state: ContextState,
   keywords: string[],
-  sections: ContextSection[]
+  sections: ContextSection[],
+  maxSnippets: number
 ) {
   const config = vscode.workspace.getConfiguration('aisCode');
   const workspaceIndex = config.get<boolean>('workspaceIndex') ?? true;
   if (!workspaceIndex) return false;
 
-  const results = await SemanticIndex.getInstance().search(keywords.join(' '), 6);
+  const results = await SemanticIndex.getInstance().search(keywords.join(' '), maxSnippets);
   if (results.length === 0) return false;
 
   const section = addSection(sections, 'Semantic Matches');
@@ -233,7 +236,8 @@ async function collectSemanticSnippets(
 async function appendOpenTabContext(
   state: ContextState,
   sections: ContextSection[],
-  lastActiveEditor?: vscode.TextEditor
+  lastActiveEditor?: vscode.TextEditor,
+  maxTabs = MAX_OPEN_TABS
 ) {
   const openUris = getOpenTabUris();
   const activeUri = vscode.window.activeTextEditor?.document.uri || lastActiveEditor?.document.uri;
@@ -246,7 +250,7 @@ async function appendOpenTabContext(
 
   const section = addSection(sections, 'Open Tabs');
 
-  for (const uri of openUris.slice(0, MAX_OPEN_TABS)) {
+  for (const uri of openUris.slice(0, maxTabs)) {
     if (state.used >= MAX_TOTAL_CONTEXT_CHARS) break;
     const relativePath = vscode.workspace.asRelativePath(uri);
     const isActive = activeUri && uri.toString() === activeUri.toString();
@@ -268,6 +272,7 @@ async function appendOpenTabContext(
 
     appendContext(state, `File: ${label}\nContent:\n\`\`\`\n${snippet}\n\`\`\`\n`);
     addSectionItem(section, label, snippet);
+    await FileContextTracker.getInstance().trackRead(uri.fsPath);
   }
 }
 
@@ -287,6 +292,7 @@ async function appendExplicitContext(
           const trimmed = text.slice(0, MAX_FILE_CONTEXT_CHARS);
           appendContext(state, `File: ${item.value}\nContent:\n\`\`\`\n${trimmed}\n\`\`\`\n`);
           addSectionItem(section, item.value, trimmed);
+          await FileContextTracker.getInstance().trackRead(uris[0].fsPath);
         }
       } else if (item.type === 'folder') {
         const resolved = resolveWorkspacePath(item.value);
@@ -331,36 +337,63 @@ export async function buildContext(params: {
 }): Promise<ContextBuildResult> {
   const state: ContextState = { content: '', used: 0 };
   const sections: ContextSection[] = [];
+  const config = vscode.workspace.getConfiguration('aisCode');
   const summary = await getWorkspaceSummary();
   const hasExplicitContext = !!(params.contextItems && params.contextItems.length > 0);
   const hasMentions = params.text.includes('@');
-  const defaultUseOpenTabs = !hasExplicitContext && !hasMentions;
+  const defaultUseOpenTabs = !hasExplicitContext && !hasMentions && (config.get<boolean>('context.useOpenTabs') ?? true);
   const shouldUseOpenTabs = params.strategy?.useOpenTabs ?? defaultUseOpenTabs;
-  const shouldUseTerminals = params.strategy?.useTerminals ?? shouldUseOpenTabs;
+  const defaultUseTerminals = !hasExplicitContext && !hasMentions && (config.get<boolean>('context.useTerminals') ?? true);
+  const shouldUseTerminals = params.strategy?.useTerminals ?? defaultUseTerminals;
+  const maxOpenTabs = config.get<number>('context.maxOpenTabs') ?? MAX_OPEN_TABS;
+  const maxSnippets = config.get<number>('context.maxSearchSnippets') ?? MAX_SEARCH_SNIPPETS;
+  const semanticFirst = config.get<boolean>('context.semanticFirst') ?? true;
+  const warnStale = config.get<boolean>('context.warnStale') ?? true;
 
   if (hasExplicitContext) {
     await appendExplicitContext(state, params.contextItems || [], sections);
   }
 
   if (shouldUseOpenTabs) {
-    await appendOpenTabContext(state, sections, params.lastActiveEditor);
-    if (shouldUseTerminals) {
-      appendTerminalSummary(state, sections);
-    }
+    await appendOpenTabContext(state, sections, params.lastActiveEditor, maxOpenTabs);
+  }
+  if (shouldUseTerminals) {
+    appendTerminalSummary(state, sections);
   }
 
   const keywords = extractKeywords(params.text);
   let usedSearch = false;
   let usedSemantic = false;
 
-  const allowSearch = params.strategy?.useSearch ?? !hasExplicitContext;
-  if (allowSearch && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
-    usedSearch = await collectSearchSnippets(state, keywords, sections);
+  const allowSearch = params.strategy?.useSearch ?? ((config.get<boolean>('context.useSearch') ?? true) && !hasExplicitContext);
+  const allowSemantic = params.strategy?.useSemantic ?? ((config.get<boolean>('context.useSemantic') ?? true) && !hasExplicitContext);
+
+  if (warnStale) {
+    const staleFiles = FileContextTracker.getInstance().getAndClearStaleFiles();
+    if (staleFiles.length > 0) {
+      const section = addSection(sections, 'Stale Context Files');
+      const list = staleFiles.join('\n');
+      appendContext(state, `\n[Context Warning: Files changed outside AIS Code]\n${list}\n`);
+      addSectionItem(section, 'Files modified since last read', list);
+    }
   }
 
-  const allowSemantic = params.strategy?.useSemantic ?? !hasExplicitContext;
-  if (allowSemantic && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
-    usedSemantic = await collectSemanticSnippets(state, keywords, sections);
+  const shouldCollectSnippets = keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6;
+
+  if (semanticFirst) {
+    if (allowSemantic && shouldCollectSnippets) {
+      usedSemantic = await collectSemanticSnippets(state, keywords, sections, maxSnippets);
+    }
+    if (allowSearch && shouldCollectSnippets) {
+      usedSearch = await collectSearchSnippets(state, keywords, sections, maxSnippets);
+    }
+  } else {
+    if (allowSearch && shouldCollectSnippets) {
+      usedSearch = await collectSearchSnippets(state, keywords, sections, maxSnippets);
+    }
+    if (allowSemantic && shouldCollectSnippets) {
+      usedSemantic = await collectSemanticSnippets(state, keywords, sections, maxSnippets);
+    }
   }
 
   return {

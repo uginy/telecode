@@ -1,6 +1,6 @@
 import type { Message as CoreMessage } from '../types';
 import type { AIProvider as CoreAIProvider } from '../agent/AgentOrbit';
-import type { Message as BaseMessage, StreamCallbacks } from '../../providers/base';
+import type { CompletionOverrides, Message as BaseMessage, StreamCallbacks } from '../../providers/base';
 import { BaseProvider } from '../../providers/base';
 
 export class ProviderAdapter implements CoreAIProvider {
@@ -8,11 +8,17 @@ export class ProviderAdapter implements CoreAIProvider {
 
   async complete(
     messages: CoreMessage[],
-    options: { stream?: boolean; signal?: AbortSignal }
+    options: { stream?: boolean; signal?: AbortSignal; overrides?: CompletionOverrides }
   ): Promise<AsyncIterable<string> | string> {
     const systemMessage = messages.find(m => m.role === 'system');
     if (systemMessage) {
       this.provider.setSystemPromptOverride(systemMessage.content);
+    }
+
+    if (options.overrides) {
+      this.provider.setRequestOverrides(options.overrides);
+    } else {
+      this.provider.clearRequestOverrides();
     }
 
     const mappedMessages: BaseMessage[] = messages
@@ -24,7 +30,11 @@ export class ProviderAdapter implements CoreAIProvider {
       }));
 
     if (options.stream === false) {
-      return this.completeNonStreaming(mappedMessages, options.signal);
+      try {
+        return await this.completeNonStreaming(mappedMessages, options.signal);
+      } finally {
+        this.provider.clearRequestOverrides();
+      }
     }
 
     return this.completeStreaming(mappedMessages, options.signal);
@@ -99,20 +109,24 @@ export class ProviderAdapter implements CoreAIProvider {
       }
     });
 
-    while (!done || queue.length > 0) {
-      if (queue.length === 0) {
-        await waitForData();
-        continue;
+    try {
+      while (!done || queue.length > 0) {
+        if (queue.length === 0) {
+          await waitForData();
+          continue;
+        }
+
+        const token = queue.shift();
+        if (token !== undefined) {
+          yield token;
+        }
       }
 
-      const token = queue.shift();
-      if (token !== undefined) {
-        yield token;
+      if (error) {
+        throw error;
       }
-    }
-
-    if (error) {
-      throw error;
+    } finally {
+      this.provider.clearRequestOverrides();
     }
   }
 }

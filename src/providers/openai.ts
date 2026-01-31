@@ -26,17 +26,23 @@ export class OpenAIProvider extends BaseProvider {
 
   private getModel(): string {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<string>('openai.model') || 'gpt-4o';
+    return this.requestOverrides?.modelId
+      || config.get<string>('openai.model')
+      || 'gpt-4o';
   }
 
   private getMaxTokens(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('maxTokens') || 4096;
+    return this.requestOverrides?.maxTokens
+      || config.get<number>('maxTokens')
+      || 4096;
   }
 
   private getTemperature(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('temperature') || 0.7;
+    return this.requestOverrides?.temperature
+      ?? config.get<number>('temperature')
+      ?? 0.7;
   }
 
   isConfigured(): boolean {

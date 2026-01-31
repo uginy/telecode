@@ -41,17 +41,23 @@ export class OpenAICompatibleProvider extends BaseProvider {
 
   private getModel(): string {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<string>('openaiCompatible.model') || 'llama3.2';
+    return this.requestOverrides?.modelId
+      || config.get<string>('openaiCompatible.model')
+      || 'llama3.2';
   }
 
   private getMaxTokens(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('maxTokens') || 4096;
+    return this.requestOverrides?.maxTokens
+      || config.get<number>('maxTokens')
+      || 4096;
   }
 
   private getTemperature(): number {
     const config = vscode.workspace.getConfiguration('aisCode');
-    return config.get<number>('temperature') || 0.7;
+    return this.requestOverrides?.temperature
+      ?? config.get<number>('temperature')
+      ?? 0.7;
   }
 
   isConfigured(): boolean {

@@ -6,6 +6,7 @@ import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '.
 import { SearchFilesTool } from '../core/tools/implementations/Search';
 import { RunCommandTool } from '../core/tools/implementations/Terminal';
 import { GetProblemsTool } from '../core/tools/implementations/Lsp';
+import { CodebaseSearchTool } from '../core/tools/implementations/CodebaseSearch';
 import { ProviderRegistry } from '../providers/registry';
 import { ProviderAdapter } from '../core/providers/ProviderAdapter';
 import { BaseProvider } from '../providers/base';
@@ -48,6 +49,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new ReplaceInFileTool());
     this._toolRegistry.register(new ListFilesTool());
     this._toolRegistry.register(new SearchFilesTool());
+    this._toolRegistry.register(new CodebaseSearchTool());
     this._toolRegistry.register(new RunCommandTool());
     this._toolRegistry.register(new GetProblemsTool());
     

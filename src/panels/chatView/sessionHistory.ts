@@ -19,7 +19,7 @@ export async function saveHistory(options: {
   agent?: AgentOrbit;
   sessionManager: SessionManager;
   view?: vscode.WebviewView;
-  createProviderAdapter: () => Promise<{ complete: (messages: any[], options: { stream?: boolean }) => Promise<AsyncIterable<string> | string> } | null>;
+  createProviderAdapter: () => Promise<{ complete: (messages: any[], options: { stream?: boolean; signal?: AbortSignal; overrides?: { modelId?: string; maxTokens?: number; temperature?: number } }) => Promise<AsyncIterable<string> | string> } | null>;
 }) {
   const { agent, sessionManager, view, createProviderAdapter } = options;
   if (!agent) return;

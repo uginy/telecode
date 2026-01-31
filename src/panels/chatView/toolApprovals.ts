@@ -41,6 +41,11 @@ export class ToolApprovalController {
           title: 'Search project files',
           description: queryArg ? `Search for "${queryArg}"` : 'Search project files'
         };
+      case 'codebase_search':
+        return {
+          title: 'Semantic code search',
+          description: queryArg ? `Semantic search for "${queryArg}"` : 'Semantic code search'
+        };
       case 'run_command':
         return {
           title: 'Run terminal command',
