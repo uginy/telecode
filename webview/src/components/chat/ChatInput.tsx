@@ -8,9 +8,10 @@ import { useFileDrop } from '@/hooks/useFileDrop';
 interface ChatInputProps {
   onSend: (text: string, contextItems: SearchResult[]) => void;
   onSearch: (query: string) => void;
+  onStop: () => void;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }) => {
   const [value, setValue] = useState('');
   
   // Use global store for context items

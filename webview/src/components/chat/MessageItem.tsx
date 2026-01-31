@@ -1,4 +1,4 @@
-import type React from 'react';
+import React from 'react';
 import { cn } from '@/lib/utils';
 import { ToolCallItem } from './ToolCallItem';
 
@@ -14,6 +14,13 @@ export interface ToolResult {
   isError: boolean;
 }
 
+export interface EditProposal {
+    id: string;
+    filePath: string;
+    description: string;
+    timestamp: number;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'tool';
@@ -21,12 +28,87 @@ export interface Message {
   toolCalls?: ToolCall[];
   toolResult?: ToolResult;
   toolResults?: Record<string, ToolResult>;
+  approvalData?: EditProposal;
+  isApprovalRequest?: boolean;
 }
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { Button } from '../ui/button';
+import { Check, X, Eye } from 'lucide-react';
+
+const EditProposalCard: React.FC<{ data: EditProposal }> = ({ data }) => {
+    const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
+
+    const handleAction = (action: 'approve' | 'reject' | 'diff') => {
+        if (action === 'diff') {
+            (window as any).vscode?.postMessage({ type: 'openDiff', id: data.id });
+            return;
+        }
+
+        (window as any).vscode?.postMessage({ 
+            type: 'editApproval', 
+            id: data.id, 
+            approved: action === 'approve' 
+        });
+
+        setStatus(action === 'approve' ? 'approved' : 'rejected');
+    };
+
+    if (status !== 'pending') {
+         return (
+             <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border mt-2">
+                 {status === 'approved' ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
+                 <span className="text-xs opacity-70">
+                     Edit to <code>{data.filePath.split(/[/\\]/).pop()}</code> {status}.
+                 </span>
+             </div>
+         );
+    }
+
+    return (
+        <div className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border border-blue-500/30 mt-2">
+            <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-blue-400">PROPOSED EDIT</span>
+                    <code className="text-[11px] bg-background px-1.5 py-0.5 rounded break-all">
+                        {data.filePath.split(/[/\\]/).pop()}
+                    </code>
+                    <span className="text-[11px] opacity-70">{data.description}</span>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => handleAction('diff')}
+                >
+                    <Eye className="w-3.5 h-3.5" />
+                    Review Diff
+                </Button>
+            </div>
+            <div className="flex gap-2 w-full">
+                 <Button 
+                    className="flex-1 h-8 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('approve')}
+                 >
+                    <Check className="w-3.5 h-3.5 mr-1.5" />
+                    Approve
+                 </Button>
+                 <Button 
+                    className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('reject')}
+                 >
+                    <X className="w-3.5 h-3.5 mr-1.5" />
+                    Reject
+                 </Button>
+            </div>
+        </div>
+    );
+};
 
 interface MessageItemProps {
   message: Message;
@@ -35,10 +117,22 @@ interface MessageItemProps {
 export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const isUser = message.role === 'user';
   
-  if (message.role === 'tool') return null; // We render tool results inside assistant messages
+  if (message.role === 'tool') return null; 
+
+  if (message.isApprovalRequest && message.approvalData) {
+      return (
+        <div className="px-4 py-2 flex flex-col gap-1 w-full items-start border-l-2 border-primary/30 bg-primary/10">
+            <div className="flex items-center gap-1.5 px-0.5 mt-1 w-full relative justify-start">
+                 <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">AIS SYSTEM</span>
+            </div>
+            <EditProposalCard data={message.approvalData} />
+        </div>
+      );
+  }
 
   const renderContent = () => {
     if (isUser) {
+    // ... existing logic ...
       return (
         <div className="text-foreground bg-muted/50 px-3 py-1.5 rounded-2xl rounded-tr-none shadow-sm whitespace-pre-wrap">
           {message.content}

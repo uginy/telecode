@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { Tool } from '../registry';
+import { EditManager } from '../../edits/EditManager';
 
 export class ReadFileTool implements Tool {
   name = 'read_file';
@@ -18,10 +19,8 @@ export class WriteFileTool implements Tool {
   description = 'Writes content to a file.';
 
   async execute(args: { path: string, content: string }): Promise<string> {
-    const uri = vscode.Uri.file(args.path);
-    const data = new TextEncoder().encode(args.content);
-    await vscode.workspace.fs.writeFile(uri, data);
-    return `Successfully wrote to ${args.path}`;
+    const editId = EditManager.getInstance().addPendingEdit(args.path, args.content, 'Overwrite file');
+    return `[APPROVAL REQUIRED] New file content proposed for ${path.basename(args.path)} (ID: ${editId}). User must approve changes in the UI.`;
   }
 }
 
@@ -107,7 +106,10 @@ export class ReplaceInFileTool implements Tool {
         return "No replacements made. Ensure format is <search>...</search><replace>...</replace>.";
     }
 
-    await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(newContent));
-    return `Successfully made ${replacements} replacement(s) in ${targetPath}`;
+    // NEW FLOW: Create Pending Edit instead of writing directly
+    const editId = EditManager.getInstance().addPendingEdit(targetPath, newContent, `Replace ${replacements} block(s)`);
+    
+    // Notify the Agent (and via side-channel the UI)
+    return `[APPROVAL REQUIRED] Edit proposed for ${path.basename(targetPath)} (ID: ${editId}). User must approve changes in the UI.`;
   }
 }

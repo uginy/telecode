@@ -96,6 +96,15 @@ const App: React.FC = () => {
              });
           }
           break;
+        case 'toolApprovalRequest':
+          addMessage({
+            id: `approval-${message.edit.id}`,
+            role: 'assistant',
+            content: '',
+            isApprovalRequest: true,
+            approvalData: message.edit
+          });
+          break;
       }
     };
 

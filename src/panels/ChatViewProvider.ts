@@ -10,6 +10,10 @@ import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
 import { generateSessionSummaryPrompt } from '../core/prompts';
 
+import * as path from 'node:path';
+import { EditManager } from '../core/edits/EditManager';
+import { DiffContentProvider } from '../core/edits/DiffContentProvider';
+
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private _agent?: AgentOrbit;
@@ -46,17 +50,60 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
+    // Subscribe to EditManager events
+    EditManager.getInstance().onDidProposeEdit((edit) => {
+        this._view?.webview.postMessage({
+            type: 'toolApprovalRequest',
+            edit: {
+                id: edit.id,
+                filePath: edit.filePath,
+                description: edit.description,
+                timestamp: edit.timestamp
+            }
+        });
+    });
+
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
           await this._handleSendMessage(data.text as string, data.contextItems as string[]);
           break;
         case 'stop':
-          if (this._agent) {
-              this._agent.stop();
-              this._view?.webview.postMessage({ type: 'setStreaming', value: false });
-          }
-          break;
+            if (this._agent) {
+                this._agent.stop();
+                this._view?.webview.postMessage({ type: 'setStreaming', value: false });
+            }
+            break;
+        case 'editApproval':
+            const approvalData = data as { id: string, approved: boolean };
+            if (approvalData.approved) {
+                try {
+                    const result = await EditManager.getInstance().applyEdit(approvalData.id);
+                    vscode.window.showInformationMessage(result);
+                } catch (e: any) {
+                     vscode.window.showErrorMessage(`Failed to apply edit: ${e.message}`);
+                }
+            } else {
+                EditManager.getInstance().rejectEdit(approvalData.id);
+                vscode.window.showInformationMessage('Edit rejected.');
+            }
+            break;
+        case 'openDiff':
+            const diffId = data.id as string;
+            const edit = EditManager.getInstance().getEdit(diffId);
+            if (edit) {
+                const originalUri = vscode.Uri.file(edit.filePath);
+                const modifiedUri = vscode.Uri.parse(`${DiffContentProvider.scheme}:${edit.filePath}?id=${diffId}`);
+                
+                await vscode.commands.executeCommand('vscode.diff', 
+                    originalUri, 
+                    modifiedUri, 
+                    `Diff: ${path.basename(edit.filePath)} (Proposed)`
+                );
+            } else {
+                vscode.window.showErrorMessage('Edit expired or not found.');
+            }
+            break;
         case 'clearHistory':
           this._handleClearHistory();
           break;
