@@ -4,7 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { useChatStore } from '@/store/useChatStore';
+import { useChatStore, type SearchResult } from '@/store/useChatStore';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { HistoryView } from '@/components/history/HistoryView';
 
@@ -16,7 +16,10 @@ interface VsCodeApi {
 
 declare const vscode: VsCodeApi;
 
-const VsCodeApp: React.FC<{ onSend: (text: string) => void }> = ({ onSend }) => {
+const VsCodeApp: React.FC<{ 
+  onSend: (text: string, contextItems?: SearchResult[]) => void;
+  onSearch: (query: string) => void;
+}> = ({ onSend, onSearch }) => {
   const { activeView } = useChatStore();
 
   if (activeView === 'settings') {
@@ -31,7 +34,7 @@ const VsCodeApp: React.FC<{ onSend: (text: string) => void }> = ({ onSend }) => 
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <ChatHeader />
       <MessageList />
-      <ChatInput onSend={onSend} />
+      <ChatInput onSend={onSend} onSearch={onSearch} />
     </div>
   );
 };
@@ -81,6 +84,9 @@ const App: React.FC = () => {
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);
           break;
+        case 'searchResults':
+          useChatStore.getState().setSearchResults(message.results);
+          break;
       }
     };
 
@@ -88,12 +94,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('message', handler);
   }, [updateLastMessage, updateSettings, setStreaming]);
 
-  const handleSend = useCallback((text: string) => {
+  const handleSend = useCallback((text: string, contextItems: SearchResult[] = []) => {
     addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });
     
     try {
       if ((window as any).vscode) {
-        (window as any).vscode.postMessage({ type: 'sendMessage', text });
+        (window as any).vscode.postMessage({ type: 'sendMessage', text, contextItems });
       } else {
         console.error('[AIS] window.vscode is missing!');
       }
@@ -102,9 +108,19 @@ const App: React.FC = () => {
     }
   }, [addMessage]);
 
+  const handleSearch = useCallback((query: string) => {
+    try {
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({ type: 'searchFiles', query });
+      }
+    } catch (e) {
+      console.error('[AIS] Error posting search:', e);
+    }
+  }, []);
+
   return (
     <TooltipProvider>
-      <VsCodeApp onSend={handleSend} />
+      <VsCodeApp onSend={handleSend} onSearch={handleSearch} />
     </TooltipProvider>
   );
 };

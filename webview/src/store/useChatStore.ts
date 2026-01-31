@@ -17,12 +17,18 @@ export interface Session {
   updatedAt: number;
 }
 
+export interface SearchResult {
+  type: 'file' | 'folder' | 'terminal';
+  label: string;
+  value: string;
+}
+
 interface ChatState {
   messages: Message[];
   sessions: Session[];
   activeSessionId: string | null;
   isStreaming: boolean;
-  activeView: 'chat' | 'settings' | 'history'; // Added 'history' view?
+  activeView: 'chat' | 'settings' | 'history'; 
   settings: Settings;
   usage: { used: number; total: number };
   
@@ -38,6 +44,9 @@ interface ChatState {
   addToolResult: (result: ToolResult) => void;
   setSessions: (sessions: Session[]) => void;
   setActiveSessionId: (id: string) => void;
+  
+  searchResults: SearchResult[];
+  setSearchResults: (results: SearchResult[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -114,4 +123,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setSessions: (sessions: Session[]) => set({ sessions }),
   setActiveSessionId: (id: string) => set({ activeSessionId: id }),
+  
+  searchResults: [] as SearchResult[],
+  setSearchResults: (results: SearchResult[]) => set({ searchResults: results }),
 }));

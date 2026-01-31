@@ -63,6 +63,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'deleteSession':
           await this._handleDeleteSession(data.sessionId as string);
           break;
+        case 'searchFiles':
+          await this._handleSearchFiles(data.query as string);
+          break;
       }
     });
 
@@ -234,7 +237,59 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     await this._sendSessionList();
   }
 
-  private async _handleSendMessage(text: string) {
+  private async _handleSearchFiles(query: string) {
+    if (!this._view) return;
+    
+    const results: { type: 'file' | 'folder' | 'terminal', label: string, value: string }[] = [];
+
+    // 1. Files
+    const pattern = query ? `**/*${query}*` : '**/*'; 
+    const exclude = '{**/node_modules/**,**/dist/**,**/.git/**,**/out/**,**/build/**}';
+    
+    try {
+        const files = await vscode.workspace.findFiles(pattern, exclude, 15);
+        results.push(...files.map(uri => ({
+            type: 'file' as const,
+            label: vscode.workspace.asRelativePath(uri),
+            value: vscode.workspace.asRelativePath(uri)
+        })));
+
+        // 2. Folders (Workspace roots match)
+        if (vscode.workspace.workspaceFolders) {
+            for (const folder of vscode.workspace.workspaceFolders) {
+                if (!query || folder.name.toLowerCase().includes(query.toLowerCase())) {
+                    results.push({
+                        type: 'folder' as const,
+                        label: folder.name, 
+                        value: folder.uri.fsPath 
+                    });
+                }
+            }
+        }
+
+        // 3. Terminals
+        const terminals = vscode.window.terminals;
+        for (const term of terminals) {
+            if (!query || term.name.toLowerCase().includes(query.toLowerCase())) {
+                results.push({
+                    type: 'terminal' as const,
+                    label: term.name,
+                    value: term.name // unique enough for this session
+                });
+            }
+        }
+        
+        this._view.webview.postMessage({
+            type: 'searchResults',
+            results
+        });
+    } catch (e) {
+        console.error('Search files error:', e);
+        this._view.webview.postMessage({ type: 'searchResults', results: [] });
+    }
+  }
+
+  private async _handleSendMessage(text: string, contextItems?: { type: string, value: string }[]) {
     if (!this._agent) {
       const config = vscode.workspace.getConfiguration('aisCode');
       const apiKey = config.get<string>('openrouter.apiKey') || '';
@@ -257,22 +312,44 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    // Inject Workspace & Active File Context (Update on every message)
+    // Inject Workspace & Active File & Explicit Context
     try {
        const summary = await getWorkspaceSummary();
        
-       let activeFileContext = '';
+       let fullContext = '';
+
+       // 1. Active File
        const editor = vscode.window.activeTextEditor;
        if (editor && editor.document.uri.scheme === 'file') {
           const filePath = editor.document.uri.fsPath;
           const relativePath = vscode.workspace.asRelativePath(filePath);
           const content = editor.document.getText();
-          if (content.length < 100000) { // Limit to ~100KB
-             activeFileContext = `Active File: ${relativePath}\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          if (content.length < 100000) { 
+             fullContext += `\n[Active File: ${relativePath}]\nContent:\n\`\`\`\n${content}\n\`\`\`\n`;
           }
        }
 
-       this._agent.updateSystemContext(summary, activeFileContext);
+       // 2. Explicit Context Items
+       if (contextItems && contextItems.length > 0) {
+           fullContext += `\n[Explicit Context Items]\n`;
+           for (const item of contextItems) {
+               try {
+                   if (item.type === 'file') {
+                       // Search for the file uri by relative path - verify it exists
+                       const uris = await vscode.workspace.findFiles(item.value, null, 1);
+                       if (uris.length > 0) {
+                           const fileBytes = await vscode.workspace.fs.readFile(uris[0]);
+                           const content = new TextDecoder().decode(fileBytes);
+                           fullContext += `File: ${item.value}\nContent:\n\`\`\`\n${content}\n\`\`\`\n`;
+                       }
+                   }
+               } catch (e) {
+                   console.warn(`Failed to read context item ${item.value}:`, e);
+               }
+           }
+       }
+
+       this._agent.updateSystemContext(summary, fullContext);
     } catch (e) {
       console.error('Failed to load context:', e);
     }
