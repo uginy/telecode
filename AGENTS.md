@@ -143,6 +143,7 @@ components/
 2. **UI Kit**: Always use **Shadcn UI** components and utility classes.
 3. **Design Tokens**: Every visual element must rely on official design tokens (Tailwind colors, spacing, etc.).
 4. **Environment**: Use **Bun** as the primary task runner and manager.
+5. Keep decomposition pattern
 
 ### TypeScript Discipline
 
