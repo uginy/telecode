@@ -76,11 +76,17 @@ npm run gherkin:flows -- --tags=@edge --out=cases/golden/edge.json
 
 Для реальных тестов используем текущий провайдер и модель, сохраненные в настройках проекта.
 Не коммитим API-ключи. Модель выбираем в Settings на рабочей машине.
+Подробнее: `docs/testing/LLM.md`.
 
-Рекомендуемые модели для регресса (OpenRouter):
+Рекомендуемая модель для регресса (OpenRouter):
+
+```
+z-ai/glm-4.5-air:free
+```
+
+Альтернативы, если нужно сравнение качества:
 
 ```
 arcee-ai/trinity-large-preview:free
 tngtech/deepseek-r1t2-chimera:free
-z-ai/glm-4.5-air:free
 ```
