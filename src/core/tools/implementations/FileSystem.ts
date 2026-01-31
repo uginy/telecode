@@ -12,7 +12,10 @@ export class ReadFileTool implements Tool {
   async execute(args: { path: string }): Promise<string> {
     const inputPath = args.path && args.path.trim().length > 0
       ? args.path
-      : getWorkspaceRoot() || '';
+      : '';
+    if (!inputPath) {
+      return 'Error: Path is required. Use <read_file path="path/to/file" />.';
+    }
     const resolved = resolveWorkspacePath(inputPath);
     if (resolved.error || !resolved.resolvedPath) {
       return `Error: ${resolved.error}`;
@@ -52,7 +55,8 @@ export class ListFilesTool implements Tool {
   description = 'Lists files in a directory.';
 
   async execute(args: { path: string }): Promise<string> {
-    const resolved = resolveWorkspacePath(args.path);
+    const inputPath = args.path && args.path.trim().length > 0 ? args.path : '.';
+    const resolved = resolveWorkspacePath(inputPath);
     if (resolved.error || !resolved.resolvedPath) {
       return `Error: ${resolved.error}`;
     }

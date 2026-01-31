@@ -112,7 +112,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
       const toolContent = match[3] || "";
       
       const args: Record<string, string> = {};
-      if (path) args.path = path;
+      const trimmedContent = toolContent.trim();
+      if (path) {
+        args.path = path;
+      } else if (trimmedContent && (tagName === 'read_file' || tagName === 'list_files' || tagName === 'get_problems')) {
+        args.path = trimmedContent;
+      } else if (tagName === 'list_files') {
+        args.path = '.';
+      }
       if (tagName === 'run_command') args.command = toolContent;
       if (tagName === 'write_file' || tagName === 'replace_in_file') args.content = toolContent;
       if (tagName === 'search_files') args.query = toolContent;

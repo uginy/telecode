@@ -37,10 +37,10 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
 
   const getLabel = () => {
     switch (name) {
-      case 'write_file': return `Write ${args.path}`;
-      case 'read_file': return `Read ${args.path}`;
-      case 'replace_in_file': return `Edit ${args.path}`;
-      case 'list_files': return `List ${args.path}`;
+      case 'write_file': return `Write ${args.path ?? ''}`.trim();
+      case 'read_file': return args.path ? `Read ${args.path}` : 'Read (missing path)';
+      case 'replace_in_file': return `Edit ${args.path ?? ''}`.trim();
+      case 'list_files': return `List ${args.path ?? '.'}`.trim();
       case 'search_files': return `Search: ${args.content || args.query}`;
       case 'codebase_search': return `Semantic search: ${args.content || args.query}`;
       case 'run_command': return `Run: ${args.command}`;

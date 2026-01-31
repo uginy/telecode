@@ -27,7 +27,14 @@ const parseToolCalls = (content: string): ToolCallEntry[] => {
     const innerContent = match[3] ?? '';
 
     const args: Record<string, string> = {};
-    if (path) args.path = path;
+    const trimmedContent = innerContent.trim();
+    if (path) {
+      args.path = path;
+    } else if (trimmedContent && (tagName === 'read_file' || tagName === 'list_files' || tagName === 'get_problems')) {
+      args.path = trimmedContent;
+    } else if (tagName === 'list_files') {
+      args.path = '.';
+    }
     if (tagName === 'run_command') args.command = innerContent;
     if (tagName === 'write_file' || tagName === 'replace_in_file') args.content = innerContent;
     if (tagName === 'search_files') args.query = innerContent;
@@ -52,7 +59,13 @@ const parseToolCalls = (content: string): ToolCallEntry[] => {
   while ((match = SELF_CLOSING_REGEX.exec(content)) !== null) {
     const tagName = match[1];
     const path = match[2];
-    entries.push({ name: tagName, args: path ? { path } : {} });
+    const args: Record<string, string> = {};
+    if (path) {
+      args.path = path;
+    } else if (tagName === 'list_files') {
+      args.path = '.';
+    }
+    entries.push({ name: tagName, args });
   }
 
   return entries;
@@ -61,13 +74,13 @@ const parseToolCalls = (content: string): ToolCallEntry[] => {
 const getLabel = (name: string, args: Record<string, string>) => {
   switch (name) {
     case 'write_file':
-      return `Write ${args.path ?? ''}`;
+      return `Write ${args.path ?? ''}`.trim();
     case 'read_file':
-      return `Read ${args.path ?? ''}`;
+      return args.path ? `Read ${args.path}` : 'Read (missing path)';
     case 'replace_in_file':
-      return `Edit ${args.path ?? ''}`;
+      return `Edit ${args.path ?? ''}`.trim();
     case 'list_files':
-      return `List ${args.path ?? ''}`;
+      return `List ${args.path ?? '.'}`.trim();
     case 'search_files':
       return `Search: ${args.query ?? ''}`;
     case 'codebase_search':

@@ -12,7 +12,7 @@ CORE GUIDELINES:
     - **Edit File**: \`<replace_in_file path="path/to/file"><search>EXACT ORIGINAL CODE</search><replace>FIXED CODE</replace></replace_in_file>\`
     - **Write New File**: \`<write_file path="path/to/file">CONTENT</write_file>\`
     - **Read File**: \`<read_file path="path/to/file" />\`
-    - **List Files**: \`<list_files path="path/to/folder" />\`
+    - **List Files**: \`<list_files path="path/to/folder" />\` (use \`path="."\` for workspace root)
     - **Search Files**: \`<search_files>query</search_files>\`
     - **Semantic Code Search**: \`<codebase_search>{\"query\":\"...\",\"path\":null}</codebase_search>\`
     - **Run Command**: \`<run_command>command</run_command>\`
@@ -32,5 +32,5 @@ ${activeFileContext || 'No active file.'}
 WORKSPACE CONTEXT:
 ${contextString}
 
-When user asks "what is this project about?", analyze the file structure and any README/package.json you see to answer.
+When user asks "what is this project about?", answer directly from WORKSPACE CONTEXT if it already includes file structure, README, or package.json. Only call tools if that context is missing.
 `.trim();

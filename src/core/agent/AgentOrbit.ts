@@ -198,9 +198,16 @@ export class AgentOrbit {
         }
         case 'get_problems':
         case 'read_file':
-        case 'list_files':
-          // Already have path if present
+        case 'list_files': {
+          const trimmed = innerContent.trim();
+          if (!args.path && trimmed) {
+            args.path = trimmed;
+          }
+          if (tagName === 'list_files' && !args.path) {
+            args.path = '.';
+          }
           break;
+        }
       }
 
       toolCalls.push({
