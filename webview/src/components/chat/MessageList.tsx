@@ -7,10 +7,8 @@ import { ThinkingBubble } from './ThinkingBubble';
 import { useChatStore } from '@/store/useChatStore';
 
 export const MessageList: React.FC = () => {
-  const { messages, isStreaming } = useChatStore((state) => ({ 
-    messages: state.messages, 
-    isStreaming: state.isStreaming 
-  }));
+  const messages = useChatStore((state) => state.messages);
+  const isStreaming = useChatStore((state) => state.isStreaming);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
