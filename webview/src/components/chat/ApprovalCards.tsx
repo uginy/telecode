@@ -135,7 +135,7 @@ export const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data
       </div>
 
       {isExpanded && (
-        <pre className="p-2 bg-black/40 rounded border border-white/10 text-[10px] font-mono overflow-x-auto max-h-40">
+        <pre className="p-2 bg-card/80 rounded border border-border text-[10px] font-mono overflow-x-auto max-h-40">
           {JSON.stringify(data.args, null, 2)}
         </pre>
       )}

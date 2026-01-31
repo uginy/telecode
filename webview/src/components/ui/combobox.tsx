@@ -52,7 +52,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
     <div className={cn("relative w-full", className)} ref={containerRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full p-2.5 bg-black/40 border border-white/10 rounded-lg hover:border-primary/50 transition-all cursor-pointer group"
+        className="flex items-center justify-between w-full p-2.5 bg-input/50 border border-border rounded-lg hover:border-primary/50 transition-all cursor-pointer group"
       >
         <div className="flex-1 min-w-0">
           {selectedOption ? (
@@ -70,8 +70,8 @@ export const Combobox: React.FC<ComboboxProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex items-center px-3 border-b border-white/5 bg-white/5">
+        <div className="absolute z-50 w-full mt-2 bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center px-3 border-b border-border/50 bg-muted/50">
             <Search className="w-4 h-4 opacity-40 shrink-0" />
             <input 
               className="w-full p-3 bg-transparent text-xs focus:outline-none placeholder:text-muted-foreground/50"

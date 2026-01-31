@@ -58,13 +58,13 @@ export const SettingsView: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-[#111111] text-foreground font-sans">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-black/20">
-        <h1 className="text-sm font-bold tracking-tight text-foreground/90 uppercase tracking-[0.1em]">AIS Code Configuration</h1>
+    <div className="flex flex-col h-screen bg-background text-foreground font-sans">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-card/30">
+        <h1 className="text-sm font-bold tracking-widest text-foreground/90 uppercase">AIS Code Configuration</h1>
         <Button
           variant="secondary"
           size="sm"
-          className="h-7 px-4 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/15 border-0 transition-all hover:scale-105 active:scale-95"
+           className="h-7 px-4 text-xs font-bold rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border-0 transition-all hover:scale-105 active:scale-95"
           onClick={handleSave}
         >
           Done
@@ -72,7 +72,7 @@ export const SettingsView: React.FC = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-48 border-r border-white/5 bg-black/40 flex flex-col shrink-0">
+         <aside className="w-48 border-r border-border/50 bg-card/50 flex flex-col shrink-0">
           <nav className="flex-1 py-3 px-1.5 space-y-0.5">
             <NavItem id="general" label="General" icon={Settings} />
             <NavItem id="api" label="API Configuration" icon={SlidersHorizontal} />
@@ -83,7 +83,7 @@ export const SettingsView: React.FC = () => {
           </nav>
         </aside>
 
-        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#0a0a0a]">
+         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-background/50">
           <ScrollArea className="h-full">
             <div className="p-8 max-w-2xl mx-auto w-full space-y-12 animate-in fade-in duration-500">
               {activeTab === 'general' && (

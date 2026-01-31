@@ -39,10 +39,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-     if (showSuggestions || showCommandMenu) {
+     if (showSuggestions || showCommandMenu || searchResults.length >= 0) {
          setSelectedIndex(0);
      }
-  }, [showSuggestions, showCommandMenu, searchResults]);
+  }, [showSuggestions, showCommandMenu, searchResults.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -87,7 +87,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
   };
 
   const selectCommand = (cmd: { label: string }) => {
-    setValue(cmd.label + ' ');
+    setValue(`${cmd.label} `);
     setShowCommandMenu(false);
     textareaRef.current?.focus();
   };
@@ -184,7 +184,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
 
       {/* Suggestions Popup and Slash Commands */}
       {(showSuggestions && searchResults.length > 0) || (showCommandMenu && SLASH_COMMANDS.length > 0) ? (
-          <div className="absolute bottom-full left-2 mb-3 w-72 max-h-64 bg-popover/90 border border-border/70 rounded-2xl shadow-lg overflow-y-auto z-50 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="absolute bottom-full left-2 mb-3 w-72 max-h-64 bg-popover border border-border rounded-2xl shadow-xl overflow-y-auto z-50 animate-in slide-in-from-bottom-2 duration-200">
               
               {/* SLASH COMMANDS */}
               {showCommandMenu && (
@@ -262,7 +262,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
             onKeyDown={handleKeyDown}
             placeholder={isStreaming ? "AIS is thinking..." : "Ask anything. Use @ to attach context."}
             disabled={isStreaming}
-            className="w-full min-h-[44px] max-h-[200px] bg-card/60 border border-border/60 focus:border-primary/40 focus:bg-card/70 rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/60 disabled:opacity-50 shadow-sm"
+            className="w-full min-h-[44px] max-h-[200px] bg-card/90 border border-border focus:border-primary/40 focus:bg-card rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/60 disabled:opacity-50 shadow-sm"
             rows={1}
           />
         </div>

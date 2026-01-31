@@ -72,7 +72,7 @@ export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChan
               type={isShowKey ? "text" : "password"}
               value={settings.apiKey || ''}
               onChange={(e) => onChange({ ...settings, apiKey: e.target.value })}
-              className="bg-black/40 border-white/5 h-12 text-xs font-mono pr-12 rounded-2xl focus:border-primary/40 transition-all placeholder:opacity-20"
+              className="bg-card/80 border-border h-12 text-xs font-mono pr-12 rounded-2xl focus:border-primary/40 transition-all placeholder:opacity-30"
               placeholder={selectedProvider.apiKeyPlaceholder}
             />
             <button
@@ -98,7 +98,7 @@ export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChan
             type="text"
             value={settings.baseUrl || ''}
             onChange={(e) => onChange({ ...settings, baseUrl: e.target.value })}
-            className="bg-black/40 border-white/5 h-12 text-xs font-mono rounded-2xl focus:border-primary/40 transition-all placeholder:opacity-20"
+            className="bg-card/80 border-border h-12 text-xs font-mono rounded-2xl focus:border-primary/40 transition-all placeholder:opacity-30"
             placeholder="http://localhost:11434/v1"
           />
         </div>
@@ -107,7 +107,7 @@ export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChan
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Intelligent Model</label>
-          <div className="flex items-center gap-2.5 bg-white/[0.03] px-3 py-1.5 rounded-full border border-white/5">
+          <div className="flex items-center gap-2.5 bg-white/5 px-3 py-1.5 rounded-full border border-border/50">
             <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Free tier only</span>
             <Switch
               checked={isFreeOnly}
@@ -130,7 +130,7 @@ export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChan
         />
 
         {selectedModel && (
-          <div className="p-6 bg-[#1a1a1a]/50 border border-white/5 rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-500">
+          <div className="p-6 bg-card/50 border border-border rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-500">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 shadow-inner">
                 <Cpu className="w-6 h-6 text-primary" />

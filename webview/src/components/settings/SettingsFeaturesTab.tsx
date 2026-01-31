@@ -32,7 +32,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         </p>
       </header>
 
-      <Card className="bg-white/[0.03] border-white/5">
+      <Card className="bg-card/80 border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Brain className="w-4 h-4 text-primary" />
@@ -42,7 +42,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Enabled</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Enabled</label>
               <p className="text-[9px] text-muted-foreground/50">Use a micro-model to choose context strategy before each request.</p>
             </div>
             <Switch
@@ -53,17 +53,17 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="grid gap-3">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Intent Model ID</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Intent Model ID</label>
               <Input
                 value={settings.intentRoutingModel}
                 onChange={(e) => update({ intentRoutingModel: e.target.value })}
-                className="bg-black/40 border-white/5 h-10 text-xs font-mono rounded-xl"
+                className="bg-card border-border h-10 text-xs font-mono rounded-xl"
                 placeholder="(optional)"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Max Tokens</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Max Tokens</label>
                 <Input
                   type="number"
                   min={16}
@@ -74,7 +74,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Temperature</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Temperature</label>
                 <Input
                   type="number"
                   min={0}
@@ -90,7 +90,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         </CardContent>
       </Card>
 
-      <Card className="bg-white/[0.03] border-white/5">
+      <Card className="bg-card/80 border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Layers className="w-4 h-4 text-primary" />
@@ -100,7 +100,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Open Tabs</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Open Tabs</label>
               <p className="text-[9px] text-muted-foreground/50">Include open editors when user doesn’t specify files.</p>
             </div>
             <Switch
@@ -111,7 +111,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Terminals</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Terminals</label>
               <p className="text-[9px] text-muted-foreground/50">Add recent terminal context and open terminal names.</p>
             </div>
             <Switch
@@ -122,7 +122,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Regex Search</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Regex Search</label>
               <p className="text-[9px] text-muted-foreground/50">Include regex matches from the workspace.</p>
             </div>
             <Switch
@@ -133,7 +133,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Semantic Search</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Semantic Search</label>
               <p className="text-[9px] text-muted-foreground/50">Include semantic matches from the index.</p>
             </div>
             <Switch
@@ -144,7 +144,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Semantic First</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Semantic First</label>
               <p className="text-[9px] text-muted-foreground/50">Prefer semantic context before regex search.</p>
             </div>
             <Switch
@@ -155,7 +155,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         </CardContent>
       </Card>
 
-      <Card className="bg-white/[0.03] border-white/5">
+      <Card className="bg-card/80 border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-primary" />
@@ -164,7 +164,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80 flex items-center gap-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80 flex items-center gap-2">
               <FileText className="w-3 h-3" />
               Max Open Tabs
             </label>
@@ -178,7 +178,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80 flex items-center gap-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80 flex items-center gap-2">
               <Search className="w-3 h-3" />
               Max Snippets
             </label>
@@ -194,7 +194,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         </CardContent>
       </Card>
 
-      <Card className="bg-white/[0.03] border-white/5">
+      <Card className="bg-card/80 border-border shadow-lg">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Terminal className="w-4 h-4 text-primary" />
@@ -204,7 +204,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Track Files</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Track Files</label>
               <p className="text-[9px] text-muted-foreground/50">Detect when files change outside AIS Code.</p>
             </div>
             <Switch
@@ -215,7 +215,7 @@ export const SettingsFeaturesTab: React.FC<SettingsFeaturesTabProps> = ({ settin
 
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase tracking-[0.1em] text-foreground/80">Warn on Stale</label>
+              <label className="text-[10px] font-black uppercase tracking-widest text-foreground/80">Warn on Stale</label>
               <p className="text-[9px] text-muted-foreground/50">Include stale file warnings in context.</p>
             </div>
             <Switch
