@@ -34,10 +34,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
-      console.log('[AIS Code] Webview Message Received:', data.type);
       switch (data.type) {
         case 'sendMessage':
-          console.log('[AIS Code] Processing sendMessage...');
           await this._handleSendMessage(data.text as string);
           break;
         case 'updateSettings':

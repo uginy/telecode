@@ -72,12 +72,10 @@ const App: React.FC = () => {
   }, [updateLastMessage, updateSettings, setStreaming]);
 
   const handleSend = useCallback((text: string) => {
-    console.log('[AIS] handleSend called with:', text);
     addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });
     
     try {
       if ((window as any).vscode) {
-        console.log('[AIS] Posting message to backend...');
         (window as any).vscode.postMessage({ type: 'sendMessage', text });
       } else {
         console.error('[AIS] window.vscode is missing!');

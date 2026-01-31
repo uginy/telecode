@@ -73,10 +73,7 @@ export class OpenRouterProvider implements AIProvider {
         }
       };
       
-      console.log('[AIS Code] Connecting to OpenRouter...', payload.model);
-      
       const req = https.request('https://openrouter.ai/api/v1/chat/completions', options, (res) => {
-        console.log('[AIS Code] OpenRouter Response:', res.statusCode);
         resolve({ res, status: res.statusCode || 0 });
       });
       
