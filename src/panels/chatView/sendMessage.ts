@@ -231,6 +231,10 @@ If the information is missing, ask one short clarifying question.
         deps.view?.webview.postMessage({ type: 'toolResult', result });
       },
       (status) => postStatus(status as StatusKey)
+      ,
+      (calls) => {
+        deps.view?.webview.postMessage({ type: 'toolCalls', calls });
+      }
     );
 
     const usage = agent.getUsage();

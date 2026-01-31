@@ -13,6 +13,7 @@ export interface ToolCall {
   id: string;
   name: string;
   arguments: string; // JSON string
+  timestamp?: number;
 }
 
 export interface ToolResult {

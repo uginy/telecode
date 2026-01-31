@@ -12,6 +12,10 @@ type ToolCallEntry = {
   args: Record<string, string>;
 };
 
+type TimelineCall =
+  | { id: string; name: string; arguments: string; timestamp?: number }
+  | ToolCallEntry;
+
 const TOOL_REGEX =
   /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|codebase_search|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*>([\s\S]*?)<\/\1>/g;
 const SELF_CLOSING_REGEX =
@@ -106,22 +110,41 @@ export const ToolTimeline: React.FC = () => {
     return null;
   }, [messages]);
 
-  const toolCalls = useMemo(() => {
+  const toolCalls = useMemo<TimelineCall[]>(() => {
+    if (latestAssistant?.toolCalls?.length) return latestAssistant.toolCalls;
     if (!latestAssistant?.content) return [];
     return parseToolCalls(latestAssistant.content);
   }, [latestAssistant]);
 
   const results = useMemo(() => {
-    if (!latestAssistant?.toolResults) return [];
-    return Object.values(latestAssistant.toolResults) as ToolResult[];
+    return latestAssistant?.toolResults ?? {};
   }, [latestAssistant]);
 
   if (!latestAssistant || toolCalls.length === 0) return null;
 
-  const entries = toolCalls.map((call, index) => ({
-    ...call,
-    result: results[index],
-  }));
+  const entries = toolCalls.map((call, index) => {
+    const args =
+      'arguments' in call && typeof call.arguments === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(call.arguments) as Record<string, string>;
+            } catch {
+              return {};
+            }
+          })()
+        : (call as ToolCallEntry).args ?? {};
+
+    const result =
+      'id' in call
+        ? results[call.id]
+        : (Object.values(results) as ToolResult[])[index];
+
+    return {
+      name: call.name,
+      args,
+      result,
+    };
+  });
 
   const counts = entries.reduce(
     (acc, entry) => {

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Message, ToolResult } from '@/components/chat/messageTypes';
+import type { Message, ToolCall, ToolResult } from '@/components/chat/messageTypes';
 
 export type StatusKey =
   | 'thinking'
@@ -98,6 +98,7 @@ interface ChatState {
   updateSettings: (settings: Partial<Settings>) => void;
   updateUsage: (usage: { used: number; total: number }) => void;
   addToolResult: (result: ToolResult) => void;
+  setLastMessageToolCalls: (calls: ToolCall[]) => void;
   setSessions: (sessions: Session[]) => void;
   setActiveSessionId: (id: string) => void;
   setSessionAllowAllTools: (value: boolean) => void;
@@ -119,7 +120,10 @@ interface ChatState {
   setLastContextSnapshot: (snapshot: ContextSnapshot | null) => void;
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+const TOOL_TIMEOUT_MS = 20000;
+const toolTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
+export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   sessions: [],
   activeSessionId: null,
@@ -194,14 +198,23 @@ export const useChatStore = create<ChatState>((set) => ({
   addToolResult: (result: ToolResult) =>
     set((state) => {
       const messages = [...state.messages];
-      const lastIdx = messages.findLastIndex(m => m.role === 'assistant');
-      
+      const existingTimeout = toolTimeouts.get(result.toolCallId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        toolTimeouts.delete(result.toolCallId);
+      }
+
+      const targetIdx = messages.findIndex(
+        (m) => m.role === 'assistant' && m.toolCalls?.some((call) => call.id === result.toolCallId)
+      );
+      const lastIdx = targetIdx !== -1 ? targetIdx : messages.findLastIndex(m => m.role === 'assistant');
+
       if (lastIdx !== -1) {
         messages[lastIdx] = {
           ...messages[lastIdx],
-          toolResults: { 
-            ...(messages[lastIdx].toolResults || {}), 
-            [result.toolCallId]: result 
+          toolResults: {
+            ...(messages[lastIdx].toolResults || {}),
+            [result.toolCallId]: result
           }
         };
       }
@@ -260,4 +273,53 @@ export const useChatStore = create<ChatState>((set) => ({
   setCheckpoints: (checkpoints: Checkpoint[]) => set({ checkpoints }),
   lastContextSnapshot: null,
   setLastContextSnapshot: (snapshot: ContextSnapshot | null) => set({ lastContextSnapshot: snapshot }),
+  setLastMessageToolCalls: (calls: ToolCall[]) =>
+    set((state) => {
+      const messages = [...state.messages];
+      const last = messages[messages.length - 1];
+      const toolCalls = calls.map((call) => ({
+        ...call,
+        timestamp: call.timestamp ?? Date.now()
+      }));
+
+      if (last && last.role === 'assistant') {
+        messages[messages.length - 1] = {
+          ...last,
+          toolCalls
+        };
+      } else {
+        messages.push({
+          id: Math.random().toString(36).substring(2, 9),
+          role: 'assistant',
+          content: '',
+          toolCalls
+        });
+      }
+
+      for (const call of toolCalls) {
+        if (toolTimeouts.has(call.id)) continue;
+        const timer = setTimeout(() => {
+          const state = get();
+          const targetIdx = state.messages.findIndex(
+            (m) => m.role === 'assistant' && m.toolCalls?.some((entry) => entry.id === call.id)
+          );
+          if (targetIdx === -1) {
+            toolTimeouts.delete(call.id);
+            return;
+          }
+          const existing = state.messages[targetIdx].toolResults?.[call.id];
+          if (!existing) {
+            get().addToolResult({
+              toolCallId: call.id,
+              output: 'Error: Tool execution timed out.',
+              isError: true
+            });
+          }
+          toolTimeouts.delete(call.id);
+        }, TOOL_TIMEOUT_MS);
+        toolTimeouts.set(call.id, timer);
+      }
+
+      return { messages };
+    }),
 }));

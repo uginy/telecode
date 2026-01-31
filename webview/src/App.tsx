@@ -149,6 +149,11 @@ const App: React.FC = () => {
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);
           break;
+        case 'toolCalls':
+          if (Array.isArray(message.calls)) {
+            useChatStore.getState().setLastMessageToolCalls(message.calls);
+          }
+          break;
         case 'searchResults':
           useChatStore.getState().setSearchResults(message.results);
           break;

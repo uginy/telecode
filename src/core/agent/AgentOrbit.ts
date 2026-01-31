@@ -59,7 +59,8 @@ export class AgentOrbit {
     userInput: string, 
     onUpdate: (chunk: string) => void,
     onToolResult?: (result: ToolResult) => void,
-    onStatus?: (status: string) => void
+    onStatus?: (status: string) => void,
+    onToolCalls?: (calls: ToolCall[]) => void
   ) {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -120,6 +121,7 @@ export class AgentOrbit {
 
         const toolCalls = this.detectToolCalls(fullContent);
         if (toolCalls.length > 0) {
+          onToolCalls?.(toolCalls);
           onStatus?.('running_tools');
           assistantMessage.toolCalls = toolCalls;
           const results = await this.executeTools(toolCalls);
@@ -253,6 +255,9 @@ export class AgentOrbit {
   private async executeTools(calls: ToolCall[]): Promise<ToolResult[]> {
     const results: ToolResult[] = [];
     for (const call of calls) {
+      if (!call.timestamp) {
+        call.timestamp = Date.now();
+      }
       const result = await this.registry.execute(call);
       results.push(result);
     }

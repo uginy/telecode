@@ -2,6 +2,7 @@ export interface ToolCall {
   id: string;
   name: string;
   arguments: string;
+  timestamp?: number;
 }
 
 export interface ToolResult {
