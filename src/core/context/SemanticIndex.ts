@@ -4,6 +4,9 @@ const MAX_INDEX_FILES = 1200;
 const MAX_FILE_BYTES = 200000;
 const MAX_TOKENS_PER_FILE = 200;
 const REBUILD_INTERVAL_MS = 5 * 60 * 1000;
+const REBUILD_DEBOUNCE_MS = 1500;
+const INCLUDE_GLOB = '**/*.{ts,tsx,js,jsx,py,go,java,cs,rb,php,rs,kt,swift,cpp,c,h,hpp,md,mdx,json,yaml,yml,html,css,scss}';
+const EXCLUDE_REGEX = /[\\/](node_modules|\.git|dist|out|build)[\\/]/;
 
 type TokenMap = Map<string, number>;
 
@@ -25,6 +28,9 @@ export class SemanticIndex {
   private _idf = new Map<string, number>();
   private _lastBuilt = 0;
   private _workspaceKey = '';
+  private _dirty = true;
+  private _rebuildAfter = 0;
+  private _watcher?: vscode.FileSystemWatcher;
 
   private constructor() {}
 
@@ -35,8 +41,39 @@ export class SemanticIndex {
     return SemanticIndex._instance;
   }
 
+  initWatcher(): vscode.Disposable {
+    if (this._watcher) return this._watcher;
+
+    this._watcher = vscode.workspace.createFileSystemWatcher(INCLUDE_GLOB);
+    const handler = (uri: vscode.Uri) => {
+      if (!this.isWorkspaceIndexEnabled()) return;
+      if (this.shouldIgnorePath(uri.fsPath)) return;
+      this.markDirty();
+    };
+
+    this._watcher.onDidChange(handler);
+    this._watcher.onDidCreate(handler);
+    this._watcher.onDidDelete(handler);
+
+    return this._watcher;
+  }
+
   private getWorkspaceKey(): string {
     return vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath).join('|') || '';
+  }
+
+  private isWorkspaceIndexEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    return config.get<boolean>('workspaceIndex') ?? true;
+  }
+
+  private shouldIgnorePath(path: string): boolean {
+    return EXCLUDE_REGEX.test(path);
+  }
+
+  private markDirty() {
+    this._dirty = true;
+    this._rebuildAfter = Date.now() + REBUILD_DEBOUNCE_MS;
   }
 
   private tokenize(text: string): string[] {
@@ -60,7 +97,15 @@ export class SemanticIndex {
   private async buildIndex(force = false) {
     const now = Date.now();
     const workspaceKey = this.getWorkspaceKey();
-    if (!force && this._lastBuilt && now - this._lastBuilt < REBUILD_INTERVAL_MS && workspaceKey === this._workspaceKey) {
+    const workspaceChanged = workspaceKey !== this._workspaceKey;
+    if (workspaceChanged) {
+      this._dirty = true;
+      this._rebuildAfter = 0;
+    }
+    if (!force && !this._dirty && this._lastBuilt && now - this._lastBuilt < REBUILD_INTERVAL_MS && !workspaceChanged) {
+      return;
+    }
+    if (!force && this._dirty && now < this._rebuildAfter && !workspaceChanged) {
       return;
     }
 
@@ -69,7 +114,7 @@ export class SemanticIndex {
     this._inverted.clear();
     this._idf.clear();
 
-    const include = '**/*.{ts,tsx,js,jsx,py,go,java,cs,rb,php,rs,kt,swift,cpp,c,h,hpp,md,mdx,json,yaml,yml,html,css,scss}';
+    const include = INCLUDE_GLOB;
     const exclude = '{**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/build/**}';
 
     const uris = await vscode.workspace.findFiles(include, exclude, MAX_INDEX_FILES);
@@ -114,6 +159,7 @@ export class SemanticIndex {
     }
 
     this._lastBuilt = now;
+    this._dirty = false;
   }
 
   async search(query: string, topK = 6): Promise<SemanticSearchResult[]> {

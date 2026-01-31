@@ -1,4 +1,9 @@
+@golden @priority-medium
 Feature: Скролл во время генерации
+
+  Background:
+    Given workspace открыт в VS Code
+    And сессия пустая (нет ранее собранного контекста)
 
   Scenario: Пользователь скроллит вверх во время генерации ответа
     Given ассистент стримит ответ

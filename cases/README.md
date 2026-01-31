@@ -1,8 +1,53 @@
 # AIS Code - Use Case Catalogue (Cucumber Style)
 
-Each `.feature` file describes one typical developer workflow. The scenarios focus on:
-- Required context gathering.
-- Tool call sequence (list/read/search/semantic/run/write).
-- Expected assistant behavior and output.
+Каждый `.feature` описывает типовой сценарий разработчика и ожидаемое поведение ассистента.
+Цель - превратить эти сценарии в автоматизированные проверки.
 
-Use these cases as a baseline for automated and manual testing.
+## Единый шаблон
+
+```
+Feature: <Название>
+
+  Background:
+    Given workspace открыт в VS Code
+    And сессия пустая (нет ранее собранного контекста)
+    And открыты вкладки: "<file-a>", "<file-b>"
+    And настройки:
+      | key | value |
+      | ... | ...   |
+
+  Scenario: <Сценарий>
+    When пользователь пишет "<text>"
+    Then статусы включают:
+      | status |
+      | ...    |
+    And tool calls в порядке:
+      | step | tool | args |
+      | 1    | ...  | ...  |
+    And approvals:
+      | tool | expected |
+      | ...  | ...      |
+    And ассистент отвечает:
+      | rule | expected |
+      | language | same as user |
+      | summary  | 1 sentence |
+      | file_output | no full content in chat |
+```
+
+## Принципы
+
+- Всегда фиксируем контекст (open tabs, @-вставки, системные правила).
+- Явно описываем порядок tool calls (важно для timeline и дебага).
+- Отдельно фиксируем approvals (auto-approve on/off, allow once/session).
+- Нормируем формат ожидаемого ответа (краткий отчет, язык, отсутствие полного файла в чате).
+
+## Golden flows
+
+Для автоматизации используется сборка "golden flows" из gherkin-файлов.
+Скрипт парсит `.feature` и генерирует JSON с нормализованными шагами.
+
+```
+npm run gherkin:flows
+```
+
+Результат: `cases/golden/flows.json`
