@@ -2,6 +2,7 @@ import * as cp from 'child_process';
 import * as util from 'util';
 import { Tool } from '../registry';
 import { getWorkspaceRoot } from '../../../utils/workspace';
+import { TerminalHistory } from '../TerminalHistory';
 
 const exec = util.promisify(cp.exec);
 
@@ -43,12 +44,15 @@ export class RunCommandTool implements Tool {
 
         if (!output) output = 'Command executed successfully (no output).';
         
-        return output.trim();
+        const trimmed = output.trim();
+        TerminalHistory.add(command, trimmed);
+        return trimmed;
     } catch (error: any) {
         // Return error as output so the agent can see it and fix it
         let errorMessage = `Error executing command: ${error.message}`;
         if (error.stdout) errorMessage += `\n[STDOUT]\n${error.stdout}`;
         if (error.stderr) errorMessage += `\n[STDERR]\n${error.stderr}`;
+        TerminalHistory.add(command, errorMessage);
         return errorMessage;
     }
   }
