@@ -20,6 +20,13 @@ export class WriteFileTool implements Tool {
 
   async execute(args: { path: string, content: string }): Promise<string> {
     const editId = EditManager.getInstance().addPendingEdit(args.path, args.content, 'Overwrite file');
+    const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
+    
+    if (autoApprove) {
+        await EditManager.getInstance().applyEdit(editId);
+        return `Successfully wrote file ${path.basename(args.path)} (Auto-approved).`;
+    }
+    
     return `[APPROVAL REQUIRED] New file content proposed for ${path.basename(args.path)} (ID: ${editId}). User must approve changes in the UI.`;
   }
 }
@@ -42,6 +49,9 @@ export class ReplaceInFileTool implements Tool {
   description = 'Replaces specific code blocks in a file. Format content as <search>OLD</search><replace>NEW</replace>.';
 
   async execute(args: { path: string, content: string }): Promise<string> {
+    if (!args.path) {
+        return "Error: Path attribute is missing in <replace_in_file>. Use <replace_in_file path=\"...\">";
+    }
     let targetPath = args.path;
     if (!path.isAbsolute(targetPath) && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         targetPath = path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, targetPath);
@@ -59,57 +69,92 @@ export class ReplaceInFileTool implements Tool {
     let newContent = originalContent;
 
     const regex = /<search>([\s\S]*?)<\/search>\s*<replace>([\s\S]*?)<\/replace>/g;
-    let match;
     let replacements = 0;
 
-    // Normalize function for robust matching (ignore CR/LF differences)
-    const normalize = (str: string) => str.replace(/\r\n/g, '\n');
-
-    while ((match = regex.exec(args.content)) !== null) {
-      let searchBlock = match[1]; 
-      const replaceBlock = match[2]; 
+    let rMatch = regex.exec(args.content);
+    while (rMatch !== null) {
+      const searchBlock = rMatch[1]; 
+      const replaceBlock = rMatch[2]; 
       
-      // 1. Try exact match
+      // 1. Try exact match (Fast)
       if (originalContent.includes(searchBlock)) {
-          // Check for multiple occurrences
+          // Check for uniqueness
           const firstIndex = originalContent.indexOf(searchBlock);
-          const secondIndex = originalContent.indexOf(searchBlock, firstIndex + 1);
-          if (secondIndex !== -1) {
-              throw new Error(`Ambiguous match: '<search>' block found multiple times in ${args.path}. Provide more unique context.`);
+          if (originalContent.indexOf(searchBlock, firstIndex + 1) !== -1) {
+              throw new Error(`Ambiguous match: '<search>' block found multiple times in ${args.path}. Provide more context.`);
           }
           newContent = newContent.replace(searchBlock, replaceBlock);
           replacements++;
       } else {
-          // 2. Try normalized match (trim and CRLF)
-          const searchBlockTrimmed = searchBlock.trim();
-          const originalNormalized = normalize(originalContent);
-          const searchNormalized = normalize(searchBlockTrimmed);
+          // 2. Try Flexible Match (Ignore Whitespace/Indentation)
+          const matchedText = this.findFlexibleMatch(originalContent, searchBlock);
           
-          if (originalNormalized.includes(searchNormalized)) {
-              // Found it with normalization! Now we need to replace in the ORIGINAL string.
-              // This is tricky. For now, let's just error but give a hint that it exists.
-              // Or better: Replace blindly if unique? No, risky. 
-              // Let's just try to be more flexible with trim.
-               if (originalContent.includes(searchBlockTrimmed)) {
-                   newContent = newContent.replace(searchBlockTrimmed, replaceBlock.trim()); // Trim replace too if we trim search? Maybe.
-                   replacements++;
-               } else {
-                   throw new Error(`Search block not found in ${args.path}. \nNote: Identical text was not found. Check whitespace/indentation.`);
-               }
+          if (matchedText) {
+             // Verify uniqueness of the flexible match
+             const firstIndex = originalContent.indexOf(matchedText);
+             if (originalContent.indexOf(matchedText, firstIndex + 1) !== -1) {
+                 throw new Error(`Ambiguous flexible match: The code block was found multiple times. Provide more context.`);
+             }
+             newContent = newContent.replace(matchedText, replaceBlock);
+             replacements++;
           } else {
-               throw new Error(`Search block not found in ${args.path}. Ensure the code inside <search>...</search> matches the file EXACTLY.`);
+              throw new Error(`Search block not found in ${args.path}. \nNote: Exact match failed, and flexible match (ignoring indentation) also failed. Check if the code exists.`);
           }
       }
+      rMatch = regex.exec(args.content);
     }
 
     if (replacements === 0) {
         return "No replacements made. Ensure format is <search>...</search><replace>...</replace>.";
     }
 
-    // NEW FLOW: Create Pending Edit instead of writing directly
     const editId = EditManager.getInstance().addPendingEdit(targetPath, newContent, `Replace ${replacements} block(s)`);
+    const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
     
-    // Notify the Agent (and via side-channel the UI)
+    if (autoApprove) {
+        await EditManager.getInstance().applyEdit(editId);
+        return `Successfully replaced ${replacements} block(s) in ${path.basename(targetPath)} (Auto-approved).`;
+    }
+    
     return `[APPROVAL REQUIRED] Edit proposed for ${path.basename(targetPath)} (ID: ${editId}). User must approve changes in the UI.`;
+  }
+
+  private findFlexibleMatch(fileContent: string, searchBlock: string): string | null {
+      const searchLines = searchBlock.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      const fileLines = fileContent.split(/\r?\n/);
+      
+      if (searchLines.length === 0) return null;
+
+      const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = searchLines.map(escapeRegExp).join('\\s*\\r?\\n\\s*');
+      
+      for (let i = 0; i <= fileLines.length - searchLines.length; i++) {
+          let isMatch = true;
+          for (let j = 0; j < searchLines.length; j++) {
+              if (fileLines[i + j].trim() !== searchLines[j]) {
+                  isMatch = false;
+                  break;
+              }
+          }
+          
+          if (isMatch) {
+              // We found the approximate line range [i, i + searchLines.length - 1]
+              // Use regex to find the exact substring near this position
+              const fuzzyRegex = new RegExp(pattern, 'g');
+              let match = fuzzyRegex.exec(fileContent);
+              while (match !== null) {
+                  const matchIndex = match.index;
+                  const textBefore = fileContent.substring(0, matchIndex);
+                  const lineCountBefore = textBefore.split(/\r?\n/).length - 1;
+                  
+                  // If the match starts reasonably close to line i, we found our exact block
+                  if (Math.abs(lineCountBefore - i) <= 2) {
+                      return match[0];
+                  }
+                  match = fuzzyRegex.exec(fileContent);
+              }
+          }
+      }
+      return null;
   }
 }

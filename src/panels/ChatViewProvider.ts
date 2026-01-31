@@ -19,6 +19,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _agent?: AgentOrbit;
   private _toolRegistry: ToolRegistry;
   private _sessionManager: SessionManager;
+  private _lastActiveEditor: vscode.TextEditor | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -34,6 +35,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new GetProblemsTool());
     
     this._sessionManager = new SessionManager(context);
+    
+    // Track the last active text editor to maintain context when focus shifts to Webview
+    this._lastActiveEditor = vscode.window.activeTextEditor;
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor) {
+            this._lastActiveEditor = editor;
+        }
+    });
   }
 
   public resolveWebviewView(
@@ -66,7 +75,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
-          await this._handleSendMessage(data.text as string, data.contextItems as string[]);
+          await this._handleSendMessage(data.text as string, data.contextItems as { type: string, value: string }[]);
           break;
         case 'stop':
             if (this._agent) {
@@ -74,21 +83,23 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 this._view?.webview.postMessage({ type: 'setStreaming', value: false });
             }
             break;
-        case 'editApproval':
+        case 'editApproval': {
             const approvalData = data as { id: string, approved: boolean };
             if (approvalData.approved) {
                 try {
                     const result = await EditManager.getInstance().applyEdit(approvalData.id);
                     vscode.window.showInformationMessage(result);
-                } catch (e: any) {
-                     vscode.window.showErrorMessage(`Failed to apply edit: ${e.message}`);
+                } catch (e: unknown) {
+                     const error = e as Error;
+                     vscode.window.showErrorMessage(`Failed to apply edit: ${error.message}`);
                 }
             } else {
                 EditManager.getInstance().rejectEdit(approvalData.id);
                 vscode.window.showInformationMessage('Edit rejected.');
             }
             break;
-        case 'openDiff':
+        }
+        case 'openDiff': {
             const diffId = data.id as string;
             const edit = EditManager.getInstance().getEdit(diffId);
             if (edit) {
@@ -104,8 +115,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 vscode.window.showErrorMessage('Edit expired or not found.');
             }
             break;
+        }
         case 'clearHistory':
-          this._handleClearHistory();
+          await this._handleClearHistory();
           break;
         case 'updateSettings':
           await this._handleUpdateSettings(data.settings as Record<string, unknown>);
@@ -198,7 +210,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     // Pre-process history to attach tool results to assistant messages for the UI logic
     const processedHistory = history.map((msg, index) => {
         if (msg.role === 'assistant') {
-            const toolResults: any[] = [];
+            const toolResults: { toolCallId: string, output: string, isError: boolean }[] = [];
             let i = index + 1;
             while (i < history.length && history[i].role === 'tool') {
                 const toolMsg = history[i];
@@ -227,6 +239,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       history: processedHistory
     });
   }
+
+  private async _handleClearHistory() {
+    if (this._sessionManager.activeSessionId) {
+        await this._sessionManager.saveMessages(this._sessionManager.activeSessionId, []);
+        this._agent = undefined; // Force context reload
+        await this._hydrateHistory();
+    }
+  }
   
   private async _sendSessionList() {
     if (!this._view) return;
@@ -250,7 +270,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async _checkAndSummarize(sessionId: string, messages: any[]) {
+  private async _checkAndSummarize(sessionId: string, messages: { role: string; content: string }[]) {
     const session = await this._sessionManager.getSession(sessionId);
     if (!session || session.title !== 'New Chat') return;
 
@@ -262,7 +282,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
 
-  private async _summarizeTitle(sessionId: string, messages: any[]) {
+  private async _summarizeTitle(sessionId: string, messages: { role: string; content: string }[]) {
       try {
         const config = vscode.workspace.getConfiguration('aisCode');
         const provider = new OpenRouterProvider({
@@ -440,21 +460,38 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
+    let fullContext = '';
+
     // Inject Workspace & Active File & Explicit Context
     try {
        const summary = await getWorkspaceSummary();
-       
-       let fullContext = '';
 
-       // 1. Active File
-       const editor = vscode.window.activeTextEditor;
+       // 1. Active File (Fallback to last active if focus is in Chat)
+       let editor = vscode.window.activeTextEditor || this._lastActiveEditor;
+       
+       // Fallback to visible editors if needed
+       if (!editor || editor.document.uri.scheme !== 'file') {
+           const visibleFileEditor = vscode.window.visibleTextEditors.find(e => e.document.uri.scheme === 'file');
+           if (visibleFileEditor) {
+               editor = visibleFileEditor;
+           }
+       }
+
+       let contextFileName = '';
        if (editor && editor.document.uri.scheme === 'file') {
           const filePath = editor.document.uri.fsPath;
           const relativePath = vscode.workspace.asRelativePath(filePath);
+          contextFileName = path.basename(filePath);
           const content = editor.document.getText();
           if (content.length < 100000) { 
-             fullContext += `\n[Active File: ${relativePath}]\nContent:\n\`\`\`\n${content}\n\`\`\`\n`;
+             fullContext += `\n[Context: Active File ${relativePath}]\nContent:\n\`\`\`\n${content}\n\`\`\`\n`;
           }
+       }
+
+       if (contextFileName) {
+           vscode.window.showInformationMessage(`AIS Code: Analyzing ${contextFileName}...`, { modal: false });
+       } else {
+           vscode.window.showWarningMessage(`AIS Code: No active file context found!`);
        }
 
        // 2. Explicit Context Items
@@ -463,7 +500,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
            for (const item of contextItems) {
                try {
                    if (item.type === 'file') {
-                       // Search for the file uri by relative path - verify it exists
                        const uris = await vscode.workspace.findFiles(item.value, null, 1);
                        if (uris.length > 0) {
                            const fileBytes = await vscode.workspace.fs.readFile(uris[0]);
@@ -486,12 +522,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     
     // Slash Command Pre-processing
     let promptText = text;
+    const languageInstruction = "[IMPORTANT: Respond in the SAME LANGUAGE as the user input.]";
+    const toolCallInstruction = "[ACTION: Provide a brief 1-sentence summary of fixes, then call <replace_in_file> or <write_file> IMMEDIATELY. NO MARKDOWN CODE BLOCKS.]";
+    
     if (text.trim().startsWith('/fix')) {
-        promptText = `[INSTRUCTION: The user invoked /fix. Analyze the Active File content in the context above for bugs, logical errors, or potential issues. Propose and apply fixes using 'replace_in_file' if applicable.]\n\n${text}`;
+        promptText = `${languageInstruction}\n${toolCallInstruction}\n[CRITICAL INSTRUCTION: Analyze the code below and fix it. Use tools directly.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
     } else if (text.trim().startsWith('/explain')) {
-        promptText = `[INSTRUCTION: The user invoked /explain. Explain the Active File content in the context above. Describe its purpose, key functions, and logic.]\n\n${text}`;
+        promptText = `${languageInstruction}\n[INSTRUCTION: Explain the code below.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
     } else if (text.trim().startsWith('/test')) {
-         promptText = `[INSTRUCTION: The user invoked /test. Generate comprehensive unit tests for the Active File content in the context above. Use 'write_file' to create a new test file if appropriate.]\n\n${text}`;
+         promptText = `${languageInstruction}\n${toolCallInstruction}\n[INSTRUCTION: Write tests for the code below.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
+    }
+
+    if (!fullContext && (text.includes('/') || text.length < 40)) {
+        this._view?.webview.postMessage({ 
+            type: 'streamToken', 
+            text: '> [!CAUTION]\n> **AIS Code**: Не удалось найти активный файл. Пожалуйста, откройте файл или перетащите его в чат.' 
+        });
     }
 
     try {
@@ -500,7 +546,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         (chunk: string) => {
           this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
         },
-        (result) => {
+        (result: { toolCallId: string, output: string, isError: boolean }) => {
           this._view?.webview.postMessage({ type: 'toolResult', result });
         }
       );
@@ -508,9 +554,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       // Update usage after each run
       const usage = this._agent.getUsage();
       this._view?.webview.postMessage({ type: 'updateUsage', usage });
-    } catch (error: any) {
-      this._view?.webview.postMessage({ type: 'streamToken', text: `\n\n**Error**: ${error.message || 'Unknown error occurred'}` });
-      console.error('Chat execution error:', error);
+    } catch (error: unknown) {
+      const e = error as Error;
+      this._view?.webview.postMessage({ type: 'streamToken', text: `\n\n**Error**: ${e.message || 'Unknown error occurred'}` });
+      console.error('Chat execution error:', e);
     } finally {
       this._view?.webview.postMessage({ type: 'setStreaming', value: false });
       await this._saveHistory();

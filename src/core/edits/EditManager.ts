@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
+import * as path from 'node:path';
 
 export interface PendingEdit {
     id: string;
@@ -27,20 +27,21 @@ export class EditManager {
         return EditManager._instance;
     }
 
-    public addPendingEdit(filePath: string, newContent: string, description: string = 'Proposed changes'): string {
+    public addPendingEdit(filePath: string, newContent: string, description = 'Proposed changes'): string {
         const id = crypto.randomUUID();
-        // Just store the new content for now. Original content will be read on demand or stored if needed for 3-way merge.
-        // Actually, to show a DIFF, we need the original. But VS Code Diff Editor just needs (left URI, right URI).
-        // Left URI = file on disk. Right URI = virtual document with new content.
-        
-        this._pendingEdits.set(id, {
+        const edit: PendingEdit = {
             id,
             filePath,
-            originalContent: '', // Not strictly needed for the provider if we diff against file on disk
+            originalContent: '', 
             newContent,
             timestamp: Date.now(),
             description
-        });
+        };
+        
+        this._pendingEdits.set(id, edit);
+
+        // Notify listeners so UI updates
+        this._onDidProposeEdit.fire(edit);
 
         return id;
     }
@@ -58,6 +59,9 @@ export class EditManager {
         const uri = vscode.Uri.file(edit.filePath);
         await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(edit.newContent));
         
+        // Ensure the document is visible so the user sees the change
+        await vscode.window.showTextDocument(uri, { preview: true, preserveFocus: true });
+
         this._pendingEdits.delete(id);
         return `Successfully applied edit to ${path.basename(edit.filePath)}`;
     }

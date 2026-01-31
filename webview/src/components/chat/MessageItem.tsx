@@ -144,8 +144,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     const parts: React.ReactNode[] = [];
     const content = message.content;
     
-    // Combined regex for all tool tags
-    const toolRegex = /<(get_problems|search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(get_problems|read_file|list_files)\s+path="([^"]+)"\s*\/>|<(get_problems)\s*\/>/g;
+    // Combined regex for all tool tags - more robust with spaces
+    // Group 1: blockTagName, Group 2: blockPath, Group 3: blockContent, Group 4: selfClosingTagName, Group 5: selfClosingPath, Group 6: emptyTagName
+    const toolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*>([\s\S]*?)<\/\1>|<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]*)"\s*\/>|<(get_problems)\s*\/>/g;
     
     let lastIndex = 0;
     
@@ -195,12 +196,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         }
       }
 
-      // Group 1: Block tags (run_command, search_files)
-      // Group 5: Self-closing with path (read_file, list_files, get_problems)
-      // Group 7: Self-closing no path (get_problems)
-      const tagName = match[1] || match[5] || match[7];
-      const path = match[3] || match[6]; // Group 3 or 6 has path
-      const toolContent = match[4] || "";
+      const tagName = match[1] || match[4] || match[6];
+      const path = match[2] || match[5]; 
+      const toolContent = match[3] || "";
       
       const args: Record<string, string> = {};
       if (path) args.path = path;
@@ -228,16 +226,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     if (lastIndex < content.length) {
       const remainingText = content.substring(lastIndex);
       
-      // Check for PARTIAL tool tag at the end
-      const partialRegex = /<(get_problems|search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]*)")?(\s*\/?>)?([\s\S]*)$/;
+      // Check for PARTIAL tool tag at the end - also more robust
+      const partialRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*(\/?>)?([\s\S]*)$/;
       const partialMatch = remainingText.match(partialRegex);
 
       if (partialMatch) {
-          // We found the start of a tool call but not the end (since the main loop catches complete ones)
-          // We should render this as a "Loading" tool call (hidden content)
           const pIndex = partialMatch.index || 0;
           
-          // Text before the partial tag
           if (pIndex > 0) {
               const textBefore = remainingText.substring(0, pIndex);
               if (textBefore.trim()) {
@@ -252,8 +247,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           }
 
           const tagName = partialMatch[1];
-          const path = partialMatch[3]; 
-          // partialMatch[5] is the content accumulated so far
+          const path = partialMatch[2]; 
           
           const args: Record<string, string> = { content: 'Streaming...' };
           if (path) args.path = path;
@@ -264,10 +258,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               name={tagName}
               args={args}
               result={undefined}
-              isStreaming={true} // Force spinner
+              isStreaming={true} 
             />
           );
-
       } else {
         // Normal text
         if (remainingText.trim()) {
@@ -333,7 +326,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         </span>
       </div>
       <div className={cn(
-        "text-xs leading-relaxed break-words",
+        "text-xs leading-relaxed wrap-break-word",
         isUser ? "w-fit max-w-[85%] pb-1" : "w-full"
       )}>
         {renderContent()}

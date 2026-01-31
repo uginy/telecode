@@ -9,11 +9,11 @@ export class OpenRouterProvider implements AIProvider {
     this.config = config;
   }
 
-  async complete(messages: Message[], options: { stream?: boolean }): Promise<AsyncIterable<string> | string> {
+  async complete(messages: Message[], options: { stream?: boolean, signal?: AbortSignal }): Promise<AsyncIterable<string> | string> {
     const payload = {
       model: this.config.modelId,
       messages: messages.map(m => ({
-        role: m.role === 'tool' ? 'user' : m.role, // Simple mapping
+        role: m.role === 'tool' ? 'user' : m.role,
         content: m.content
       })),
       stream: options.stream ?? true,
@@ -22,14 +22,16 @@ export class OpenRouterProvider implements AIProvider {
     };
 
     if (!options.stream) {
-      return this.fetchNonStreaming(payload);
+      return this.fetchNonStreaming(payload, options.signal);
     }
 
-    return this.fetchStreaming(payload);
+    return this.fetchStreaming(payload, options.signal);
   }
 
-  private async fetchNonStreaming(payload: any): Promise<string> {
+  private async fetchNonStreaming(payload: any, signal?: AbortSignal): Promise<string> {
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(new Error('Aborted'));
+
       const req = https.request('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -37,7 +39,8 @@ export class OpenRouterProvider implements AIProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'HTTP-Referer': 'https://github.com/ais-code',
           'X-Title': 'AIS Code'
-        }
+        },
+        signal
       }, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -61,8 +64,10 @@ export class OpenRouterProvider implements AIProvider {
     });
   }
 
-  private async *fetchStreaming(payload: any): AsyncGenerator<string, void, unknown> {
+  private async *fetchStreaming(payload: any, signal?: AbortSignal): AsyncGenerator<string, void, unknown> {
     const requestPromise = new Promise<{ res: any, status: number }>((resolve, reject) => {
+      if (signal?.aborted) return reject(new Error('Aborted'));
+
       const options = {
         method: 'POST',
         headers: {
@@ -70,7 +75,8 @@ export class OpenRouterProvider implements AIProvider {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'HTTP-Referer': 'https://github.com/ais-code',
           'X-Title': 'AIS Code'
-        }
+        },
+        signal
       };
       
       const req = https.request('https://openrouter.ai/api/v1/chat/completions', options, (res) => {
@@ -82,11 +88,15 @@ export class OpenRouterProvider implements AIProvider {
         reject(new Error('OpenRouter request timed out (30s)'));
       });
       
-      req.setTimeout(30000); // 30s timeout
+      req.setTimeout(30000); 
       
       req.on('error', (e) => {
-        console.error('[AIS Code] OpenRouter Network Error:', e);
-        reject(new Error(`Network error: ${e.message}`));
+        if (e.name === 'AbortError') {
+             reject(e);
+        } else {
+             console.error('[AIS Code] OpenRouter Network Error:', e);
+             reject(new Error(`Network error: ${e.message}`));
+        }
       });
 
       req.write(JSON.stringify(payload));

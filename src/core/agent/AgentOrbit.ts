@@ -5,7 +5,7 @@ import type { ToolRegistry } from "../tools/registry";
 import { CORE_SYSTEM_PROMPT } from '../prompts';
 
 export interface AIProvider {
-  complete(messages: Message[], options: { stream?: boolean }): Promise<AsyncIterable<string> | string>;
+  complete(messages: Message[], options: { stream?: boolean, signal?: AbortSignal }): Promise<AsyncIterable<string> | string>;
 }
 
 export class AgentOrbit {
@@ -13,6 +13,7 @@ export class AgentOrbit {
   private provider: AIProvider;
   private registry: ToolRegistry;
   private isRunning = false;
+  private abortController: AbortController | null = null;
 
   constructor(provider: AIProvider, registry: ToolRegistry, maxTokens?: number) {
     this.provider = provider;
@@ -50,6 +51,7 @@ export class AgentOrbit {
   ) {
     if (this.isRunning) return;
     this.isRunning = true;
+    this.abortController = new AbortController();
 
     this.context.addMessage({
       id: crypto.randomUUID(),
@@ -60,19 +62,40 @@ export class AgentOrbit {
 
     try {
       while (this.isRunning) {
+        if (this.abortController?.signal.aborted) break;
+
         const messages = this.context.getMessages();
-        const response = await this.provider.complete(messages, { stream: true });
+        const response = await this.provider.complete(messages, { 
+            stream: true,
+            signal: this.abortController?.signal 
+        });
 
         let fullContent = "";
+        let isAborted = false;
+
         if (typeof response === 'string') {
           fullContent = response;
           onUpdate(fullContent);
         } else {
-          for await (const chunk of response) {
-            fullContent += chunk;
-            onUpdate(chunk);
-          }
+             try {
+                for await (const chunk of response) {
+                    if (this.abortController?.signal.aborted) {
+                        isAborted = true;
+                        break;
+                    }
+                    fullContent += chunk;
+                    onUpdate(chunk);
+                }
+             } catch (err: any) {
+                 if (err.name === 'AbortError') {
+                     isAborted = true;
+                 } else {
+                     throw err;
+                 }
+             }
         }
+
+        if (isAborted || this.abortController?.signal.aborted) break;
 
         const assistantMessage: Message = {
           id: crypto.randomUUID(),
@@ -87,6 +110,7 @@ export class AgentOrbit {
         if (toolCalls.length > 0) {
           assistantMessage.toolCalls = toolCalls;
           const results = await this.executeTools(toolCalls);
+          if (this.abortController?.signal.aborted) break;
           
           for (const result of results) {
             if (onToolResult) onToolResult(result);
@@ -105,95 +129,83 @@ export class AgentOrbit {
       }
     } finally {
       this.isRunning = false;
+      this.abortController = null;
     }
   }
 
   private detectToolCalls(content: string): ToolCall[] {
     const toolCalls: ToolCall[] = [];
-    const writeRegex = /<write_file\s+path="([^"]+)">([\s\S]*?)<\/write_file>/g;
-    const readRegex = /<read_file\s+path="([^"]+)"\s*\/>|<read_file\s+path="([^"]+)">[\s\S]*?<\/read_file>/g;
-    const listRegex = /<list_files\s+path="([^"]+)"\s*\/>|<list_files\s+path="([^"]+)">[\s\S]*?<\/list_files>/g;
-    const commandRegex = /<run_command>([\s\S]*?)<\/run_command>/g;
-    const replaceRegex = /<replace_in_file\s+path="([^"]+)">([\s\S]*?)<\/replace_in_file>/g;
+    
+    // Improved Regexes: more flexible with spaces and attributes
+    const blockToolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]+)")?\s*>([\s\S]*?)<\/\1>/g;
+    const selfClosingRegex = /<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]+)"\s*\/>/g;
 
+    // 1. Detect Block Tools
     let match: RegExpExecArray | null;
-    
-    match = writeRegex.exec(content);
-    while (match !== null) {
+    while (true) {
+      match = blockToolRegex.exec(content);
+      if (match === null) break;
+
+      const tagName = match[1];
+      const path = match[2];
+      const innerContent = match[3];
+      
+      const args: Record<string, string> = {};
+      if (path) args.path = path;
+      
+      switch (tagName) {
+        case 'write_file':
+        case 'replace_in_file':
+          args.content = innerContent;
+          break;
+        case 'run_command':
+          args.command = innerContent;
+          break;
+        case 'search_files':
+          args.query = innerContent;
+          break;
+        case 'get_problems':
+        case 'read_file':
+        case 'list_files':
+          // Already have path if present
+          break;
+      }
+
       toolCalls.push({
         id: crypto.randomUUID(),
-        name: 'write_file',
-        arguments: JSON.stringify({ path: match[1], content: match[2] })
+        name: tagName,
+        arguments: JSON.stringify(args)
       });
-      match = writeRegex.exec(content);
-    }
-    
-    match = replaceRegex.exec(content);
-    while (match !== null) {
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: 'replace_in_file',
-        arguments: JSON.stringify({ path: match[1], content: match[2] })
-      });
-      match = replaceRegex.exec(content);
-    }
-    
-    match = readRegex.exec(content);
-    while (match !== null) {
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: 'read_file',
-        arguments: JSON.stringify({ path: match[1] || match[2] })
-      });
-      match = readRegex.exec(content);
     }
 
-    match = listRegex.exec(content);
-    while (match !== null) {
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: 'list_files',
-        arguments: JSON.stringify({ path: match[1] || match[2] })
-      });
-      match = listRegex.exec(content);
-    }
+    // 2. Detect Self-Closing Tools
+    let sMatch: RegExpExecArray | null;
+    while (true) {
+        sMatch = selfClosingRegex.exec(content);
+        if (sMatch === null) break;
 
-    match = commandRegex.exec(content);
-    while (match !== null) {
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: 'run_command',
-        arguments: JSON.stringify({ command: match[1] })
-      });
-      match = commandRegex.exec(content);
-    }
-    
-    // Search Files Regex
-    const searchRegex = /<search_files>([\s\S]*?)<\/search_files>/g;
-    match = searchRegex.exec(content);
-    while (match !== null) {
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: 'search_files',
-        arguments: JSON.stringify({ query: match[1] })
-      });
-      match = searchRegex.exec(content);
-    }
-
-    // Get Problems Regex
-    const problemsRegex = /<get_problems\s+path="([^"]+)"\s*\/>|<get_problems\s*\/>/g;
-    match = problemsRegex.exec(content);
-    while (match !== null) {
-        // match[1] is path if present
-        const args: any = {};
-        if (match[1]) args.path = match[1];
+        const tagName = sMatch[1];
+        const path = sMatch[2];
         
-        toolCalls.push({
-            id: crypto.randomUUID(),
-            name: 'get_problems',
-            arguments: JSON.stringify(args)
-        });
-        match = problemsRegex.exec(content);
+        // Avoid duplicates if already caught by block regex
+        if (!toolCalls.some(tc => tc.name === tagName && JSON.parse(tc.arguments).path === path)) {
+            toolCalls.push({
+                id: crypto.randomUUID(),
+                name: tagName,
+                arguments: JSON.stringify({ path })
+            });
+        }
+    }
+
+    // 3. Fallback for get_problems without path
+    if (content.includes('<get_problems />') || content.includes('<get_problems/>')) {
+         if (!toolCalls.some(tc => tc.name === 'get_problems')) {
+             toolCalls.push({
+                 id: crypto.randomUUID(),
+                 name: 'get_problems',
+                 arguments: JSON.stringify({})
+             });
+         }
     }
 
     return toolCalls;
@@ -210,5 +222,8 @@ export class AgentOrbit {
 
   stop() {
     this.isRunning = false;
+    if (this.abortController) {
+        this.abortController.abort();
+    }
   }
 }
