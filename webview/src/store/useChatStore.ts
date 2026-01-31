@@ -47,15 +47,24 @@ export const useChatStore = create<ChatState>((set) => ({
 
   updateLastMessage: (content: string) =>
     set((state) => {
-      const last = state.messages[state.messages.length - 1];
+      const messages = [...state.messages];
+      const last = messages[messages.length - 1];
+
       if (last && last.role === 'assistant') {
-        const updatedMessages = [...state.messages.slice(0, -1), { 
-          ...last, 
-          content: last.content + content 
-        }];
-        return { messages: updatedMessages };
+        messages[messages.length - 1] = {
+          ...last,
+          content: last.content + content
+        };
+      } else {
+        // Create new assistant message if it doesn't exist
+        messages.push({
+          id: Math.random().toString(36).substring(2, 9),
+          role: 'assistant',
+          content: content
+        });
       }
-      return state;
+      
+      return { messages };
     }),
 
   clearHistory: () => set({ messages: [] }),
