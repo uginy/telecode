@@ -76,10 +76,16 @@ export async function handleSendMessage(
     promptText = `${languageInstruction}\n${toolCallInstruction}\n[INSTRUCTION: Write tests for the code below.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
   }
 
-  if (!fullContext && (text.includes('/') || text.length < 40)) {
+  const trimmedCommand = text.trim();
+  const needsFileContext =
+    trimmedCommand.startsWith('/fix') ||
+    trimmedCommand.startsWith('/test') ||
+    trimmedCommand.startsWith('/explain');
+
+  if (!fullContext && needsFileContext) {
     deps.view?.webview.postMessage({
       type: 'streamToken',
-      text: '> [!CAUTION]\n> **AIS Code**: Не удалось найти активный файл. Пожалуйста, откройте файл или перетащите его в чат.'
+      text: '> [!CAUTION]\n> **AIS Code**: Не удалось найти активный файл. Откройте файл или добавьте контекст через @.'
     });
   }
 
