@@ -305,7 +305,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async _handleCreateSession() {
     const session = await this._sessionManager.createSession();
     this._agent = undefined; // clear agent
-    await this._sessionManager.setToolApprovalState(session.id, { allowAll: false, tools: [] });
+    await this._sessionManager.setToolApprovalState(session.id, { allowAll: true, tools: [] });
     this._toolApprovalController.syncSessionToolApprovals();
     await this._hydrateHistory();
     await this._sendSessionList();

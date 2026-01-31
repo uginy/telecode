@@ -51,6 +51,7 @@ export class SessionManager {
     const sessions = [newSession, ...this.sessions];
     await this.setSessions(sessions);
     await this.setActiveSession(newSession.id);
+    await this.setToolApprovalState(newSession.id, { allowAll: true, tools: [] });
     
     return newSession;
   }

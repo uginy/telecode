@@ -1,6 +1,7 @@
 import type { Message, ToolCall, ToolResult } from "../types";
 import { ContextManager } from "../context/manager";
 import type { ToolRegistry } from "../tools/registry";
+import { parseToolCalls } from "../tools/toolParsing";
 
 import { CORE_SYSTEM_PROMPT } from '../prompts';
 
@@ -119,7 +120,7 @@ export class AgentOrbit {
 
         this.context.addMessage(assistantMessage);
 
-        const toolCalls = this.detectToolCalls(fullContent);
+        const toolCalls = parseToolCalls(fullContent);
         if (toolCalls.length > 0) {
           onToolCalls?.(toolCalls);
           onStatus?.('running_tools');
@@ -146,110 +147,6 @@ export class AgentOrbit {
       this.isRunning = false;
       this.abortController = null;
     }
-  }
-
-  private detectToolCalls(content: string): ToolCall[] {
-    const toolCalls: ToolCall[] = [];
-    
-    // Improved Regexes: more flexible with spaces and attributes
-    const blockToolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|codebase_search|get_problems)(?:\s+path\s*=\s*"([^"]+)")?\s*>([\s\S]*?)<\/\1>/g;
-    const selfClosingRegex = /<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]+)"\s*\/>/g;
-
-    // 1. Detect Block Tools
-    let match: RegExpExecArray | null;
-    while (true) {
-      match = blockToolRegex.exec(content);
-      if (match === null) break;
-
-      const tagName = match[1];
-      const path = match[2];
-      const innerContent = match[3];
-      
-      const args: Record<string, string> = {};
-      if (path) args.path = path;
-      
-      switch (tagName) {
-        case 'write_file':
-        case 'replace_in_file':
-          args.content = innerContent;
-          break;
-        case 'run_command':
-          args.command = innerContent;
-          break;
-        case 'search_files':
-          args.query = innerContent;
-          break;
-        case 'codebase_search': {
-          const trimmed = innerContent.trim();
-          if (trimmed.startsWith('{')) {
-            try {
-              const parsed = JSON.parse(trimmed) as { query?: string; path?: string | null };
-              if (parsed.query) {
-                args.query = parsed.query;
-              }
-              if (parsed.path !== undefined) {
-                args.path = parsed.path;
-              }
-            } catch {
-              args.query = innerContent;
-            }
-          } else {
-            args.query = innerContent;
-          }
-          break;
-        }
-        case 'get_problems':
-        case 'read_file':
-        case 'list_files': {
-          const trimmed = innerContent.trim();
-          if (!args.path && trimmed) {
-            args.path = trimmed;
-          }
-          if (tagName === 'list_files' && !args.path) {
-            args.path = '.';
-          }
-          break;
-        }
-      }
-
-      toolCalls.push({
-        id: crypto.randomUUID(),
-        name: tagName,
-        arguments: JSON.stringify(args)
-      });
-    }
-
-    // 2. Detect Self-Closing Tools
-    let sMatch: RegExpExecArray | null;
-    while (true) {
-        sMatch = selfClosingRegex.exec(content);
-        if (sMatch === null) break;
-
-        const tagName = sMatch[1];
-        const path = sMatch[2];
-        
-        // Avoid duplicates if already caught by block regex
-        if (!toolCalls.some(tc => tc.name === tagName && JSON.parse(tc.arguments).path === path)) {
-            toolCalls.push({
-                id: crypto.randomUUID(),
-                name: tagName,
-                arguments: JSON.stringify({ path })
-            });
-        }
-    }
-
-    // 3. Fallback for get_problems without path
-    if (content.includes('<get_problems />') || content.includes('<get_problems/>')) {
-         if (!toolCalls.some(tc => tc.name === 'get_problems')) {
-             toolCalls.push({
-                 id: crypto.randomUUID(),
-                 name: 'get_problems',
-                 arguments: JSON.stringify({})
-             });
-         }
-    }
-
-    return toolCalls;
   }
 
   private async executeTools(calls: ToolCall[]): Promise<ToolResult[]> {

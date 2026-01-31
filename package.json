@@ -241,6 +241,8 @@
     "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
     "watch:webview": "cd webview && bun run dev",
     "lint": "eslint src --ext ts",
+    "test": "bun test",
+    "smoke": "node ./scripts/smoke.mjs",
     "package": "vsce package"
   },
   "dependencies": {
@@ -256,6 +258,7 @@
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vscode/vsce": "^3.7.1",
+    "@vscode/test-electron": "^2.5.1",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3"
