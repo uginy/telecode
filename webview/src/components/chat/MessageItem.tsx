@@ -51,7 +51,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     const content = message.content;
     
     // Combined regex for all tool tags
-    const toolRegex = /<(write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(read_file|list_files)\s+path="([^"]+)"\s*\/>/g;
+    const toolRegex = /<(replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(read_file|list_files)\s+path="([^"]+)"\s*\/>/g;
     
     let lastIndex = 0;
     
@@ -59,6 +59,27 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     const matches = Array.from(content.matchAll(toolRegex));
     const resultValues = Object.values(message.toolResults || {});
     let toolCallIndex = 0;
+
+    // Define reusable markdown components
+    const markdownComponents: any = {
+      p: ({children}: any) => <p className="mb-2 last:mb-0">{children}</p>,
+      code: ({node, className, children, ...props}: any) => {
+        const match = /language-(\w+)/.exec(className || '');
+        return match ? (
+          <code className={className} {...props}>
+            {children}
+          </code>
+        ) : (
+          <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
+            {children}
+          </code>
+        );
+      },
+      pre: ({children}: any) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
+      ul: ({children}: any) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+      ol: ({children}: any) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+      a: ({href, children}: any) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
+    };
 
     for (const match of matches) {
       const matchIndex = match.index || 0;
@@ -105,7 +126,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       const args: Record<string, string> = {};
       if (path) args.path = path;
       if (tagName === 'run_command') args.command = toolContent;
-      if (tagName === 'write_file') args.content = toolContent;
+      if (tagName === 'write_file' || tagName === 'replace_in_file') args.content = toolContent;
 
       // Find tool result by index
       const result = resultValues[toolCallIndex] as ToolResult | undefined;
@@ -125,37 +146,59 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
     // Add remaining text
     if (lastIndex < content.length) {
-      const textPart = content.substring(lastIndex);
-      if (textPart.trim()) {
-        parts.push(
-          <div key={`text-${lastIndex}`} className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]} 
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
-                code: ({node, className, children, ...props}) => {
-                  const match = /language-(\w+)/.exec(className || '');
-                  return match ? (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  ) : (
-                    <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
-                      {children}
-                    </code>
+      const remainingText = content.substring(lastIndex);
+      
+      // Check for PARTIAL tool tag at the end
+      const partialRegex = /<(replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]*)")?(\s*\/?>)?([\s\S]*)$/;
+      const partialMatch = remainingText.match(partialRegex);
+
+      if (partialMatch) {
+          // We found the start of a tool call but not the end (since the main loop catches complete ones)
+          // We should render this as a "Loading" tool call (hidden content)
+          const pIndex = partialMatch.index || 0;
+          
+          // Text before the partial tag
+          if (pIndex > 0) {
+              const textBefore = remainingText.substring(0, pIndex);
+              if (textBefore.trim()) {
+                  parts.push(
+                    <div key={`text-${lastIndex}`} className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>
+                            {textBefore}
+                        </ReactMarkdown>
+                    </div>
                   );
-                },
-                pre: ({children}) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
-                ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-                ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-                a: ({href, children}) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
-              }}
-            >
-              {textPart}
-            </ReactMarkdown>
-          </div>
-        );
+              }
+          }
+
+          const tagName = partialMatch[1];
+          const path = partialMatch[3]; 
+          // partialMatch[5] is the content accumulated so far
+          
+          const args: Record<string, string> = { content: 'Streaming...' };
+          if (path) args.path = path;
+          
+          parts.push(
+            <ToolCallItem 
+              key={`tool-partial-${lastIndex}`}
+              name={tagName}
+              args={args}
+              result={undefined}
+              isStreaming={true} // Force spinner
+            />
+          );
+
+      } else {
+        // Normal text
+        if (remainingText.trim()) {
+            parts.push(
+            <div key={`text-${lastIndex}`} className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>
+                    {remainingText}
+                </ReactMarkdown>
+            </div>
+            );
+        }
       }
     }
 

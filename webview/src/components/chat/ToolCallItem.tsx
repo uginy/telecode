@@ -26,6 +26,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
     switch (name) {
       case 'write_file': return <FileText className="w-3.5 h-3.5" />;
       case 'read_file': return <FileText className="w-3.5 h-3.5" />;
+      case 'replace_in_file': return <FileText className="w-3.5 h-3.5 text-orange-400" />;
       case 'list_files': return <FolderTree className="w-3.5 h-3.5" />;
       case 'run_command': return <Terminal className="w-3.5 h-3.5" />;
       default: return <Terminal className="w-3.5 h-3.5" />;
@@ -36,6 +37,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
     switch (name) {
       case 'write_file': return `Write ${args.path}`;
       case 'read_file': return `Read ${args.path}`;
+      case 'replace_in_file': return `Edit ${args.path}`;
       case 'list_files': return `List ${args.path}`;
       case 'run_command': return `Run: ${args.command}`;
       default: return name;
@@ -74,7 +76,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
       {isExpanded && (
         <div className="px-3 pb-3 border-t border-white/5 animate-in slide-in-from-top-1 duration-200">
           {/* Action Arguments */}
-          {name === 'write_file' && (
+          {(name === 'write_file' || name === 'replace_in_file') && (
             <div className="mt-3 space-y-1.5">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Content</p>
               <pre className="p-2 bg-black/40 rounded border border-white/5 text-[10px] font-mono overflow-x-auto max-h-40">
