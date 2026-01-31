@@ -74,6 +74,7 @@ interface ChatState {
   usage: { used: number; total: number };
   sessionAllowAllTools: boolean;
   sessionAllowedTools: string[];
+  assistantStatus: string | null;
   
   // Actions
   addMessage: (message: Message) => void;
@@ -89,6 +90,7 @@ interface ChatState {
   setActiveSessionId: (id: string) => void;
   setSessionAllowAllTools: (value: boolean) => void;
   setSessionAllowedTools: (tools: string[]) => void;
+  setAssistantStatus: (status: string | null) => void;
 
   searchResults: SearchResult[];
   setSearchResults: (results: SearchResult[]) => void;
@@ -135,6 +137,7 @@ export const useChatStore = create<ChatState>((set) => ({
   usage: { used: 0, total: 200000 },
   sessionAllowAllTools: false,
   sessionAllowedTools: [],
+  assistantStatus: null,
 
   addMessage: (message: Message) => 
     set((state) => ({ messages: [...state.messages, message] })),
@@ -196,6 +199,7 @@ export const useChatStore = create<ChatState>((set) => ({
   setActiveSessionId: (id: string) => set({ activeSessionId: id }),
   setSessionAllowAllTools: (value: boolean) => set({ sessionAllowAllTools: value }),
   setSessionAllowedTools: (tools: string[]) => set({ sessionAllowedTools: tools }),
+  setAssistantStatus: (assistantStatus: string | null) => set({ assistantStatus }),
   
   searchResults: [] as SearchResult[],
   setSearchResults: (results: SearchResult[]) => set({ searchResults: results }),

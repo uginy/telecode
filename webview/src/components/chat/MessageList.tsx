@@ -8,6 +8,7 @@ import { useChatStore } from '@/store/useChatStore';
 export const MessageList: React.FC = () => {
   const messages = useChatStore((state) => state.messages);
   const isStreaming = useChatStore((state) => state.isStreaming);
+  const assistantStatus = useChatStore((state) => state.assistantStatus);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -16,7 +17,10 @@ export const MessageList: React.FC = () => {
     }
   }, [messages, isStreaming]); 
 
-  const showThinking = isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user';
+  const showThinking =
+    (isStreaming || !!assistantStatus) &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === 'user';
 
   if (messages.length === 0) {
     return (
@@ -40,7 +44,7 @@ export const MessageList: React.FC = () => {
         {messages.map((msg) => (
           <MessageItem key={msg.id} message={msg} />
         ))}
-        {showThinking && <ThinkingBubble />}
+        {showThinking && <ThinkingBubble status={assistantStatus || 'Thinking...'} />}
         <div ref={scrollRef} className="h-6" />
       </div>
     </div>

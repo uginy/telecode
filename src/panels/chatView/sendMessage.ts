@@ -22,6 +22,10 @@ export async function handleSendMessage(
   text: string,
   contextItems?: { type: string; value: string }[]
 ) {
+  const postStatus = (status: string | null) => {
+    deps.view?.webview.postMessage({ type: 'assistantStatus', status });
+  };
+
   let providerAdapter = await deps.createProviderAdapter();
   let intentResult = null as null | Awaited<ReturnType<typeof inferIntent>>;
 
@@ -29,6 +33,7 @@ export async function handleSendMessage(
   const intentEnabled = config.get<boolean>('intentRouting.enabled') ?? true;
 
   if (providerAdapter && intentEnabled) {
+    postStatus('Analyzing request...');
     const intentModel = (config.get<string>('intentRouting.model') || '').trim();
     const intentOverrides = {
       maxTokens: config.get<number>('intentRouting.maxTokens') || 256,
@@ -59,6 +64,7 @@ export async function handleSendMessage(
   let fullContext = '';
 
   try {
+    postStatus('Building context...');
     const context = await buildContext({
       text,
       contextItems,
@@ -82,6 +88,7 @@ export async function handleSendMessage(
     console.error('Failed to load context:', e);
   }
 
+  postStatus('Thinking...');
   deps.view?.webview.postMessage({ type: 'setStreaming', value: true });
 
   let promptText = text;
@@ -104,6 +111,7 @@ export async function handleSendMessage(
     !!intentResult?.requireCodeContext;
 
   if (!fullContext && needsFileContext) {
+    postStatus(null);
     deps.view?.webview.postMessage({
       type: 'streamToken',
       text: '> [!CAUTION]\n> **AIS Code**: Не удалось найти активный файл. Откройте файл или добавьте контекст через @.'
@@ -125,10 +133,12 @@ export async function handleSendMessage(
     deps.view?.webview.postMessage({ type: 'updateUsage', usage });
   } catch (error: unknown) {
     const e = error as Error;
+    postStatus(null);
     deps.view?.webview.postMessage({ type: 'streamToken', text: `\n\n**Error**: ${e.message || 'Unknown error occurred'}` });
     console.error('Chat execution error:', e);
   } finally {
     deps.view?.webview.postMessage({ type: 'setStreaming', value: false });
+    postStatus(null);
     await deps.saveHistory();
   }
 }

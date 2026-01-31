@@ -56,7 +56,8 @@ const App: React.FC = () => {
     setSessionAllowAllTools,
     setCheckpoints,
     setSessionAllowedTools,
-    setLastContextSnapshot
+    setLastContextSnapshot,
+    setAssistantStatus
   } = useChatStore();
 
   useEffect(() => {
@@ -75,12 +76,16 @@ const App: React.FC = () => {
           break;
         case 'streamToken':
           updateLastMessage(message.text || '');
+          setAssistantStatus(null);
           break;
         case 'setSettings':
           updateSettings(message.settings);
           break;
         case 'setStreaming':
           setStreaming(!!message.value);
+          if (!message.value) {
+            setAssistantStatus(null);
+          }
           break;
         case 'updateSessionList':
           // Update sessions and active ID
@@ -109,6 +114,9 @@ const App: React.FC = () => {
           if (message.snapshot) {
             setLastContextSnapshot(message.snapshot);
           }
+          break;
+        case 'assistantStatus':
+          setAssistantStatus(typeof message.status === 'string' ? message.status : null);
           break;
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);
@@ -156,11 +164,13 @@ const App: React.FC = () => {
     setSessionAllowAllTools,
     setSessionAllowedTools,
     setCheckpoints,
-    setLastContextSnapshot
+    setLastContextSnapshot,
+    setAssistantStatus
   ]);
 
   const handleSend = useCallback((text: string, contextItems: SearchResult[] = []) => {
     addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });
+    setAssistantStatus('Thinking...');
     
     try {
       if ((window as any).vscode) {

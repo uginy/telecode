@@ -11,9 +11,7 @@ export class ProviderAdapter implements CoreAIProvider {
     options: { stream?: boolean; signal?: AbortSignal; overrides?: CompletionOverrides }
   ): Promise<AsyncIterable<string> | string> {
     const systemMessage = messages.find(m => m.role === 'system');
-    if (systemMessage) {
-      this.provider.setSystemPromptOverride(systemMessage.content);
-    }
+    this.provider.setSystemPromptOverride(systemMessage?.content);
 
     if (options.overrides) {
       this.provider.setRequestOverrides(options.overrides);
@@ -34,6 +32,7 @@ export class ProviderAdapter implements CoreAIProvider {
         return await this.completeNonStreaming(mappedMessages, options.signal);
       } finally {
         this.provider.clearRequestOverrides();
+        this.provider.setSystemPromptOverride();
       }
     }
 
@@ -127,6 +126,7 @@ export class ProviderAdapter implements CoreAIProvider {
       }
     } finally {
       this.provider.clearRequestOverrides();
+      this.provider.setSystemPromptOverride();
     }
   }
 }
