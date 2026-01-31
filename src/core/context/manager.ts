@@ -15,6 +15,14 @@ export class ContextManager {
     this.pruneIfNeeded();
   }
 
+  setSystemMessage(message: Message) {
+    // Remove any existing system messages
+    this.messages = this.messages.filter(m => m.role !== 'system');
+    // Prepend the new one
+    this.messages.unshift(message);
+    this.pruneIfNeeded();
+  }
+
   getMessages(): Message[] {
     return this.messages;
   }

@@ -3,6 +3,7 @@ import { AgentOrbit } from '../core/agent/AgentOrbit';
 import { ToolRegistry } from '../core/tools/registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool } from '../core/tools/implementations/FileSystem';
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
+import { getWorkspaceSummary } from '../utils/workspace';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
@@ -107,6 +108,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       });
 
       this._agent = new AgentOrbit(provider, this._toolRegistry);
+
+      // Inject Workspace Context
+      try {
+         const summary = await getWorkspaceSummary();
+         this._agent.updateSystemContext(summary);
+      } catch (e) {
+        console.error('Failed to load workspace summary:', e);
+      }
     }
 
     this._view?.webview.postMessage({ type: 'setStreaming', value: true });
