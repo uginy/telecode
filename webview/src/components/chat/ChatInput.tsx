@@ -265,14 +265,25 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
           />
         </div>
         <div className="flex items-center h-[40px] mb-0.5">
-          <Button 
-            size="sm"
-            onClick={handleSendClick}
-            disabled={isStreaming || (!value.trim() && contextItems.length === 0)}
-            className="h-8 w-8 p-0 font-bold rounded-lg shadow-sm active:scale-90 transition-all bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-          >
-            <Send className={cn("w-4 h-4", isStreaming && "animate-pulse")} />
-          </Button>
+          {isStreaming ? (
+              <Button 
+                size="sm"
+                onClick={onStop}
+                variant="destructive"
+                className="h-8 w-8 p-0 font-bold rounded-lg shadow-sm active:scale-90 transition-all shrink-0"
+              >
+                <div className="w-3 h-3 bg-current rounded-sm" />
+              </Button>
+          ) : (
+              <Button 
+                size="sm"
+                onClick={handleSendClick}
+                disabled={!value.trim() && contextItems.length === 0}
+                className="h-8 w-8 p-0 font-bold rounded-lg shadow-sm active:scale-90 transition-all bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+          )}
         </div>
       </div>
     </footer>

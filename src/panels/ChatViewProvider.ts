@@ -49,7 +49,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
-          await this._handleSendMessage(data.text as string);
+          await this._handleSendMessage(data.text as string, data.contextItems as string[]);
+          break;
+        case 'stop':
+          if (this._agent) {
+              this._agent.stop();
+              this._view?.webview.postMessage({ type: 'setStreaming', value: false });
+          }
+          break;
+        case 'clearHistory':
+          this._handleClearHistory();
           break;
         case 'updateSettings':
           await this._handleUpdateSettings(data.settings as Record<string, unknown>);

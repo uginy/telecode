@@ -20,7 +20,8 @@ declare const vscode: VsCodeApi;
 const VsCodeApp: React.FC<{ 
   onSend: (text: string, contextItems?: SearchResult[]) => void;
   onSearch: (query: string) => void;
-}> = ({ onSend, onSearch }) => {
+  onStop: () => void;
+}> = ({ onSend, onSearch, onStop }) => {
   const { activeView } = useChatStore();
 
   if (activeView === 'settings') {
@@ -35,7 +36,7 @@ const VsCodeApp: React.FC<{
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans relative">
       <ChatHeader />
       <MessageList />
-      <ChatInput onSend={onSend} onSearch={onSearch} />
+      <ChatInput onSend={onSend} onSearch={onSearch} onStop={onStop} />
     </div>
   );
 };
@@ -126,9 +127,19 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleStop = useCallback(() => {
+    try {
+      if ((window as any).vscode) {
+        (window as any).vscode.postMessage({ type: 'stop' });
+      }
+    } catch (e) {
+      console.error('[AIS] Error posting stop:', e);
+    }
+  }, []);
+
   return (
     <TooltipProvider>
-      <VsCodeApp onSend={handleSend} onSearch={handleSearch} />
+      <VsCodeApp onSend={handleSend} onSearch={handleSearch} onStop={handleStop} />
     </TooltipProvider>
   );
 };
