@@ -86,8 +86,7 @@ const run = async () => {
         FLOW_BATCH_SIZE: batchSize,
         FLOW_BATCH_DELAY_MS: batchDelayMs,
         FLOW_REAL_LLM: realLlm ? "1" : "",
-        AIS_CODE_TEST_MODE: "1",
-        FLOW_AUTORUN: "1"
+        AIS_CODE_TEST_MODE: "1"
       },
       launchArgs: args
     });

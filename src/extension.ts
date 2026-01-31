@@ -41,6 +41,13 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('aisCode.newConversation', async () => {
+      await vscode.commands.executeCommand('workbench.view.extension.ais-code');
+      await chatViewProvider.createNewConversation();
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('aisCode.restoreLastCheckpoint', async () => {
       const checkpoint = await CheckpointManager.getInstance().restoreLast();
       if (!checkpoint) {

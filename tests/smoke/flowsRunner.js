@@ -161,8 +161,13 @@ async function run() {
     log(`Extension found: ${extension ? "yes" : "no"}`);
     if (extension && !extension.isActive) {
       log("Activating extension...");
-      await extension.activate();
-      log("Extension activated.");
+      try {
+        await extension.activate();
+        log("Extension activated.");
+      } catch (err) {
+        log("Extension activation error:", err?.stack || String(err));
+        throw err;
+      }
     }
 
     const commands = await vscode.commands.getCommands(true);
@@ -252,7 +257,7 @@ async function run() {
 
 module.exports = { run };
 
-if (process.env.FLOW_AUTORUN === "1") {
+if (require.main === module) {
   run()
     .then(() => {
       process.exit(0);
