@@ -1,11 +1,20 @@
-import type React from 'react';
-import { useState } from 'react';
-import { SlidersHorizontal, Eye, EyeOff, ExternalLink, Cpu, Globe } from 'lucide-react';
+import { SlidersHorizontal, Eye, EyeOff, ExternalLink, Cpu, Globe, RefreshCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Combobox } from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
 import { PROVIDERS, getProviderById } from '@/config/providers';
+import { useEffect, useState, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import type { Settings } from '@/store/useChatStore';
+
+interface AvailableModel {
+  id: string;
+  label: string;
+  description: string;
+  isFree: boolean;
+  contextLimit: number;
+}
 
 interface SettingsApiTabProps {
   settings: Settings;
@@ -15,9 +24,38 @@ interface SettingsApiTabProps {
 export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChange }) => {
   const [isShowKey, setIsShowKey] = useState(false);
   const [isFreeOnly, setIsFreeOnly] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const selectedProvider = getProviderById(settings.provider);
-  const providerModels = selectedProvider?.models || [];
+
+  const fetchModels = useCallback(() => {
+    setIsLoading(true);
+    // @ts-ignore - vscode is injected by VS Code
+    if (typeof vscode !== 'undefined') {
+       // @ts-ignore
+      vscode.postMessage({ type: 'fetchModels' });
+    } else if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'fetchModels' });
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'modelList' && message.provider === settings.provider) {
+        setAvailableModels(message.models);
+        setIsLoading(false);
+      } else if (message.type === 'modelListError') {
+        setIsLoading(false);
+      }
+    };
+    window.addEventListener('message', handler);
+    fetchModels();
+    return () => window.removeEventListener('message', handler);
+  }, [settings.provider, fetchModels]);
+
+  const providerModels = availableModels.length > 0 ? availableModels : (selectedProvider?.models || []);
   const filteredModels = isFreeOnly ? providerModels.filter(m => m.isFree) : providerModels;
   const selectedModel = providerModels.find(m => m.id === settings.modelId);
 
@@ -107,12 +145,24 @@ export const SettingsApiTab: React.FC<SettingsApiTabProps> = ({ settings, onChan
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em]">Intelligent Model</label>
-          <div className="flex items-center gap-2.5 bg-white/5 px-3 py-1.5 rounded-full border border-border/50">
-            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Free tier only</span>
-            <Switch
-              checked={isFreeOnly}
-              onCheckedChange={setIsFreeOnly}
-            />
+          <div className="flex items-center gap-3">
+             <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={fetchModels} 
+                disabled={isLoading}
+                className="w-8 h-8 rounded-full hover:bg-white/5 disabled:opacity-30"
+                title="Refresh models"
+              >
+                <RefreshCcw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
+              </Button>
+            <div className="flex items-center gap-2.5 bg-white/5 px-3 py-1.5 rounded-full border border-border/50">
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tight">Free tier only</span>
+              <Switch
+                checked={isFreeOnly}
+                onCheckedChange={setIsFreeOnly}
+              />
+            </div>
           </div>
         </div>
 

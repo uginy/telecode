@@ -2,7 +2,6 @@ import type React from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { Search, Check, ChevronDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from './scroll-area';
 
 interface Option {
   id: string;
@@ -52,6 +51,13 @@ export const Combobox: React.FC<ComboboxProps> = ({
     <div className={cn("relative w-full", className)} ref={containerRef}>
       <div 
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            setIsOpen(!isOpen);
+          }
+        }}
+        role="button"
+        tabIndex={0}
         className="flex items-center justify-between w-full p-2.5 bg-input/50 border border-border rounded-lg hover:border-primary/50 transition-all cursor-pointer group"
       >
         <div className="flex-1 min-w-0">
@@ -78,6 +84,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              // biome-ignore lint/a11y/noAutofocus: this is a search input inside a dropdown
               autoFocus
             />
             {search && (
@@ -91,7 +98,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
             )}
           </div>
           
-          <ScrollArea className="max-h-60">
+          <div className="max-h-60 overflow-y-auto overflow-x-hidden custom-scrollbar">
             <div className="p-1.5 space-y-0.5">
               {filteredOptions.length === 0 ? (
                 <p className="p-4 text-[11px] text-center text-muted-foreground italic">{emptyText}</p>
@@ -104,6 +111,16 @@ export const Combobox: React.FC<ComboboxProps> = ({
                       setIsOpen(false);
                       setSearch("");
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        onSelect(option.id);
+                        setIsOpen(false);
+                        setSearch("");
+                      }
+                    }}
+                    role="option"
+                    aria-selected={value === option.id}
+                    tabIndex={0}
                     className={cn(
                       "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all hover:bg-white/5",
                       value === option.id ? "bg-primary/10 text-primary" : "text-foreground/80"
@@ -111,7 +128,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold truncate">{option.label}</span>
+                         <span className="text-[11px] font-bold truncate">{option.label}</span>
                         {option.isFree && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary text-black font-black uppercase tracking-tighter">Free</span>
                         )}
@@ -125,7 +142,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       )}
     </div>

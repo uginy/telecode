@@ -7,6 +7,28 @@ const outFile = path.join(outDir, "flows.json");
 
 const STEP_REGEX = /^(Given|When|Then|And|But)\s+(.*)$/;
 
+const normalizeTag = (tag) => {
+  const trimmed = tag.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+};
+
+const parseTagList = (value) => {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((tag) => normalizeTag(tag))
+    .filter(Boolean);
+};
+
+const args = process.argv.slice(2);
+const tagsArg = args.find((arg) => arg.startsWith("--tags="));
+const excludeArg = args.find((arg) => arg.startsWith("--exclude="));
+const outArg = args.find((arg) => arg.startsWith("--out="));
+
+const includeTags = parseTagList(tagsArg?.split("=")[1]);
+const excludeTags = parseTagList(excludeArg?.split("=")[1]);
+
 const parseTableRow = (line) =>
   line
     .trim()
@@ -17,6 +39,7 @@ const parseTableRow = (line) =>
 const parseFeature = (text, file) => {
   const lines = text.split(/\r?\n/);
   let featureName = "";
+  let featureTags = [];
   let backgroundSteps = [];
   let scenarios = [];
   let tagsBuffer = [];
@@ -37,7 +60,14 @@ const parseFeature = (text, file) => {
 
     currentScenario.id = scenarioId;
     currentScenario.resolvedSteps = [...backgroundSteps, ...currentScenario.steps];
-    scenarios.push(currentScenario);
+    const scenarioTags = currentScenario.tags || [];
+    const include =
+      includeTags.length === 0 ||
+      includeTags.some((tag) => scenarioTags.includes(tag));
+    const exclude = excludeTags.some((tag) => scenarioTags.includes(tag));
+    if (include && !exclude) {
+      scenarios.push(currentScenario);
+    }
     currentScenario = null;
   };
 
@@ -47,12 +77,16 @@ const parseFeature = (text, file) => {
     if (!trimmed) continue;
 
     if (trimmed.startsWith("@")) {
-      tagsBuffer = trimmed.split(/\s+/).filter(Boolean);
+      tagsBuffer = trimmed.split(/\s+/).filter(Boolean).map(normalizeTag);
       continue;
     }
 
     if (trimmed.startsWith("Feature:")) {
       featureName = trimmed.slice("Feature:".length).trim();
+      if (tagsBuffer.length > 0) {
+        featureTags = Array.from(new Set([...featureTags, ...tagsBuffer]));
+        tagsBuffer = [];
+      }
       continue;
     }
 
@@ -66,7 +100,8 @@ const parseFeature = (text, file) => {
     if (trimmed.startsWith("Scenario")) {
       finalizeScenario();
       const scenarioName = trimmed.split(":")[1]?.trim() || "Unnamed";
-      currentScenario = { name: scenarioName, tags: tagsBuffer, steps: [] };
+      const scenarioTags = Array.from(new Set([...featureTags, ...tagsBuffer]));
+      currentScenario = { name: scenarioName, tags: scenarioTags, steps: [] };
       tagsBuffer = [];
       mode = "scenario";
       currentStep = null;
@@ -98,6 +133,7 @@ const parseFeature = (text, file) => {
   return {
     name: featureName || path.basename(file),
     file: path.relative(process.cwd(), file),
+    tags: featureTags,
     background: backgroundSteps,
     scenarios
   };
@@ -112,7 +148,10 @@ const main = async () => {
   const features = [];
   for (const file of featureFiles) {
     const content = await fs.readFile(file, "utf8");
-    features.push(parseFeature(content, file));
+    const parsed = parseFeature(content, file);
+    if (parsed.scenarios.length > 0) {
+      features.push(parsed);
+    }
   }
 
   await fs.mkdir(outDir, { recursive: true });
@@ -121,9 +160,10 @@ const main = async () => {
     features
   };
 
-  await fs.writeFile(outFile, JSON.stringify(payload, null, 2), "utf8");
+  const target = outArg ? path.resolve(process.cwd(), outArg.split("=")[1]) : outFile;
+  await fs.writeFile(target, JSON.stringify(payload, null, 2), "utf8");
   // eslint-disable-next-line no-console
-  console.log(`Generated ${outFile}`);
+  console.log(`Generated ${target}`);
 };
 
 main().catch((err) => {

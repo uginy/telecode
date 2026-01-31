@@ -1,9 +1,13 @@
 {
-  "generatedAt": "2026-01-31T21:27:17.834Z",
+  "generatedAt": "2026-01-31T21:32:51.348Z",
   "features": [
     {
       "name": "Архитектурный анализ проекта",
       "file": "cases/01-project-architecture.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -46,7 +50,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит архитектурные особенности проекта",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -295,6 +302,10 @@
     {
       "name": "Создание документа в корне проекта",
       "file": "cases/02-create-doc-in-root.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -324,7 +335,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит сохранить текст в документе",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -508,6 +522,10 @@
     {
       "name": "Исправление бага по открытым вкладкам",
       "file": "cases/03-fix-bug-with-open-tabs.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -546,7 +564,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит исправить ошибку, не указывая файл",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -745,6 +766,10 @@
     {
       "name": "Объяснение файла",
       "file": "cases/04-explain-file.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -779,7 +804,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит объяснить файл",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -950,6 +978,10 @@
     {
       "name": "Генерация тестов",
       "file": "cases/05-add-tests.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -979,7 +1011,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит тесты для модуля",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -1179,6 +1214,10 @@
     {
       "name": "Поиск и рефакторинг по запросу",
       "file": "cases/06-search-and-refactor.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -1212,7 +1251,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит переименовать функцию в проекте",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -1416,6 +1458,10 @@
     {
       "name": "Диагностика ошибок в проекте",
       "file": "cases/07-debug-with-problems.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -1445,7 +1491,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит найти ошибки компиляции",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -1637,6 +1686,10 @@
     {
       "name": "Запуск команды в терминале",
       "file": "cases/08-run-command.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -1666,7 +1719,10 @@
       "scenarios": [
         {
           "name": "Пользователь просит запустить lint",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -1832,6 +1888,10 @@
     {
       "name": "Контекст без открытых вкладок",
       "file": "cases/09-context-without-open-tabs.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -1866,7 +1926,10 @@
       "scenarios": [
         {
           "name": "Пользователь задает вопрос без открытых файлов",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -2055,6 +2118,10 @@
     {
       "name": "Семантический поиск как первичная стратегия",
       "file": "cases/10-codebase-search-first.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2088,7 +2155,10 @@
       "scenarios": [
         {
           "name": "Пользователь спрашивает про \"intent routing\"",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -2276,6 +2346,10 @@
     {
       "name": "Автоаппрув инструментов",
       "file": "cases/11-auto-approval.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2305,7 +2379,10 @@
       "scenarios": [
         {
           "name": "Автоаппрув включен, правка применяется без подтверждения",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -2471,6 +2548,10 @@
     {
       "name": "Таймаут инструментов",
       "file": "cases/12-tool-timeout.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2500,7 +2581,10 @@
       "scenarios": [
         {
           "name": "Tool result не пришел вовремя",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -2668,6 +2752,10 @@
     {
       "name": "Скролл во время генерации",
       "file": "cases/13-scroll-while-streaming.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2683,7 +2771,10 @@
       "scenarios": [
         {
           "name": "Пользователь скроллит вверх во время генерации ответа",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -2745,6 +2836,10 @@
     {
       "name": "Настройки intent routing",
       "file": "cases/14-settings-intent-routing.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2774,7 +2869,10 @@
       "scenarios": [
         {
           "name": "Intent routing отключен",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -2864,6 +2962,10 @@
     {
       "name": "Локализация статусов",
       "file": "cases/15-status-localization.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -2879,7 +2981,10 @@
       "scenarios": [
         {
           "name": "Пользователь пишет на русском",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -2942,7 +3047,10 @@
         },
         {
           "name": "Пользователь пишет на английском",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -3008,6 +3116,10 @@
     {
       "name": "Контекст через @-вставки",
       "file": "cases/16-context-at-mentions.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3046,7 +3158,10 @@
       "scenarios": [
         {
           "name": "Пользователь явно указывает контекст через @",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -3217,6 +3332,10 @@
     {
       "name": "Несколько tool calls в одном ответе",
       "file": "cases/17-multiple-tools-single-response.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3246,7 +3365,10 @@
       "scenarios": [
         {
           "name": "Ассистент вызывает два инструмента в одном сообщении",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -3354,6 +3476,10 @@
     {
       "name": "Настройки источников контекста",
       "file": "cases/18-settings-context-toggles.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3374,7 +3500,10 @@
       "scenarios": [
         {
           "name": "Отключены открытые вкладки",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -3509,6 +3638,10 @@
     {
       "name": "Отказ в разрешении на tool",
       "file": "cases/19-approval-deny.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3538,7 +3671,10 @@
       "scenarios": [
         {
           "name": "Пользователь отказывает в запуске команды",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -3692,6 +3828,10 @@
     {
       "name": "Разрешение tool один раз",
       "file": "cases/20-approval-allow-once.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3721,7 +3861,10 @@
       "scenarios": [
         {
           "name": "Пользователь разрешает write_file один раз",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -3857,6 +4000,10 @@
     {
       "name": "Отмена генерации",
       "file": "cases/21-cancel-generation.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3872,7 +4019,10 @@
       "scenarios": [
         {
           "name": "Пользователь нажимает Stop во время стриминга",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -3944,6 +4094,10 @@
     {
       "name": "Устаревший индекс и fallback",
       "file": "cases/22-index-stale-fallback.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -3973,7 +4127,10 @@
       "scenarios": [
         {
           "name": "Индекс устарел и требует перестроения",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -4103,6 +4260,10 @@
     {
       "name": "Конфликт при replace_in_file",
       "file": "cases/23-conflict-edit.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4132,7 +4293,10 @@
       "scenarios": [
         {
           "name": "replace_in_file не находит матч",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4250,6 +4414,10 @@
     {
       "name": "Ошибка чтения директории",
       "file": "cases/24-read-directory-fallback.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4265,7 +4433,10 @@
       "scenarios": [
         {
           "name": "read_file указывает на директорию",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4381,6 +4552,10 @@
     {
       "name": "Multi-root workspace",
       "file": "cases/25-multi-root-workspace.feature",
+      "tags": [
+        "@golden",
+        "@priority-low"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4401,7 +4576,10 @@
       "scenarios": [
         {
           "name": "Пользователь спрашивает про общие утилиты",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-low"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4490,6 +4668,10 @@
     {
       "name": "Лимиты контекста",
       "file": "cases/26-context-size-limit.feature",
+      "tags": [
+        "@golden",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4528,7 +4710,10 @@
       "scenarios": [
         {
           "name": "Контекст ограничен настройками",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4613,6 +4798,10 @@
     {
       "name": "Ошибка команды и follow-up",
       "file": "cases/27-command-error-followup.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4642,7 +4831,10 @@
       "scenarios": [
         {
           "name": "Линт падает, требуется диагностика",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4772,6 +4964,10 @@
     {
       "name": "Разрешение tool на всю сессию",
       "file": "cases/28-approval-allow-session.feature",
+      "tags": [
+        "@golden",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4801,7 +4997,10 @@
       "scenarios": [
         {
           "name": "Пользователь разрешает run_command на всю сессию",
-          "tags": [],
+          "tags": [
+            "@golden",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -4937,6 +5136,10 @@
     {
       "name": "Несоответствие tool result",
       "file": "cases/29-tool-result-mismatch.feature",
+      "tags": [
+        "@edge",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -4952,7 +5155,10 @@
       "scenarios": [
         {
           "name": "tool result приходит для неизвестного toolCallId",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -5014,6 +5220,10 @@
     {
       "name": "Некорректный JSON внутри tool call",
       "file": "cases/30-bad-json-tool-call.feature",
+      "tags": [
+        "@edge",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -5029,7 +5239,10 @@
       "scenarios": [
         {
           "name": "codebase_search с битым JSON",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -5103,6 +5316,10 @@
     {
       "name": "Ошибки нескольких tools в одном ответе",
       "file": "cases/31-multi-tool-errors.feature",
+      "tags": [
+        "@edge",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -5132,7 +5349,10 @@
       "scenarios": [
         {
           "name": "Один tool падает, другой успешен",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "When",
@@ -5250,6 +5470,10 @@
     {
       "name": "Результаты tools приходят не по порядку",
       "file": "cases/32-out-of-order-results.feature",
+      "tags": [
+        "@edge",
+        "@priority-high"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -5265,7 +5489,10 @@
       "scenarios": [
         {
           "name": "tool results приходят в другом порядке",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-high"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -5359,6 +5586,10 @@
     {
       "name": "Частичный tool tag во время стриминга",
       "file": "cases/33-partial-tool-tag-streaming.feature",
+      "tags": [
+        "@edge",
+        "@priority-medium"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -5374,7 +5605,10 @@
       "scenarios": [
         {
           "name": "Tool tag приходит частями",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-medium"
+          ],
           "steps": [
             {
               "keyword": "Given",
@@ -5436,6 +5670,10 @@
     {
       "name": "Дублирующий tool call",
       "file": "cases/34-duplicate-tool-call-dedupe.feature",
+      "tags": [
+        "@edge",
+        "@priority-low"
+      ],
       "background": [
         {
           "keyword": "Given",
@@ -5451,7 +5689,10 @@
       "scenarios": [
         {
           "name": "Один и тот же tool указан дважды",
-          "tags": [],
+          "tags": [
+            "@edge",
+            "@priority-low"
+          ],
           "steps": [
             {
               "keyword": "When",

@@ -51,3 +51,36 @@ npm run gherkin:flows
 ```
 
 Результат: `cases/golden/flows.json`
+
+## Теги и фильтрация
+
+Мы используем теги:
+- `@golden` - базовые сценарии качества
+- `@edge` - edge/regression сценарии
+- `@priority-high|@priority-medium|@priority-low` - приоритет
+
+Фильтрация генерации:
+
+```
+npm run gherkin:flows -- --tags=@golden,@priority-high
+npm run gherkin:flows -- --exclude=@edge
+```
+
+Можно также указать путь вывода:
+
+```
+npm run gherkin:flows -- --tags=@edge --out=cases/golden/edge.json
+```
+
+## LLM для реальных тестов
+
+Для реальных тестов используем текущий провайдер и модель, сохраненные в настройках проекта.
+Не коммитим API-ключи. Модель выбираем в Settings на рабочей машине.
+
+Рекомендуемые модели для регресса (OpenRouter):
+
+```
+arcee-ai/trinity-large-preview:free
+tngtech/deepseek-r1t2-chimera:free
+z-ai/glm-4.5-air:free
+```

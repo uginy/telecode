@@ -126,3 +126,79 @@ export async function applySettingsUpdate(settings: Record<string, unknown>, con
     if (settings.baseUrl !== undefined) await config.update('openaiCompatible.baseUrl', settings.baseUrl, vscode.ConfigurationTarget.Global);
   }
 }
+
+export async function handleFetchModels(view: vscode.WebviewView | undefined) {
+  if (!view) return;
+  const config = vscode.workspace.getConfiguration('aisCode');
+  const provider = config.get<string>('provider') || 'openrouter';
+
+  try {
+    let models: { id: string; label: string; description: string; isFree: boolean; contextLimit: number }[] = [];
+
+    if (provider === 'openrouter') {
+      const apiKey = config.get<string>('openrouter.apiKey');
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+      });
+      const data = await response.json() as { data: { id: string; name: string; description?: string; pricing?: { prompt: string; completion: string }; context_length: number }[] };
+      models = data.data.map((m) => ({
+        id: m.id,
+        label: m.name,
+        description: m.description ? `${m.description.slice(0, 100)}${m.description.length > 100 ? '...' : ''}` : '',
+        isFree: (m.pricing?.prompt === '0' && m.pricing?.completion === '0') || m.id.includes(':free'),
+        contextLimit: m.context_length
+      }));
+    } else if (provider === 'openai-compatible') {
+      const baseUrl = config.get<string>('openaiCompatible.baseUrl') || 'http://localhost:11434/v1';
+      const apiKey = config.get<string>('openaiCompatible.apiKey');
+      
+      const response = await fetch(`${baseUrl}/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+      });
+      const data = await response.json() as { data?: { id?: string; name?: string }[] } | { id?: string; name?: string }[];
+
+      const rawModels = Array.isArray(data) ? data : (data.data || []);
+      models = rawModels.map((m: { id?: string; name?: string }) => ({
+        id: m.id || m.name || 'unknown',
+        label: m.name || m.id || 'Unknown Model',
+        description: 'OpenAI Compatible model',
+        isFree: true,
+        contextLimit: 128000
+      }));
+    } else if (provider === 'openai') {
+        const apiKey = config.get<string>('openai.apiKey');
+        if (apiKey) {
+            const response = await fetch('https://api.openai.com/v1/models', {
+                headers: { Authorization: `Bearer ${apiKey}` }
+            });
+            const data = await response.json() as { data: { id: string }[] };
+            models = data.data.map((m) => ({
+                id: m.id,
+                label: m.id,
+                description: 'OpenAI official model',
+                isFree: false,
+                contextLimit: 128000
+            }));
+        }
+    } else if (provider === 'anthropic') {
+        models = [
+            { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', description: 'Most intelligent model', isFree: false, contextLimit: 200000 },
+            { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', description: 'Fastest model', isFree: false, contextLimit: 200000 },
+            { id: 'claude-3-opus-20240229', label: 'Claude 3 Opus', description: 'Previous flagship', isFree: false, contextLimit: 200000 },
+        ];
+    }
+
+    view.webview.postMessage({
+      type: 'modelList',
+      provider,
+      models
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Failed to fetch models: ${message}`);
+    view.webview.postMessage({
+        type: 'modelListError',
+        message: message
+    });
+  }
+}

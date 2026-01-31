@@ -164,6 +164,22 @@ body {
   ::-webkit-scrollbar-thumb:hover {
     background: oklch(1 0 0 / 25%);
   }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    opacity: 0.2;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    opacity: 0.5;
+  }
 }
 
 .app-shell {

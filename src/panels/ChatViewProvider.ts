@@ -21,7 +21,7 @@ import { getWebviewHtml } from './chatView/webviewHtml';
 import { handleSearchFiles, handleResolveContextItems } from './chatView/search';
 import { hydrateHistory, clearHistory } from './chatView/history';
 import { handleSendMessage } from './chatView/sendMessage';
-import { postWebviewSettings, applySettingsUpdate } from './chatView/settings';
+import { postWebviewSettings, applySettingsUpdate, handleFetchModels } from './chatView/settings';
 import { sendSessionList, saveHistory } from './chatView/sessionHistory';
 import { sendCheckpointList } from './chatView/checkpoints';
 import { ToolApprovalController } from './chatView/toolApprovals';
@@ -216,6 +216,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case 'resolveContextItems':
           await handleResolveContextItems(this._view, data.paths as string[]);
+          break;
+        case 'fetchModels':
+          await handleFetchModels(this._view);
           break;
       }
     });

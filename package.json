@@ -243,6 +243,7 @@
     "lint": "eslint src --ext ts",
     "test": "bun test",
     "smoke": "node ./scripts/smoke.mjs",
+    "smoke:flows": "node ./scripts/flows-smoke.mjs",
     "gherkin:flows": "node ./scripts/gherkin-to-flows.mjs",
     "package": "vsce package"
   },
