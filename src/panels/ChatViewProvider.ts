@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { AgentOrbit } from '../core/agent/AgentOrbit';
 import { ToolRegistry } from '../core/tools/registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '../core/tools/implementations/FileSystem';
+import { SearchFilesTool } from '../core/tools/implementations/Search';
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
 import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
@@ -22,6 +23,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new WriteFileTool());
     this._toolRegistry.register(new ReplaceInFileTool());
     this._toolRegistry.register(new ListFilesTool());
+    this._toolRegistry.register(new SearchFilesTool());
     
     this._sessionManager = new SessionManager(context);
   }
@@ -456,7 +458,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
-    const isDevelopment = this.context.extensionMode === vscode.ExtensionMode.Development;
+    const isDevelopment = false; // FORCE PRODUCTION MODE: Fixes blank screen when Vite server is not running. 
+    // const isDevelopment = this.context.extensionMode === vscode.ExtensionMode.Development;
     const devServerUrl = 'http://localhost:5173';
 
     if (isDevelopment) {
@@ -496,7 +499,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; script-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; script-src ${webview.cspSource} 'unsafe-inline'; style-src ${webview.cspSource} 'unsafe-inline';">
         <link href="${styleUri}" rel="stylesheet">
         <title>AIS Code</title>
       </head>

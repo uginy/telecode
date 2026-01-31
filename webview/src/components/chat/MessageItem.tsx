@@ -51,7 +51,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     const content = message.content;
     
     // Combined regex for all tool tags
-    const toolRegex = /<(replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(read_file|list_files)\s+path="([^"]+)"\s*\/>/g;
+    const toolRegex = /<(search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(read_file|list_files)\s+path="([^"]+)"\s*\/>/g;
     
     let lastIndex = 0;
     
@@ -92,25 +92,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]} 
                 rehypePlugins={[rehypeHighlight]}
-                components={{
-                  p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
-                  code: ({node, className, children, ...props}) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return match ? (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    ) : (
-                      <code className="bg-muted px-1.5 py-0.5 rounded-md text-[11px] font-mono" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  pre: ({children}) => <pre className="p-0 my-2 rounded-lg overflow-hidden bg-[#0d1117] border border-white/10">{children}</pre>,
-                  ul: ({children}) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-                  ol: ({children}) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-                  a: ({href, children}) => <a href={href} className="text-primary underline underline-offset-4 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer">{children}</a>,
-                }}
+                components={markdownComponents}
               >
                 {textPart}
               </ReactMarkdown>

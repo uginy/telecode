@@ -167,6 +167,18 @@ export class AgentOrbit {
       });
       match = commandRegex.exec(content);
     }
+    
+    // Search Files Regex
+    const searchRegex = /<search_files>([\s\S]*?)<\/search_files>/g;
+    match = searchRegex.exec(content);
+    while (match !== null) {
+      toolCalls.push({
+        id: crypto.randomUUID(),
+        name: 'search_files',
+        arguments: JSON.stringify({ query: match[1] })
+      });
+      match = searchRegex.exec(content);
+    }
 
     return toolCalls;
   }
