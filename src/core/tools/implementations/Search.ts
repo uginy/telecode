@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as util from 'util';
-import * as path from 'path';
 import { Tool } from '../registry';
 
-const exec = util.promisify(cp.exec);
+const execFile = util.promisify(cp.execFile);
 
 export class SearchFilesTool implements Tool {
   name = 'search_files';
@@ -24,7 +23,7 @@ export class SearchFilesTool implements Tool {
 
     // Strategy 1: Git Grep (Fastest, respects .gitignore)
     try {
-        const { stdout } = await exec(`git grep -I -n "${query}"`, { cwd: rootPath, maxBuffer: 1024 * 1024 * 2 });
+        const { stdout } = await execFile('git', ['grep', '-I', '-n', '--', query], { cwd: rootPath, maxBuffer: 1024 * 1024 * 2 });
         // Format: file:line:content
         const lines = stdout.split('\n').filter(Boolean).slice(0, 50); // Limit results
         

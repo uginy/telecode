@@ -79,6 +79,12 @@ export abstract class BaseProvider implements AIProvider {
   abstract getModels(): Model[];
   abstract complete(messages: Message[], callbacks: StreamCallbacks): Promise<UsageStats>;
 
+  protected systemPromptOverride: string | null = null;
+
+  setSystemPromptOverride(prompt?: string): void {
+    this.systemPromptOverride = prompt?.trim() ? prompt : null;
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       const testCallbacks: StreamCallbacks = {
@@ -98,6 +104,9 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   protected buildSystemPrompt(): string {
+    if (this.systemPromptOverride) {
+      return this.systemPromptOverride;
+    }
     return `You are AIS Code, an AI coding assistant running inside VS Code. 
 You help developers write, understand, and improve code.
 Be concise, accurate, and helpful.

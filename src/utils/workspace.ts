@@ -2,6 +2,35 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 
+export function getWorkspaceRoot(): string | null {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return null;
+  }
+  return workspaceFolders[0].uri.fsPath;
+}
+
+export function resolveWorkspacePath(inputPath: string): { resolvedPath?: string; error?: string } {
+  if (!inputPath) {
+    return { error: 'Path is required.' };
+  }
+
+  const rootPath = getWorkspaceRoot();
+  if (!rootPath) {
+    return { error: 'No workspace folder open.' };
+  }
+
+  const normalized = path.normalize(inputPath);
+  const resolvedPath = path.isAbsolute(normalized) ? normalized : path.join(rootPath, normalized);
+  const relative = path.relative(rootPath, resolvedPath);
+
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return { error: `Path is outside the workspace: ${inputPath}` };
+  }
+
+  return { resolvedPath };
+}
+
 export async function getWorkspaceSummary(): Promise<string> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {

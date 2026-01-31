@@ -1,6 +1,8 @@
 import * as cp from 'child_process';
 import * as util from 'util';
+import * as vscode from 'vscode';
 import { Tool } from '../registry';
+import { getWorkspaceRoot } from '../../../utils/workspace';
 
 const exec = util.promisify(cp.exec);
 
@@ -13,14 +15,32 @@ export class RunCommandTool implements Tool {
     if (!command) return 'Error: No command provided.';
 
     // Safety checks (rudimentary)
-    if (command.trim().toLowerCase().startsWith('rm -rf /') || command.includes('> /dev/sda')) {
+    const normalized = command.trim().toLowerCase();
+    if (
+      normalized.startsWith('rm -rf /') ||
+      normalized.includes('> /dev/sda') ||
+      /rm\s+-rf\b/.test(normalized) ||
+      /mkfs\./.test(normalized) ||
+      /dd\s+if=\/dev\//.test(normalized)
+    ) {
         return 'Error: Command blocked for safety reasons.';
+    }
+
+    const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
+    if (!autoApprove) {
+      return 'Error: run_command requires approval. Enable "aisCode.autoApprove" or run the command manually.';
+    }
+
+    const rootPath = getWorkspaceRoot();
+    if (!rootPath) {
+      return 'Error: No workspace open.';
     }
 
     try {
         const { stdout, stderr } = await exec(command, { 
             timeout: 30000, // 30 seconds timeout
-            maxBuffer: 1024 * 1024 // 1MB buffer
+            maxBuffer: 1024 * 1024, // 1MB buffer
+            cwd: rootPath
         });
 
         let output = '';

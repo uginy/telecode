@@ -5,7 +5,9 @@ import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '.
 import { SearchFilesTool } from '../core/tools/implementations/Search';
 import { RunCommandTool } from '../core/tools/implementations/Terminal';
 import { GetProblemsTool } from '../core/tools/implementations/Lsp';
-import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
+import { ProviderRegistry } from '../providers/registry';
+import { ProviderAdapter } from '../core/providers/ProviderAdapter';
+import { BaseProvider } from '../providers/base';
 import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
 import { generateSessionSummaryPrompt } from '../core/prompts';
@@ -20,6 +22,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _toolRegistry: ToolRegistry;
   private _sessionManager: SessionManager;
   private _lastActiveEditor: vscode.TextEditor | undefined;
+  private _providerRegistry: ProviderRegistry;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -35,6 +38,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new GetProblemsTool());
     
     this._sessionManager = new SessionManager(context);
+    this._providerRegistry = new ProviderRegistry();
     
     // Track the last active text editor to maintain context when focus shifts to Webview
     this._lastActiveEditor = vscode.window.activeTextEditor;
@@ -160,12 +164,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _updateWebviewSettings() {
     if (!this._view) return;
     const config = vscode.workspace.getConfiguration('aisCode');
+    const provider = config.get<string>('provider') || 'openrouter';
+
+    const providerSettings = this._getProviderSettings(provider, config);
     this._view.webview.postMessage({
       type: 'setSettings',
       settings: {
-        provider: config.get('provider') || 'openrouter',
-        modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free',
-        apiKey: config.get('openrouter.apiKey') || '',
+        provider,
+        modelId: providerSettings.modelId,
+        apiKey: providerSettings.apiKey,
         maxTokens: config.get('maxTokens') || 4096,
         temperature: config.get('temperature') || 0.7,
         autoApprove: config.get('autoApprove') ?? true,
@@ -175,6 +182,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleUpdateSettings(settings: Record<string, unknown>) {
     const config = vscode.workspace.getConfiguration('aisCode');
+    const provider = (settings.provider as string | undefined) || config.get<string>('provider') || 'openrouter';
     
     // Update global settings
     if (settings.provider) await config.update('provider', settings.provider, vscode.ConfigurationTarget.Global);
@@ -183,15 +191,65 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (settings.autoApprove !== undefined) await config.update('autoApprove', settings.autoApprove, vscode.ConfigurationTarget.Global);
     
     // Update provider specific settings
-    if (settings.provider === 'openrouter') {
+    if (provider === 'openrouter') {
       if (settings.modelId) await config.update('openrouter.model', settings.modelId, vscode.ConfigurationTarget.Global);
       if (settings.apiKey !== undefined) await config.update('openrouter.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
+    } else if (provider === 'openai') {
+      if (settings.modelId) await config.update('openai.model', settings.modelId, vscode.ConfigurationTarget.Global);
+      if (settings.apiKey !== undefined) await config.update('openai.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
+    } else if (provider === 'anthropic') {
+      if (settings.modelId) await config.update('anthropic.model', settings.modelId, vscode.ConfigurationTarget.Global);
+      if (settings.apiKey !== undefined) await config.update('anthropic.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
+    } else if (provider === 'openai-compatible') {
+      if (settings.modelId) await config.update('openaiCompatible.model', settings.modelId, vscode.ConfigurationTarget.Global);
+      if (settings.apiKey !== undefined) await config.update('openaiCompatible.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
     }
 
     vscode.window.showInformationMessage('AIS Code: Settings updated');
     
     // Force agent re-initialization on next message
     this._agent = undefined;
+  }
+
+  private _getProviderSettings(provider: string, config: vscode.WorkspaceConfiguration) {
+    if (provider === 'openai') {
+      return {
+        modelId: config.get('openai.model') || 'gpt-4o',
+        apiKey: config.get('openai.apiKey') || ''
+      };
+    }
+    if (provider === 'anthropic') {
+      return {
+        modelId: config.get('anthropic.model') || 'claude-sonnet-4-20250514',
+        apiKey: config.get('anthropic.apiKey') || ''
+      };
+    }
+    if (provider === 'openai-compatible') {
+      return {
+        modelId: config.get('openaiCompatible.model') || 'llama3.2',
+        apiKey: config.get('openaiCompatible.apiKey') || ''
+      };
+    }
+    return {
+      modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free',
+      apiKey: config.get('openrouter.apiKey') || ''
+    };
+  }
+
+  private async _createProviderAdapter(): Promise<ProviderAdapter | null> {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    const providerName = config.get<string>('provider') || 'openrouter';
+    const provider = await this._providerRegistry.getProvider(providerName);
+
+    if (!provider) {
+      this._view?.webview.postMessage({
+        type: 'streamToken',
+        text: `**AIS Code**: Provider "${providerName}" is not configured. Add an API key in Settings.`
+      });
+      return null;
+    }
+
+    return new ProviderAdapter(provider as BaseProvider);
   }
 
   private async _hydrateHistory() {
@@ -284,14 +342,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _summarizeTitle(sessionId: string, messages: { role: string; content: string }[]) {
       try {
-        const config = vscode.workspace.getConfiguration('aisCode');
-        const provider = new OpenRouterProvider({
-          provider: 'openrouter',
-          apiKey: config.get('openrouter.apiKey') || '',
-          modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free', // Use same model
-          maxTokens: 50, // Short output
-          temperature: 0.5
-        });
+        const providerAdapter = await this._createProviderAdapter();
+        if (!providerAdapter) return;
 
         // Map messages to simpler format
         const promptMessages = messages.map(m => ({ 
@@ -301,7 +353,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         
         const prompt = generateSessionSummaryPrompt(promptMessages);
 
-        const response = await provider.complete([
+        const response = await providerAdapter.complete([
           { role: 'user', content: prompt, id: 'summary-request', timestamp: Date.now() }
         ], { stream: false });
 
@@ -439,19 +491,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _handleSendMessage(text: string, contextItems?: { type: string, value: string }[]) {
     if (!this._agent) {
-      const config = vscode.workspace.getConfiguration('aisCode');
-      const apiKey = config.get<string>('openrouter.apiKey') || '';
-      const modelId = config.get<string>('openrouter.model') || 'google/gemini-2.0-flash-exp:free';
+      const providerAdapter = await this._createProviderAdapter();
+      if (!providerAdapter) {
+        return;
+      }
 
-      const provider = new OpenRouterProvider({
-        provider: 'openrouter',
-        apiKey: apiKey,
-        modelId: modelId,
-        maxTokens: config.get<number>('maxTokens'),
-        temperature: config.get<number>('temperature')
-      });
-
-      this._agent = new AgentOrbit(provider, this._toolRegistry);
+      this._agent = new AgentOrbit(providerAdapter, this._toolRegistry);
 
       // Load History from Active Session
       const history = this._sessionManager.activeSession?.messages || [];

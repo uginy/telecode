@@ -2,13 +2,22 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { Tool } from '../registry';
 import { EditManager } from '../../edits/EditManager';
+import { getWorkspaceRoot, resolveWorkspacePath } from '../../../utils/workspace';
 
 export class ReadFileTool implements Tool {
   name = 'read_file';
   description = 'Reads the content of a file.';
 
   async execute(args: { path: string }): Promise<string> {
-    const uri = vscode.Uri.file(args.path);
+    const inputPath = args.path && args.path.trim().length > 0
+      ? args.path
+      : getWorkspaceRoot() || '';
+    const resolved = resolveWorkspacePath(inputPath);
+    if (resolved.error || !resolved.resolvedPath) {
+      return `Error: ${resolved.error}`;
+    }
+
+    const uri = vscode.Uri.file(resolved.resolvedPath);
     const content = await vscode.workspace.fs.readFile(uri);
     return new TextDecoder().decode(content);
   }
@@ -19,15 +28,20 @@ export class WriteFileTool implements Tool {
   description = 'Writes content to a file.';
 
   async execute(args: { path: string, content: string }): Promise<string> {
-    const editId = EditManager.getInstance().addPendingEdit(args.path, args.content, 'Overwrite file');
+    const resolved = resolveWorkspacePath(args.path);
+    if (resolved.error || !resolved.resolvedPath) {
+      return `Error: ${resolved.error}`;
+    }
+
+    const editId = EditManager.getInstance().addPendingEdit(resolved.resolvedPath, args.content, 'Overwrite file');
     const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
     
     if (autoApprove) {
         await EditManager.getInstance().applyEdit(editId);
-        return `Successfully wrote file ${path.basename(args.path)} (Auto-approved).`;
+        return `Successfully wrote file ${path.basename(resolved.resolvedPath)} (Auto-approved).`;
     }
     
-    return `[APPROVAL REQUIRED] New file content proposed for ${path.basename(args.path)} (ID: ${editId}). User must approve changes in the UI.`;
+    return `[APPROVAL REQUIRED] New file content proposed for ${path.basename(resolved.resolvedPath)} (ID: ${editId}). User must approve changes in the UI.`;
   }
 }
 
@@ -36,7 +50,12 @@ export class ListFilesTool implements Tool {
   description = 'Lists files in a directory.';
 
   async execute(args: { path: string }): Promise<string> {
-    const uri = vscode.Uri.file(args.path);
+    const resolved = resolveWorkspacePath(args.path);
+    if (resolved.error || !resolved.resolvedPath) {
+      return `Error: ${resolved.error}`;
+    }
+
+    const uri = vscode.Uri.file(resolved.resolvedPath);
     const entries = await vscode.workspace.fs.readDirectory(uri);
     return entries.map(([name, type]) => {
       return type === vscode.FileType.Directory ? `${name}/` : name;
@@ -52,10 +71,11 @@ export class ReplaceInFileTool implements Tool {
     if (!args.path) {
         return "Error: Path attribute is missing in <replace_in_file>. Use <replace_in_file path=\"...\">";
     }
-    let targetPath = args.path;
-    if (!path.isAbsolute(targetPath) && vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
-        targetPath = path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, targetPath);
+    const resolved = resolveWorkspacePath(args.path);
+    if (resolved.error || !resolved.resolvedPath) {
+      return `Error: ${resolved.error}`;
     }
+    const targetPath = resolved.resolvedPath;
     
     const uri = vscode.Uri.file(targetPath);
     let fileBytes: Uint8Array;

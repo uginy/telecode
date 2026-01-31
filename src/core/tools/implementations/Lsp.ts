@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Tool } from '../registry';
+import { resolveWorkspacePath } from '../../../utils/workspace';
 
 export class GetProblemsTool implements Tool {
   name = 'get_problems';
@@ -10,7 +11,11 @@ export class GetProblemsTool implements Tool {
 
     if (args.path) {
         // Specific file
-        const uri = vscode.Uri.file(args.path);
+        const resolved = resolveWorkspacePath(args.path);
+        if (resolved.error || !resolved.resolvedPath) {
+            return `Error: ${resolved.error}`;
+        }
+        const uri = vscode.Uri.file(resolved.resolvedPath);
         const diags = vscode.languages.getDiagnostics(uri);
         diagnostics = [[uri, diags]];
     } else {
