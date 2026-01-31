@@ -54,9 +54,12 @@ export async function handleSendMessage(
 
   const trimmedInput = text.trim();
   const intent = intentResult?.intent ?? 'general';
+  const fileWriteIntentEn = /(?:^|\b)(create|write|save|update|add|generate|draft|compose|make)\b.*\b(file|doc(?:ument)?|readme|changelog|spec|report|plan|policy|license|notes|markdown|md)\b|\b(?:save|store|write)\b.*\b(file|doc(?:ument)?|readme|changelog|spec|report|plan|policy|license|notes|markdown|md)\b|\b[A-Za-z0-9_\-./\\]+\.(md|txt|json|yaml|yml)\b/i;
+  const fileWriteIntentRu = /(?:созда[ййте]|сохрани|запиши|обнови|добавь|сделай|напис[аать]|сформируй|сгенерируй)[\s\S]*\b(файл|документ|доку|ридми|readme|спецификац|тз|отчет|план|инструкц|политик|лиценз|markdown|md)\b/i;
+  const requiresFileWrite = fileWriteIntentEn.test(trimmedInput) || fileWriteIntentRu.test(trimmedInput);
   const shouldAvoidTools =
     intent === 'project_overview' ||
-    (intent === 'general' && !intentResult?.requireCodeContext && trimmedInput.length <= 80);
+    (intent === 'general' && !intentResult?.requireCodeContext && trimmedInput.length <= 80 && !requiresFileWrite);
 
   const runDirectCompletion = async (options: { includeWorkspaceSummary: boolean }) => {
     if (!providerAdapter) return false;
@@ -195,6 +198,7 @@ If the information is missing, ask one short clarifying question.
   let promptText = text;
   const languageInstruction = '[IMPORTANT: Respond in the SAME LANGUAGE as the user input.]';
   const toolCallInstruction = '[ACTION: Provide a brief 1-sentence summary of fixes, then call <replace_in_file> or <write_file> IMMEDIATELY. NO MARKDOWN CODE BLOCKS.]';
+  const fileWriteInstruction = '[FILE WRITE REQUIRED: The user asked to create or save a document/file. Provide a 1-sentence summary, then call <write_file path="..."> immediately. Do NOT output the full document in chat. If the filename is not specified, choose a clear Markdown filename in the project root.]';
 
   if (text.trim().startsWith('/fix')) {
     promptText = `${languageInstruction}\n${toolCallInstruction}\n[CRITICAL INSTRUCTION: Analyze the code below and fix it. Use tools directly.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
@@ -202,6 +206,8 @@ If the information is missing, ask one short clarifying question.
     promptText = `${languageInstruction}\n[INSTRUCTION: Explain the code below.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
   } else if (text.trim().startsWith('/test')) {
     promptText = `${languageInstruction}\n${toolCallInstruction}\n[INSTRUCTION: Write tests for the code below.]\n\nCODE CONTEXT:\n${fullContext}\n\nUSER COMMAND: ${text}`;
+  } else if (requiresFileWrite) {
+    promptText = `${languageInstruction}\n${fileWriteInstruction}\n\nUSER COMMAND: ${text}`;
   }
 
   const trimmedCommand = text.trim();
