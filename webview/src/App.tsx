@@ -4,7 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageList } from '@/components/chat/MessageList';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { useChatStore, type SearchResult } from '@/store/useChatStore';
+import { useChatStore, type AssistantStatus, type StatusKey, type SearchResult } from '@/store/useChatStore';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { HistoryView } from '@/components/history/HistoryView';
 import { ContextView } from '@/components/context/ContextView';
@@ -57,8 +57,36 @@ const App: React.FC = () => {
     setCheckpoints,
     setSessionAllowedTools,
     setLastContextSnapshot,
-    setAssistantStatus
+    setAssistantStatus,
+    setStatusLocale
   } = useChatStore();
+
+  const detectLocale = (text: string) => {
+    if (/[а-яё]/i.test(text)) return 'ru';
+    if (/[\u4e00-\u9fff]/.test(text)) return 'zh';
+    if (/[\u3040-\u30ff]/.test(text)) return 'ja';
+    if (/[\uac00-\ud7af]/.test(text)) return 'ko';
+    return 'en';
+  };
+
+  const isStatusKey = (value: string): value is StatusKey =>
+    value === 'thinking' ||
+    value === 'analyzing' ||
+    value === 'building_context' ||
+    value === 'searching_codebase' ||
+    value === 'running_tools';
+
+  const normalizeStatus = (status: unknown): AssistantStatus | null => {
+    if (!status) return null;
+    if (typeof status === 'string') {
+      return isStatusKey(status) ? { key: status } : null;
+    }
+    if (typeof status === 'object' && 'key' in status) {
+      const key = (status as { key?: string }).key;
+      if (typeof key === 'string' && isStatusKey(key)) return { key };
+    }
+    return null;
+  };
 
   useEffect(() => {
     // Notify backend that we are ready
@@ -116,7 +144,7 @@ const App: React.FC = () => {
           }
           break;
         case 'assistantStatus':
-          setAssistantStatus(typeof message.status === 'string' ? message.status : null);
+          setAssistantStatus(normalizeStatus(message.status));
           break;
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);
@@ -165,12 +193,14 @@ const App: React.FC = () => {
     setSessionAllowedTools,
     setCheckpoints,
     setLastContextSnapshot,
-    setAssistantStatus
+    setAssistantStatus,
+    setStatusLocale
   ]);
 
   const handleSend = useCallback((text: string, contextItems: SearchResult[] = []) => {
     addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });
-    setAssistantStatus('Thinking...');
+    setStatusLocale(detectLocale(text));
+    setAssistantStatus({ key: 'thinking' });
     
     try {
       if ((window as any).vscode) {
@@ -181,7 +211,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error('[AIS] Error posting message:', e);
     }
-  }, [addMessage]);
+  }, [addMessage, setAssistantStatus, setStatusLocale]);
 
   const handleSearch = useCallback((query: string) => {
     try {

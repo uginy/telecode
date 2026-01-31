@@ -23,6 +23,8 @@ export interface ContextStrategy {
   useSemantic?: boolean;
 }
 
+export type ContextStatusKey = 'building_context' | 'searching_codebase';
+
 interface ContextSectionItem {
   label: string;
   content: string;
@@ -334,9 +336,11 @@ export async function buildContext(params: {
   contextItems?: { type: string; value: string }[];
   lastActiveEditor?: vscode.TextEditor;
   strategy?: ContextStrategy;
+  onProgress?: (status: ContextStatusKey) => void;
 }): Promise<ContextBuildResult> {
   const state: ContextState = { content: '', used: 0 };
   const sections: ContextSection[] = [];
+  params.onProgress?.('building_context');
   const config = vscode.workspace.getConfiguration('aisCode');
   const summary = await getWorkspaceSummary();
   const hasExplicitContext = !!(params.contextItems && params.contextItems.length > 0);
@@ -379,19 +383,29 @@ export async function buildContext(params: {
   }
 
   const shouldCollectSnippets = keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6;
+  let searchStatusEmitted = false;
+  const emitSearchStatus = () => {
+    if (searchStatusEmitted) return;
+    params.onProgress?.('searching_codebase');
+    searchStatusEmitted = true;
+  };
 
   if (semanticFirst) {
     if (allowSemantic && shouldCollectSnippets) {
+      emitSearchStatus();
       usedSemantic = await collectSemanticSnippets(state, keywords, sections, maxSnippets);
     }
     if (allowSearch && shouldCollectSnippets) {
+      emitSearchStatus();
       usedSearch = await collectSearchSnippets(state, keywords, sections, maxSnippets);
     }
   } else {
     if (allowSearch && shouldCollectSnippets) {
+      emitSearchStatus();
       usedSearch = await collectSearchSnippets(state, keywords, sections, maxSnippets);
     }
     if (allowSemantic && shouldCollectSnippets) {
+      emitSearchStatus();
       usedSemantic = await collectSemanticSnippets(state, keywords, sections, maxSnippets);
     }
   }

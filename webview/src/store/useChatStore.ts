@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import type { Message, ToolResult } from '@/components/chat/MessageItem';
 
+export type StatusKey =
+  | 'thinking'
+  | 'analyzing'
+  | 'building_context'
+  | 'searching_codebase'
+  | 'running_tools';
+
+export interface AssistantStatus {
+  key: StatusKey;
+}
+
 export interface Settings {
   provider: string;
   modelId: string;
@@ -74,7 +85,8 @@ interface ChatState {
   usage: { used: number; total: number };
   sessionAllowAllTools: boolean;
   sessionAllowedTools: string[];
-  assistantStatus: string | null;
+  assistantStatus: AssistantStatus | null;
+  statusLocale: string;
   
   // Actions
   addMessage: (message: Message) => void;
@@ -90,7 +102,8 @@ interface ChatState {
   setActiveSessionId: (id: string) => void;
   setSessionAllowAllTools: (value: boolean) => void;
   setSessionAllowedTools: (tools: string[]) => void;
-  setAssistantStatus: (status: string | null) => void;
+  setAssistantStatus: (status: AssistantStatus | null) => void;
+  setStatusLocale: (locale: string) => void;
 
   searchResults: SearchResult[];
   setSearchResults: (results: SearchResult[]) => void;
@@ -138,6 +151,7 @@ export const useChatStore = create<ChatState>((set) => ({
   sessionAllowAllTools: false,
   sessionAllowedTools: [],
   assistantStatus: null,
+  statusLocale: 'en',
 
   addMessage: (message: Message) => 
     set((state) => ({ messages: [...state.messages, message] })),
@@ -199,7 +213,35 @@ export const useChatStore = create<ChatState>((set) => ({
   setActiveSessionId: (id: string) => set({ activeSessionId: id }),
   setSessionAllowAllTools: (value: boolean) => set({ sessionAllowAllTools: value }),
   setSessionAllowedTools: (tools: string[]) => set({ sessionAllowedTools: tools }),
-  setAssistantStatus: (assistantStatus: string | null) => set({ assistantStatus }),
+  setAssistantStatus: (assistantStatus: AssistantStatus | null) =>
+    set((state) => {
+      const messages = [...state.messages];
+      const last = messages[messages.length - 1];
+
+      if (assistantStatus) {
+        if (!last || last.role !== 'assistant') {
+          messages.push({
+            id: Math.random().toString(36).substring(2, 9),
+            role: 'assistant',
+            content: '',
+            statusKey: assistantStatus.key
+          });
+        } else {
+          messages[messages.length - 1] = {
+            ...last,
+            statusKey: assistantStatus.key
+          };
+        }
+      } else if (last && last.role === 'assistant' && last.statusKey) {
+        messages[messages.length - 1] = {
+          ...last,
+          statusKey: undefined
+        };
+      }
+
+      return { assistantStatus, messages };
+    }),
+  setStatusLocale: (statusLocale: string) => set({ statusLocale }),
   
   searchResults: [] as SearchResult[],
   setSearchResults: (results: SearchResult[]) => set({ searchResults: results }),

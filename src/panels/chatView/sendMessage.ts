@@ -22,8 +22,15 @@ export async function handleSendMessage(
   text: string,
   contextItems?: { type: string; value: string }[]
 ) {
-  const postStatus = (status: string | null) => {
-    deps.view?.webview.postMessage({ type: 'assistantStatus', status });
+  type StatusKey =
+    | 'thinking'
+    | 'analyzing'
+    | 'building_context'
+    | 'searching_codebase'
+    | 'running_tools';
+
+  const postStatus = (status: StatusKey | null) => {
+    deps.view?.webview.postMessage({ type: 'assistantStatus', status: status ? { key: status } : null });
   };
 
   let providerAdapter = await deps.createProviderAdapter();
@@ -33,7 +40,7 @@ export async function handleSendMessage(
   const intentEnabled = config.get<boolean>('intentRouting.enabled') ?? true;
 
   if (providerAdapter && intentEnabled) {
-    postStatus('Analyzing request...');
+    postStatus('analyzing');
     const intentModel = (config.get<string>('intentRouting.model') || '').trim();
     const intentOverrides = {
       maxTokens: config.get<number>('intentRouting.maxTokens') || 256,
@@ -64,12 +71,12 @@ export async function handleSendMessage(
   let fullContext = '';
 
   try {
-    postStatus('Building context...');
     const context = await buildContext({
       text,
       contextItems,
       lastActiveEditor: deps.lastActiveEditor,
-      strategy: intentResult?.strategy
+      strategy: intentResult?.strategy,
+      onProgress: (status) => postStatus(status)
     });
     fullContext = context.contextDetails;
     deps.view?.webview.postMessage({ type: 'contextSnapshot', snapshot: context.snapshot });
@@ -88,7 +95,7 @@ export async function handleSendMessage(
     console.error('Failed to load context:', e);
   }
 
-  postStatus('Thinking...');
+  postStatus('thinking');
   deps.view?.webview.postMessage({ type: 'setStreaming', value: true });
 
   let promptText = text;
@@ -126,7 +133,8 @@ export async function handleSendMessage(
       },
       (result: { toolCallId: string; output: string; isError: boolean }) => {
         deps.view?.webview.postMessage({ type: 'toolResult', result });
-      }
+      },
+      (status) => postStatus(status as StatusKey)
     );
 
     const usage = agent.getUsage();

@@ -58,7 +58,8 @@ export class AgentOrbit {
   async run(
     userInput: string, 
     onUpdate: (chunk: string) => void,
-    onToolResult?: (result: ToolResult) => void
+    onToolResult?: (result: ToolResult) => void,
+    onStatus?: (status: string) => void
   ) {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -119,6 +120,7 @@ export class AgentOrbit {
 
         const toolCalls = this.detectToolCalls(fullContent);
         if (toolCalls.length > 0) {
+          onStatus?.('running_tools');
           assistantMessage.toolCalls = toolCalls;
           const results = await this.executeTools(toolCalls);
           if (this.abortController?.signal.aborted) break;

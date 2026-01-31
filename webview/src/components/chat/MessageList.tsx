@@ -9,6 +9,7 @@ export const MessageList: React.FC = () => {
   const messages = useChatStore((state) => state.messages);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const assistantStatus = useChatStore((state) => state.assistantStatus);
+  const statusLocale = useChatStore((state) => state.statusLocale);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -16,6 +17,33 @@ export const MessageList: React.FC = () => {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isStreaming]); 
+
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
+  const statusText = assistantStatus
+    ? {
+        en: {
+          thinking: 'Thinking…',
+          analyzing: 'Analyzing request…',
+          building_context: 'Building context…',
+          searching_codebase: 'Searching codebase…',
+          running_tools: 'Running tools…',
+        },
+        ru: {
+          thinking: 'Думаю…',
+          analyzing: 'Анализирую запрос…',
+          building_context: 'Собираю контекст…',
+          searching_codebase: 'Ищу по кодовой базе…',
+          running_tools: 'Запускаю инструменты…',
+        },
+      }[statusLocale]?.[assistantStatus.key] ??
+      {
+        thinking: 'Thinking…',
+        analyzing: 'Analyzing request…',
+        building_context: 'Building context…',
+        searching_codebase: 'Searching codebase…',
+        running_tools: 'Running tools…',
+      }[assistantStatus.key]
+    : null;
 
   const showThinking =
     (isStreaming || !!assistantStatus) &&
@@ -42,9 +70,13 @@ export const MessageList: React.FC = () => {
     <div className="flex-1 overflow-y-auto min-h-0">
       <div className="flex flex-col gap-0 py-2">
         {messages.map((msg) => (
-          <MessageItem key={msg.id} message={msg} />
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            statusText={msg.id === lastAssistantId ? statusText ?? undefined : undefined}
+          />
         ))}
-        {showThinking && <ThinkingBubble status={assistantStatus || 'Thinking...'} />}
+        {showThinking && <ThinkingBubble status={statusText ?? undefined} />}
         <div ref={scrollRef} className="h-6" />
       </div>
     </div>

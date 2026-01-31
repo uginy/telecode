@@ -35,6 +35,7 @@ export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'tool';
   content: string;
+  statusKey?: string;
   toolCalls?: ToolCall[];
   toolResult?: ToolResult;
   toolResults?: Record<string, ToolResult>;
@@ -227,9 +228,10 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
 };
 interface MessageItemProps {
   message: Message;
+  statusText?: string;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText }) => {
   const isUser = message.role === 'user';
   
   if (message.role === 'tool') return null; 
@@ -451,6 +453,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           {isUser ? 'You' : 'AIS'}
         </span>
       </div>
+      {!isUser && statusText ? (
+        <div className="text-[11px] text-foreground/70 px-0.5">{statusText}</div>
+      ) : null}
       <div className={cn(
         "text-xs leading-relaxed wrap-break-word",
         isUser ? "w-fit max-w-[85%] pb-1" : "w-full"
