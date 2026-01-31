@@ -315,7 +315,6 @@ export const SettingsView: React.FC = () => {
                   {activeTab === 'features' && <Sparkles className="w-20 h-20 mb-6 text-primary" />}
                   {activeTab === 'browser' && <Globe className="w-20 h-20 mb-6 text-primary" />}
                   {activeTab === 'terminal' && <Terminal className="w-20 h-20 mb-6 text-primary" />}
-                  {activeTab === 'general' && <Settings className="w-20 h-20 mb-6 text-primary" />}
                   {activeTab === 'about' && <Info className="w-20 h-20 mb-6 text-primary" />}
                   <h3 className="text-3xl font-black tracking-tighter uppercase">Module Locked</h3>
                   <p className="text-xs font-mono opacity-60 mt-2">Available in upcoming release v1.1.0</p>

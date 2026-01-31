@@ -125,6 +125,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       // Update usage after each run
       const usage = this._agent.getUsage();
       this._view?.webview.postMessage({ type: 'updateUsage', usage });
+    } catch (error: any) {
+      this._view?.webview.postMessage({ type: 'streamToken', text: `\n\n**Error**: ${error.message || 'Unknown error occurred'}` });
+      console.error('Chat execution error:', error);
     } finally {
       this._view?.webview.postMessage({ type: 'setStreaming', value: false });
     }

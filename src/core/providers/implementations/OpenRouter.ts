@@ -42,6 +42,10 @@ export class OpenRouterProvider implements AIProvider {
         let data = '';
         res.on('data', chunk => data += chunk);
         res.on('end', () => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`OpenRouter Error ${res.statusCode}: ${data}`));
+            return;
+          }
           try {
             const json = JSON.parse(data);
             resolve(json.choices[0].message.content);
@@ -57,9 +61,9 @@ export class OpenRouterProvider implements AIProvider {
     });
   }
 
-  private async *fetchStreaming(payload: any): AsyncIterable<string> {
-    const requestPromise = new Promise<{ res: any }>((resolve, reject) => {
-      const req = https.request('https://openrouter.ai/api/v1/chat/completions', {
+  private async *fetchStreaming(payload: any): AsyncGenerator<string, void, unknown> {
+    const requestPromise = new Promise<{ res: any, status: number }>((resolve, reject) => {
+      const options = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,25 +71,62 @@ export class OpenRouterProvider implements AIProvider {
           'HTTP-Referer': 'https://github.com/ais-code',
           'X-Title': 'AIS Code'
         }
-      }, (res) => resolve({ res }));
-      req.on('error', reject);
+      };
+      
+      console.log('[AIS Code] Connecting to OpenRouter...', payload.model);
+      
+      const req = https.request('https://openrouter.ai/api/v1/chat/completions', options, (res) => {
+        console.log('[AIS Code] OpenRouter Response:', res.statusCode);
+        resolve({ res, status: res.statusCode || 0 });
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('OpenRouter request timed out (30s)'));
+      });
+      
+      req.setTimeout(30000); // 30s timeout
+      
+      req.on('error', (e) => {
+        console.error('[AIS Code] OpenRouter Network Error:', e);
+        reject(new Error(`Network error: ${e.message}`));
+      });
+
       req.write(JSON.stringify(payload));
       req.end();
     });
 
-    const { res } = await requestPromise;
+    const { res, status } = await requestPromise;
 
+    if (status >= 400) {
+      let errorBody = '';
+      for await (const chunk of res) {
+        errorBody += chunk;
+      }
+      throw new Error(`OpenRouter API Error (${status}): ${errorBody}`);
+    }
+
+    let buffer = '';
+    
     for await (const chunk of res) {
-      const lines = chunk.toString().split('\n');
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      
+      // Keep the last line in the buffer as it might be incomplete
+      buffer = lines.pop() || '';
+
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          if (line.includes('[DONE]')) return;
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        if (trimmedLine.startsWith('data: ')) {
+          if (trimmedLine.includes('[DONE]')) return;
           try {
-            const json = JSON.parse(line.substring(6));
+            const json = JSON.parse(trimmedLine.substring(6));
             const token = json.choices[0]?.delta?.content;
             if (token) yield token;
           } catch (e) {
-            // Partial JSON or other error
+            // Partial JSON or other error, legitimate to ignore in stream
           }
         }
       }
