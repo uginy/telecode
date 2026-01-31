@@ -23,17 +23,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
   const searchResults = useChatStore((state) => state.searchResults);
   
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const SLASH_COMMANDS = [
+    { label: '/fix', desc: 'Auto-fix bugs in active file' },
+    { label: '/explain', desc: 'Explain active code' },
+    { label: '/test', desc: 'Generate unit tests' }
+  ];
   
   const { isDragging, handleDragOver, handleDragEnter, handleDragLeave, handleDrop } = useFileDrop();
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-     if (showSuggestions) {
+     if (showSuggestions || showCommandMenu) {
          setSelectedIndex(0);
      }
-  }, [showSuggestions, searchResults]);
+  }, [showSuggestions, showCommandMenu, searchResults]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -41,14 +48,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
 
       const cursor = e.target.selectionStart;
       const textBeforeCursor = newValue.slice(0, cursor);
-      const match = textBeforeCursor.match(/@([\w\-\/\.]*)$/);
+      
+      const mentionMatch = textBeforeCursor.match(/@([\w\-\/\.]*)$/);
+      const commandMatch = textBeforeCursor.match(/\/?(\w*)$/);
 
-      if (match) {
+      if (mentionMatch) {
           setShowSuggestions(true);
-          const query = match[1];
-          onSearch(query);
+          setShowCommandMenu(false);
+          onSearch(mentionMatch[1]);
+      } else if (commandMatch && newValue.startsWith('/')) {
+        // Simple slash command detection at start of line
+          setShowSuggestions(false);
+          setShowCommandMenu(true);
       } else {
           setShowSuggestions(false);
+          setShowCommandMenu(false);
       }
   };
 
@@ -70,23 +84,36 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
       textareaRef.current?.focus();
   };
 
+  const selectCommand = (cmd: { label: string }) => {
+    setValue(cmd.label + ' ');
+    setShowCommandMenu(false);
+    textareaRef.current?.focus();
+  };
+
   const removeItem = (itemVal: string) => {
       removeContextItem(itemVal);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showSuggestions && searchResults.length > 0) {
+    if ((showSuggestions && searchResults.length > 0) || (showCommandMenu && SLASH_COMMANDS.length > 0)) {
+        const listLength = showCommandMenu ? SLASH_COMMANDS.length : searchResults.length;
+        
         if (e.key === 'ArrowUp') {
             e.preventDefault();
-            setSelectedIndex(prev => (prev > 0 ? prev - 1 : searchResults.length - 1));
+            setSelectedIndex(prev => (prev > 0 ? prev - 1 : listLength - 1));
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : 0));
+            setSelectedIndex(prev => (prev < listLength - 1 ? prev + 1 : 0));
         } else if (e.key === 'Enter' || e.key === 'Tab') {
             e.preventDefault();
-            selectItem(searchResults[selectedIndex]);
+            if (showCommandMenu) {
+                selectCommand(SLASH_COMMANDS[selectedIndex]);
+            } else {
+                selectItem(searchResults[selectedIndex]);
+            }
         } else if (e.key === 'Escape') {
             setShowSuggestions(false);
+            setShowCommandMenu(false);
         }
         return;
     }
@@ -153,16 +180,46 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
            </div>
        )}
 
-      {/* Suggestions Popup */}
-      {showSuggestions && searchResults.length > 0 && (
-          <div className="absolute bottom-full left-2 mb-2 w-72 max-h-64 bg-popover border border-border rounded-lg shadow-lg overflow-y-auto z-50">
-              {['file', 'folder', 'terminal'].map(type => {
+      {/* Suggestions Popup and Slash Commands */}
+      {(showSuggestions && searchResults.length > 0) || (showCommandMenu && SLASH_COMMANDS.length > 0) ? (
+          <div className="absolute bottom-full left-2 mb-2 w-72 max-h-64 bg-popover border border-border rounded-lg shadow-lg overflow-y-auto z-50 animate-in slide-in-from-bottom-2 duration-200">
+              
+              {/* SLASH COMMANDS */}
+              {showCommandMenu && (
+                  <div>
+                      <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider sticky top-0 backdrop-blur-sm flex items-center gap-1">
+                           <TerminalIcon className="w-3 h-3" /> Commands
+                      </div>
+                      {SLASH_COMMANDS.filter(cmd => cmd.label.toLowerCase().startsWith(value.match(/\/?(\w*)$/)?.[1]?.toLowerCase() || '')).map((cmd, idx) => (
+                           <button
+                              type="button"
+                              key={cmd.label}
+                              onClick={() => selectCommand(cmd)}
+                              className={cn(
+                                  "w-full text-left px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors",
+                                  idx === selectedIndex && "bg-accent text-accent-foreground"
+                              )}
+                          >
+                              <div className="flex items-center justify-center w-5 h-5 rounded bg-primary/10 text-primary shrink-0">
+                                  <TerminalIcon className="w-3 h-3" />
+                              </div>
+                              <div className="flex flex-col overflow-hidden">
+                                  <span className="truncate font-bold font-mono">{cmd.label}</span>
+                                  <span className="truncate text-[10px] text-muted-foreground">{cmd.desc}</span>
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+              )}
+
+              {/* CONTEXT SUGGESTIONS (Files, etc) */}
+              {showSuggestions && !showCommandMenu && ['file', 'folder', 'terminal'].map(type => {
                   const items = searchResults.filter(r => r.type === type);
                   if (items.length === 0) return null;
                   
                   return (
                       <div key={type}>
-                          <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider sticky top-0 backdrop-blur-sm">
+                          <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider sticky top-0 backdrop-blur-sm border-t border-border/50 first:border-0">
                               {type}s
                           </div>
                           {items.map((item) => {
@@ -192,7 +249,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch }) => {
                   );
               })}
           </div>
-      )}
+      ) : null}
 
       <div className="flex items-center gap-2 max-w mx-auto w-full px-1">
         <div className="relative flex-1 group">

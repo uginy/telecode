@@ -422,9 +422,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     this._view?.webview.postMessage({ type: 'setStreaming', value: true });
     
+    // Slash Command Pre-processing
+    let promptText = text;
+    if (text.trim().startsWith('/fix')) {
+        promptText = `[INSTRUCTION: The user invoked /fix. Analyze the Active File content in the context above for bugs, logical errors, or potential issues. Propose and apply fixes using 'replace_in_file' if applicable.]\n\n${text}`;
+    } else if (text.trim().startsWith('/explain')) {
+        promptText = `[INSTRUCTION: The user invoked /explain. Explain the Active File content in the context above. Describe its purpose, key functions, and logic.]\n\n${text}`;
+    } else if (text.trim().startsWith('/test')) {
+         promptText = `[INSTRUCTION: The user invoked /test. Generate comprehensive unit tests for the Active File content in the context above. Use 'write_file' to create a new test file if appropriate.]\n\n${text}`;
+    }
+
     try {
       await this._agent.run(
-        text, 
+        promptText, 
         (chunk: string) => {
           this._view?.webview.postMessage({ type: 'streamToken', text: chunk });
         },
