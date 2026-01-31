@@ -175,6 +175,25 @@ export const SettingsView: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Base URL - OpenAI Compatible */}
+                  {selectedProvider?.id === 'openai-compatible' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-primary opacity-60" />
+                          Base URL
+                        </label>
+                      </div>
+                      <Input
+                        type="text"
+                        value={localSettings.baseUrl || ''}
+                        onChange={(e) => setLocalSettings({...localSettings, baseUrl: e.target.value})}
+                        className="bg-black/40 border-white/5 h-12 text-xs font-mono rounded-2xl focus:border-primary/40 transition-all placeholder:opacity-20"
+                        placeholder="http://localhost:11434/v1"
+                      />
+                    </div>
+                  )}
+
                   {/* Model Selection */}
                   <div className="space-y-5">
                     <div className="flex items-center justify-between">

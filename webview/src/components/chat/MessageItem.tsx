@@ -126,13 +126,28 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
     const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
     const [isExpanded, setIsExpanded] = React.useState(false);
 
-    const handleAction = (action: 'approve' | 'reject') => {
+    const handleAction = (action: 'approve_once' | 'approve_session' | 'approve_always' | 'reject') => {
+        if (action === 'approve_session') {
+            (window as any).vscode?.postMessage({
+                type: 'setSessionToolApprovals',
+                allowAll: true
+            });
+        }
+
+        if (action === 'approve_always') {
+            (window as any).vscode?.postMessage({
+                type: 'updateSettings',
+                settings: { autoApprove: true }
+            });
+        }
+
         (window as any).vscode?.postMessage({
             type: 'toolApprovalResponse',
             id: data.id,
-            approved: action === 'approve'
+            approved: action !== 'reject'
         });
-        setStatus(action === 'approve' ? 'approved' : 'rejected');
+
+        setStatus(action === 'reject' ? 'rejected' : 'approved');
     };
 
     if (status !== 'pending') {
@@ -172,14 +187,30 @@ const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => 
                 </pre>
             )}
 
-            <div className="flex gap-2 w-full">
+            <div className="flex gap-2 w-full flex-wrap">
                 <Button 
                     className="flex-1 h-8 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
                     variant="outline"
-                    onClick={() => handleAction('approve')}
+                    onClick={() => handleAction('approve_once')}
                 >
                     <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Approve
+                    Approve once
+                </Button>
+                <Button 
+                    className="flex-1 h-8 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('approve_session')}
+                >
+                    <Check className="w-3.5 h-3.5 mr-1.5" />
+                    Approve this chat
+                </Button>
+                <Button 
+                    className="flex-1 h-8 text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('approve_always')}
+                >
+                    <Check className="w-3.5 h-3.5 mr-1.5" />
+                    Always allow
                 </Button>
                 <Button 
                     className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"

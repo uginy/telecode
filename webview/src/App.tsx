@@ -42,12 +42,14 @@ const VsCodeApp: React.FC<{
 };
 
 const App: React.FC = () => {
-    const { 
+  const { 
     addMessage, 
     setMessages,
     updateLastMessage, 
     setStreaming, 
-    updateSettings 
+    updateSettings,
+    setSessionAllowAllTools,
+    setCheckpoints
   } = useChatStore();
 
   useEffect(() => {
@@ -82,6 +84,16 @@ const App: React.FC = () => {
           break;
         case 'updateUsage':
           useChatStore.getState().updateUsage(message.usage);
+          break;
+        case 'toolApprovalState':
+          if (typeof message.sessionAllowAllTools === 'boolean') {
+            setSessionAllowAllTools(message.sessionAllowAllTools);
+          }
+          break;
+        case 'checkpointList':
+          if (Array.isArray(message.checkpoints)) {
+            setCheckpoints(message.checkpoints);
+          }
           break;
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);

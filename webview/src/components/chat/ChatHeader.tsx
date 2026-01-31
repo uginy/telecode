@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Plus, Settings, History } from 'lucide-react';
+import { Plus, Settings, History, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -7,7 +7,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { ContextUsage } from './ContextUsage';
 
 export const ChatHeader: React.FC = () => {
-  const { setView } = useChatStore();
+  const { setView, sessionAllowAllTools, setSessionAllowAllTools } = useChatStore();
 
   const handleNewChat = () => {
     if ((window as any).vscode) {
@@ -17,6 +17,17 @@ export const ChatHeader: React.FC = () => {
 
   const handleHistory = () => {
     setView('history');
+  };
+
+  const handleToggleToolApproval = () => {
+    const nextValue = !sessionAllowAllTools;
+    setSessionAllowAllTools(nextValue);
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({
+        type: 'setSessionToolApprovals',
+        allowAll: nextValue
+      });
+    }
   };
 
   return (
@@ -46,6 +57,22 @@ export const ChatHeader: React.FC = () => {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={8}>History</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={sessionAllowAllTools ? "h-8 w-8 text-emerald-400" : "h-8 w-8"}
+              onClick={handleToggleToolApproval}
+            >
+              {sessionAllowAllTools ? <ShieldCheck className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={8}>
+            {sessionAllowAllTools ? 'Tools allowed for this chat' : 'Allow tools for this chat'}
+          </TooltipContent>
         </Tooltip>
 
         <Separator orientation="vertical" className="mx-1 h-4" />

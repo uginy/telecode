@@ -16,6 +16,7 @@ import { generateSessionSummaryPrompt } from '../core/prompts';
 import * as path from 'node:path';
 import { EditManager } from '../core/edits/EditManager';
 import { DiffContentProvider } from '../core/edits/DiffContentProvider';
+import { CheckpointManager } from '../core/edits/CheckpointManager';
 import type { ToolCall } from '../core/types';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -26,6 +27,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _lastActiveEditor: vscode.TextEditor | undefined;
   private _providerRegistry: ProviderRegistry;
   private _toolApprovalManager: ToolApprovalManager;
+  private _sessionAllowAllTools = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -89,6 +91,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
     });
 
+    CheckpointManager.getInstance().onDidChange((checkpoints) => {
+        this._view?.webview.postMessage({
+            type: 'checkpointList',
+            checkpoints
+        });
+    });
+
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
@@ -149,6 +158,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           await this._sessionManager.init(); // Ensure we are ready
           await this._hydrateHistory();
           await this._sendSessionList();
+          this._syncSessionToolApprovals();
+          this._sendCheckpointList();
           break;
         case 'createSession':
           await this._handleCreateSession();
@@ -159,6 +170,24 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         case 'deleteSession':
           await this._handleDeleteSession(data.sessionId as string);
           break;
+        case 'setSessionToolApprovals':
+          this._setSessionAllowAllTools(!!data.allowAll);
+          break;
+        case 'getCheckpoints':
+          this._sendCheckpointList();
+          break;
+        case 'restoreCheckpoint': {
+          const checkpointId = data.id as string | undefined;
+          const manager = CheckpointManager.getInstance();
+          const restored = checkpointId ? await manager.restoreById(checkpointId) : await manager.restoreLast();
+          if (!restored) {
+            vscode.window.showInformationMessage('AIS Code: No checkpoints to restore.');
+          } else {
+            const fileName = restored.filePath.split(/[/\\]/).pop();
+            vscode.window.showInformationMessage(`AIS Code: Restored checkpoint for ${fileName}.`);
+          }
+          break;
+        }
         case 'searchFiles':
           await this._handleSearchFiles(data.query as string);
           break;
@@ -191,6 +220,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         provider,
         modelId: providerSettings.modelId,
         apiKey: providerSettings.apiKey,
+        baseUrl: providerSettings.baseUrl,
         maxTokens: config.get('maxTokens') || 4096,
         temperature: config.get('temperature') || 0.7,
         autoApprove: config.get('autoApprove') ?? true,
@@ -221,6 +251,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     } else if (provider === 'openai-compatible') {
       if (settings.modelId) await config.update('openaiCompatible.model', settings.modelId, vscode.ConfigurationTarget.Global);
       if (settings.apiKey !== undefined) await config.update('openaiCompatible.apiKey', settings.apiKey, vscode.ConfigurationTarget.Global);
+      if (settings.baseUrl !== undefined) await config.update('openaiCompatible.baseUrl', settings.baseUrl, vscode.ConfigurationTarget.Global);
     }
 
     vscode.window.showInformationMessage('AIS Code: Settings updated');
@@ -233,6 +264,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const config = vscode.workspace.getConfiguration('aisCode');
     const autoApprove = config.get<boolean>('autoApprove') ?? true;
     if (autoApprove) return true;
+    if (this._sessionAllowAllTools) return true;
 
     let args: Record<string, unknown> = {};
     try {
@@ -291,28 +323,54 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _setSessionAllowAllTools(value: boolean) {
+    this._sessionAllowAllTools = value;
+    const activeId = this._sessionManager.activeSessionId;
+    if (activeId) {
+      void this._sessionManager.setToolApproval(activeId, value);
+    }
+    this._view?.webview.postMessage({
+      type: 'toolApprovalState',
+      sessionAllowAllTools: value
+    });
+  }
+
+  private _syncSessionToolApprovals() {
+    const activeId = this._sessionManager.activeSessionId;
+    if (!activeId) {
+      this._setSessionAllowAllTools(false);
+      return;
+    }
+    const value = this._sessionManager.getToolApproval(activeId);
+    this._setSessionAllowAllTools(value);
+  }
+
   private _getProviderSettings(provider: string, config: vscode.WorkspaceConfiguration) {
     if (provider === 'openai') {
       return {
         modelId: config.get('openai.model') || 'gpt-4o',
-        apiKey: config.get('openai.apiKey') || ''
+        apiKey: config.get('openai.apiKey') || '',
+        baseUrl: ''
       };
     }
     if (provider === 'anthropic') {
       return {
         modelId: config.get('anthropic.model') || 'claude-sonnet-4-20250514',
-        apiKey: config.get('anthropic.apiKey') || ''
+        apiKey: config.get('anthropic.apiKey') || '',
+        baseUrl: ''
       };
     }
     if (provider === 'openai-compatible') {
       return {
         modelId: config.get('openaiCompatible.model') || 'llama3.2',
-        apiKey: config.get('openaiCompatible.apiKey') || ''
+        apiKey: config.get('openaiCompatible.apiKey') || '',
+        baseUrl: config.get('openaiCompatible.baseUrl') || 'http://localhost:11434/v1'
       };
     }
     return {
       modelId: config.get('openrouter.model') || 'google/gemini-2.0-flash-exp:free',
-      apiKey: config.get('openrouter.apiKey') || ''
+      apiKey: config.get('openrouter.apiKey') || '',
+      baseUrl: ''
     };
   }
 
@@ -395,6 +453,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private _sendCheckpointList() {
+    if (!this._view) return;
+    const checkpoints = CheckpointManager.getInstance().getCheckpoints();
+    this._view.webview.postMessage({
+      type: 'checkpointList',
+      checkpoints
+    });
+  }
+
   private async _saveHistory() {
     if (!this._agent) return;
     const messages = this._agent.getMessages();
@@ -458,6 +525,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private async _handleCreateSession() {
     const session = await this._sessionManager.createSession();
     this._agent = undefined; // clear agent
+    await this._sessionManager.setToolApproval(session.id, false);
+    this._setSessionAllowAllTools(false);
     await this._hydrateHistory();
     await this._sendSessionList();
   }
@@ -467,6 +536,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     
     await this._sessionManager.setActiveSession(sessionId);
     this._agent = undefined; // clear agent to reload context
+    this._syncSessionToolApprovals();
     await this._hydrateHistory();
     await this._sendSessionList();
   }
@@ -478,6 +548,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         this._agent = undefined;
         await this._hydrateHistory();
     }
+    this._syncSessionToolApprovals();
     await this._sendSessionList();
   }
 

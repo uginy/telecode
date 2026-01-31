@@ -5,6 +5,7 @@ interface Settings {
   provider: string;
   modelId: string;
   apiKey?: string;
+  baseUrl?: string;
   maxTokens: number;
   temperature: number;
   autoApprove: boolean;
@@ -23,6 +24,14 @@ export interface SearchResult {
   value: string;
 }
 
+export interface Checkpoint {
+  id: string;
+  filePath: string;
+  timestamp: number;
+  description: string;
+  existed: boolean;
+}
+
 interface ChatState {
   messages: Message[];
   sessions: Session[];
@@ -31,6 +40,7 @@ interface ChatState {
   activeView: 'chat' | 'settings' | 'history'; 
   settings: Settings;
   usage: { used: number; total: number };
+  sessionAllowAllTools: boolean;
   
   // Actions
   addMessage: (message: Message) => void;
@@ -44,6 +54,7 @@ interface ChatState {
   addToolResult: (result: ToolResult) => void;
   setSessions: (sessions: Session[]) => void;
   setActiveSessionId: (id: string) => void;
+  setSessionAllowAllTools: (value: boolean) => void;
 
   searchResults: SearchResult[];
   setSearchResults: (results: SearchResult[]) => void;
@@ -52,6 +63,9 @@ interface ChatState {
   setContextItems: (items: SearchResult[]) => void;
   addContextItem: (item: SearchResult) => void;
   removeContextItem: (value: string) => void;
+
+  checkpoints: Checkpoint[];
+  setCheckpoints: (checkpoints: Checkpoint[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -64,11 +78,13 @@ export const useChatStore = create<ChatState>((set) => ({
     provider: 'openrouter',
     modelId: 'google/gemini-2.0-flash-exp:free',
     apiKey: '',
+    baseUrl: '',
     maxTokens: 4096,
     temperature: 0.7,
     autoApprove: true,
   },
   usage: { used: 0, total: 200000 },
+  sessionAllowAllTools: false,
 
   addMessage: (message: Message) => 
     set((state) => ({ messages: [...state.messages, message] })),
@@ -128,6 +144,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setSessions: (sessions: Session[]) => set({ sessions }),
   setActiveSessionId: (id: string) => set({ activeSessionId: id }),
+  setSessionAllowAllTools: (value: boolean) => set({ sessionAllowAllTools: value }),
   
   searchResults: [] as SearchResult[],
   setSearchResults: (results: SearchResult[]) => set({ searchResults: results }),
@@ -141,4 +158,7 @@ export const useChatStore = create<ChatState>((set) => ({
   removeContextItem: (value: string) => set((state) => ({
       contextItems: state.contextItems.filter(i => i.value !== value)
   })),
+
+  checkpoints: [],
+  setCheckpoints: (checkpoints: Checkpoint[]) => set({ checkpoints }),
 }));

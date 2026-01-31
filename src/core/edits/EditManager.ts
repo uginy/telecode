@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
+import { CheckpointManager } from './CheckpointManager';
 
 export interface PendingEdit {
     id: string;
@@ -57,6 +58,22 @@ export class EditManager {
         }
 
         const uri = vscode.Uri.file(edit.filePath);
+        let originalContent = '';
+        let existed = true;
+        try {
+            const originalBytes = await vscode.workspace.fs.readFile(uri);
+            originalContent = new TextDecoder().decode(originalBytes);
+        } catch {
+            existed = false;
+        }
+
+        CheckpointManager.getInstance().addCheckpoint(
+            edit.filePath,
+            originalContent,
+            existed,
+            edit.description || 'AIS Code edit'
+        );
+
         await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(edit.newContent));
         
         // Ensure the document is visible so the user sees the change

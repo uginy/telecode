@@ -1,13 +1,14 @@
 
 import type React from 'react';
-import { ArrowLeft, MessageSquare, Trash2, Clock } from 'lucide-react';
+import { useEffect } from 'react';
+import { ArrowLeft, MessageSquare, Trash2, Clock, History as HistoryIcon, RotateCcw } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils'; // Assuming this exists or similar util
 
 export const HistoryView: React.FC = () => {
-  const { sessions, activeSessionId, setView } = useChatStore();
+  const { sessions, activeSessionId, setView, checkpoints } = useChatStore();
 
   const handleBack = () => {
     setView('chat');
@@ -27,6 +28,18 @@ export const HistoryView: React.FC = () => {
     }
   };
 
+  const handleRestoreCheckpoint = (checkpointId?: string) => {
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'restoreCheckpoint', id: checkpointId });
+    }
+  };
+
+  useEffect(() => {
+    if ((window as any).vscode) {
+      (window as any).vscode.postMessage({ type: 'getCheckpoints' });
+    }
+  }, []);
+
   // Sort sessions by updatedAt desc
   const sortedSessions = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
 
@@ -40,7 +53,7 @@ export const HistoryView: React.FC = () => {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-4">
           {sortedSessions.length === 0 ? (
             <div className="text-center text-muted-foreground py-8 text-sm">
               No chat history found.
@@ -93,6 +106,57 @@ export const HistoryView: React.FC = () => {
                 </div>
               </div>
             ))
+          )}
+        </div>
+
+        <div className="px-3 pb-6">
+          <div className="flex items-center justify-between gap-2 py-3 border-t border-border">
+            <div className="flex items-center gap-2">
+              <HistoryIcon className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Checkpoints</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => handleRestoreCheckpoint()}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Restore last
+            </Button>
+          </div>
+
+          {checkpoints.length === 0 ? (
+            <div className="text-center text-muted-foreground py-6 text-sm">
+              No checkpoints yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {checkpoints.map((checkpoint) => (
+                <div
+                  key={checkpoint.id}
+                  className={cn(
+                    "flex items-center justify-between gap-2 p-3 rounded-lg border transition-all",
+                    "bg-card border-border hover:bg-muted/50"
+                  )}
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium truncate">
+                      {checkpoint.filePath.split(/[/\\]/).pop()}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {checkpoint.description}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(checkpoint.timestamp).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleRestoreCheckpoint(checkpoint.id)}>
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </ScrollArea>

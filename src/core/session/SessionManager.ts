@@ -6,6 +6,7 @@ import type { Session, Message } from '../types';
 export class SessionManager {
   private static readonly STORAGE_KEY = 'chatSessions';
   private static readonly ACTIVE_ID_KEY = 'activeSessionId';
+  private static readonly TOOL_APPROVALS_KEY = 'toolApprovals';
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -65,6 +66,8 @@ export class SessionManager {
       const next = sessions[0];
       await this.setActiveSession(next ? next.id : '');
     }
+
+    await this.setToolApproval(id, undefined);
   }
 
   public async getSession(id: string): Promise<Session | undefined> {
@@ -75,6 +78,21 @@ export class SessionManager {
     // Filter out system messages for storage
     const uniqueMessages = messages.filter(m => m.role !== 'system');
     await this.updateSession(sessionId, { messages: uniqueMessages });
+  }
+
+  public getToolApproval(sessionId: string): boolean {
+    const approvals = this.context.workspaceState.get<Record<string, boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
+    return approvals[sessionId] ?? false;
+  }
+
+  public async setToolApproval(sessionId: string, value: boolean | undefined) {
+    const approvals = this.context.workspaceState.get<Record<string, boolean>>(SessionManager.TOOL_APPROVALS_KEY) || {};
+    if (value === undefined) {
+      delete approvals[sessionId];
+    } else {
+      approvals[sessionId] = value;
+    }
+    await this.context.workspaceState.update(SessionManager.TOOL_APPROVALS_KEY, approvals);
   }
 
   private async _migrateLegacyHistory() {

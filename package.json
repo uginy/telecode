@@ -23,7 +23,8 @@
   "activationEvents": [
     "onView:aisCode.chatView",
     "onCommand:aisCode.openChat",
-    "onCommand:aisCode.newConversation"
+    "onCommand:aisCode.newConversation",
+    "onCommand:aisCode.restoreLastCheckpoint"
   ],
   "main": "./dist/extension.js",
   "icon": "media/icon.png",
@@ -38,6 +39,11 @@
         "command": "aisCode.newConversation",
         "title": "AIS Code: New Conversation",
         "icon": "$(add)"
+      },
+      {
+        "command": "aisCode.restoreLastCheckpoint",
+        "title": "AIS Code: Restore Last Checkpoint",
+        "icon": "$(history)"
       }
     ],
     "viewsContainers": {

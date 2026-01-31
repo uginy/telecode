@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ChatViewProvider } from './panels/ChatViewProvider';
 import { DiffContentProvider } from './core/edits/DiffContentProvider';
+import { CheckpointManager } from './core/edits/CheckpointManager';
 
 export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('AIS Code');
@@ -31,6 +32,19 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('aisCode.openChat', async () => {
       await vscode.commands.executeCommand('workbench.view.extension.ais-code');
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aisCode.restoreLastCheckpoint', async () => {
+      const checkpoint = await CheckpointManager.getInstance().restoreLast();
+      if (!checkpoint) {
+        vscode.window.showInformationMessage('AIS Code: No checkpoints to restore.');
+        return;
+      }
+
+      const fileName = checkpoint.filePath.split(/[/\\]/).pop();
+      vscode.window.showInformationMessage(`AIS Code: Restored checkpoint for ${fileName}.`);
     })
   );
 
