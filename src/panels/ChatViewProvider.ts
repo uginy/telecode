@@ -5,6 +5,7 @@ import { ReadFileTool, WriteFileTool, ListFilesTool } from '../core/tools/implem
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
 import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
+import { generateSessionSummaryPrompt } from '../core/prompts';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
@@ -164,6 +165,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+
   private async _summarizeTitle(sessionId: string, messages: any[]) {
       try {
         const config = vscode.workspace.getConfiguration('aisCode');
@@ -175,13 +177,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           temperature: 0.5
         });
 
-        const prompt = `
-Analyze the conversation below and generate a concise title (3-5 words) in Russian that summarizes the main topic.
-Output ONLY the title text. Do not use quotes.
-
-Conversation:
-${messages.map(m => `${m.role}: ${m.content.substring(0, 200)}`).join('\n')}
-        `.trim();
+        // Map messages to simpler format
+        const promptMessages = messages.map(m => ({ 
+            role: m.role, 
+            content: m.content 
+        }));
+        
+        const prompt = generateSessionSummaryPrompt(promptMessages);
 
         const response = await provider.complete([
           { role: 'user', content: prompt, id: 'summary-request', timestamp: Date.now() }

@@ -2,6 +2,8 @@ import type { Message, ToolCall, ToolResult } from "../types";
 import { ContextManager } from "../context/manager";
 import type { ToolRegistry } from "../tools/registry";
 
+import { CORE_SYSTEM_PROMPT } from '../prompts';
+
 export interface AIProvider {
   complete(messages: Message[], options: { stream?: boolean }): Promise<AsyncIterable<string> | string>;
 }
@@ -19,22 +21,7 @@ export class AgentOrbit {
   }
 
   updateSystemContext(contextString: string) {
-    const systemPromptContent = `
-You are AIS Code, an expert AI software engineer and pair programmer inside Visual Studio Code.
-Your goal is to help the user write, debug, and refactor code efficiently.
-
-CORE GUIDELINES:
-1.  **Context Aware**: You have access to the user's workspace file structure (provided below). Use this to understand the project architecture.
-2.  **Tool Usage**: You have tools to read files, write files, list directories, and run terminal commands. USE THEM. Do not guess file contents. Always read a file before modifying it unless you are creating a new one.
-3.  **Concise & Accurate**: Provide direct answers. Avoid fluff. When writing code, write the full improved version or use clear diffs if user prefers.
-4.  **Safety**: Do not delete files or run destructive commands without clear intent or confirmation.
-5.  **Language**: Respond in the language the user speaks (Russian or English), defaulting to Russian if they write in Russian.
-
-WORKSPACE CONTEXT:
-${contextString}
-
-When user asks "what is this project about?", analyze the file structure and any README/package.json you see to answer.
-`.trim();
+    const systemPromptContent = CORE_SYSTEM_PROMPT(contextString);
 
     this.context.setSystemMessage({
       id: 'system-prompt',
