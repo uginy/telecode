@@ -97,13 +97,23 @@ const App: React.FC = () => {
           }
           break;
         case 'toolApprovalRequest':
-          addMessage({
-            id: `approval-${message.edit.id}`,
-            role: 'assistant',
-            content: '',
-            isApprovalRequest: true,
-            approvalData: message.edit
-          });
+          if (message.edit) {
+            addMessage({
+              id: `approval-edit-${message.edit.id}`,
+              role: 'assistant',
+              content: '',
+              isApprovalRequest: true,
+              approvalData: message.edit
+            });
+          } else if (message.request) {
+            addMessage({
+              id: `approval-tool-${message.request.id}`,
+              role: 'assistant',
+              content: '',
+              isToolApprovalRequest: true,
+              toolApprovalData: message.request
+            });
+          }
           break;
       }
     };

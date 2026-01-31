@@ -6,8 +6,25 @@ export interface Tool {
   execute(args: any): Promise<string>;
 }
 
+type ToolApprovalHandler = (call: ToolCall) => Promise<boolean>;
+type ToolApprovalPredicate = (call: ToolCall) => boolean;
+
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
+  private approveTool?: ToolApprovalHandler;
+  private requiresApproval: ToolApprovalPredicate;
+
+  constructor(options?: { approveTool?: ToolApprovalHandler; requiresApproval?: ToolApprovalPredicate }) {
+    this.approveTool = options?.approveTool;
+    const defaultApprovalSet = new Set([
+      'read_file',
+      'list_files',
+      'search_files',
+      'run_command',
+      'get_problems'
+    ]);
+    this.requiresApproval = options?.requiresApproval || ((call) => defaultApprovalSet.has(call.name));
+  }
 
   register(tool: Tool) {
     this.tools.set(tool.name, tool);
@@ -24,6 +41,17 @@ export class ToolRegistry {
     }
 
     try {
+      if (this.approveTool && this.requiresApproval(call)) {
+        const approved = await this.approveTool(call);
+        if (!approved) {
+          return {
+            toolCallId: call.id,
+            output: `Tool '${call.name}' execution denied by user.`,
+            isError: true
+          };
+        }
+      }
+
       const args = JSON.parse(call.arguments);
       const output = await tool.execute(args);
       return {

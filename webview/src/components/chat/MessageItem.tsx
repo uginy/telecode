@@ -21,6 +21,16 @@ export interface EditProposal {
     timestamp: number;
 }
 
+export interface ToolApprovalRequest {
+  id: string;
+  toolCallId: string;
+  toolName: string;
+  title: string;
+  description?: string;
+  args: Record<string, unknown>;
+  timestamp: number;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'tool';
@@ -30,6 +40,8 @@ export interface Message {
   toolResults?: Record<string, ToolResult>;
   approvalData?: EditProposal;
   isApprovalRequest?: boolean;
+  toolApprovalData?: ToolApprovalRequest;
+  isToolApprovalRequest?: boolean;
 }
 
 import ReactMarkdown from 'react-markdown';
@@ -110,6 +122,77 @@ const EditProposalCard: React.FC<{ data: EditProposal }> = ({ data }) => {
     );
 };
 
+const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => {
+    const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
+    const [isExpanded, setIsExpanded] = React.useState(false);
+
+    const handleAction = (action: 'approve' | 'reject') => {
+        (window as any).vscode?.postMessage({
+            type: 'toolApprovalResponse',
+            id: data.id,
+            approved: action === 'approve'
+        });
+        setStatus(action === 'approve' ? 'approved' : 'rejected');
+    };
+
+    if (status !== 'pending') {
+        return (
+            <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border mt-2">
+                {status === 'approved' ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
+                <span className="text-xs opacity-70">
+                    Tool request {status}.
+                </span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border border-border mt-2">
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-blue-400">TOOL APPROVAL</span>
+                    <span className="text-[11px] opacity-80">{data.title}</span>
+                    {data.description && (
+                        <span className="text-[11px] opacity-60">{data.description}</span>
+                    )}
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
+                    {isExpanded ? 'Hide' : 'Details'}
+                </Button>
+            </div>
+
+            {isExpanded && (
+                <pre className="p-2 bg-black/40 rounded border border-white/10 text-[10px] font-mono overflow-x-auto max-h-40">
+                    {JSON.stringify(data.args, null, 2)}
+                </pre>
+            )}
+
+            <div className="flex gap-2 w-full">
+                <Button 
+                    className="flex-1 h-8 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('approve')}
+                >
+                    <Check className="w-3.5 h-3.5 mr-1.5" />
+                    Approve
+                </Button>
+                <Button 
+                    className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"
+                    variant="outline"
+                    onClick={() => handleAction('reject')}
+                >
+                    <X className="w-3.5 h-3.5 mr-1.5" />
+                    Reject
+                </Button>
+            </div>
+        </div>
+    );
+};
 interface MessageItemProps {
   message: Message;
 }
@@ -126,6 +209,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                  <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">AIS SYSTEM</span>
             </div>
             <EditProposalCard data={message.approvalData} />
+        </div>
+      );
+  }
+
+  if (message.isToolApprovalRequest && message.toolApprovalData) {
+      return (
+        <div className="px-4 py-2 flex flex-col gap-1 w-full items-start border-l-2 border-primary/30 bg-primary/10">
+            <div className="flex items-center gap-1.5 px-0.5 mt-1 w-full relative justify-start">
+                 <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">AIS SYSTEM</span>
+            </div>
+            <ToolApprovalCard data={message.toolApprovalData} />
         </div>
       );
   }

@@ -1,6 +1,5 @@
 import * as cp from 'child_process';
 import * as util from 'util';
-import * as vscode from 'vscode';
 import { Tool } from '../registry';
 import { getWorkspaceRoot } from '../../../utils/workspace';
 
@@ -24,11 +23,6 @@ export class RunCommandTool implements Tool {
       /dd\s+if=\/dev\//.test(normalized)
     ) {
         return 'Error: Command blocked for safety reasons.';
-    }
-
-    const autoApprove = vscode.workspace.getConfiguration('aisCode').get<boolean>('autoApprove') ?? true;
-    if (!autoApprove) {
-      return 'Error: run_command requires approval. Enable "aisCode.autoApprove" or run the command manually.';
     }
 
     const rootPath = getWorkspaceRoot();

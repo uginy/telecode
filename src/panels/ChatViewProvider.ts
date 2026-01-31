@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentOrbit } from '../core/agent/AgentOrbit';
 import { ToolRegistry } from '../core/tools/registry';
+import { ToolApprovalManager } from '../core/tools/ToolApprovalManager';
 import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '../core/tools/implementations/FileSystem';
 import { SearchFilesTool } from '../core/tools/implementations/Search';
 import { RunCommandTool } from '../core/tools/implementations/Terminal';
@@ -15,6 +16,7 @@ import { generateSessionSummaryPrompt } from '../core/prompts';
 import * as path from 'node:path';
 import { EditManager } from '../core/edits/EditManager';
 import { DiffContentProvider } from '../core/edits/DiffContentProvider';
+import type { ToolCall } from '../core/types';
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
@@ -23,12 +25,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private _sessionManager: SessionManager;
   private _lastActiveEditor: vscode.TextEditor | undefined;
   private _providerRegistry: ProviderRegistry;
+  private _toolApprovalManager: ToolApprovalManager;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly extensionUri: vscode.Uri
   ) {
-    this._toolRegistry = new ToolRegistry();
+    this._toolApprovalManager = ToolApprovalManager.getInstance();
+    this._toolRegistry = new ToolRegistry({
+      approveTool: (call) => this._requestToolApproval(call)
+    });
     this._toolRegistry.register(new ReadFileTool());
     this._toolRegistry.register(new WriteFileTool());
     this._toolRegistry.register(new ReplaceInFileTool());
@@ -76,6 +82,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
     });
 
+    this._toolApprovalManager.onDidRequest((request) => {
+        this._view?.webview.postMessage({
+            type: 'toolApprovalRequest',
+            request
+        });
+    });
+
     webviewView.webview.onDidReceiveMessage(async (data: Record<string, unknown>) => {
       switch (data.type) {
         case 'sendMessage':
@@ -101,6 +114,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
                 EditManager.getInstance().rejectEdit(approvalData.id);
                 vscode.window.showInformationMessage('Edit rejected.');
             }
+            break;
+        }
+        case 'toolApprovalResponse': {
+            const approvalData = data as { id: string; approved: boolean };
+            this._toolApprovalManager.resolveApproval(approvalData.id, approvalData.approved);
             break;
         }
         case 'openDiff': {
@@ -209,6 +227,68 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     
     // Force agent re-initialization on next message
     this._agent = undefined;
+  }
+
+  private async _requestToolApproval(call: ToolCall): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('aisCode');
+    const autoApprove = config.get<boolean>('autoApprove') ?? true;
+    if (autoApprove) return true;
+
+    let args: Record<string, unknown> = {};
+    try {
+      args = JSON.parse(call.arguments || '{}');
+    } catch {
+      args = {};
+    }
+
+    const { title, description } = this._formatToolApproval(call.name, args);
+
+    return this._toolApprovalManager.requestApproval({
+      toolCallId: call.id,
+      toolName: call.name,
+      title,
+      description,
+      args
+    });
+  }
+
+  private _formatToolApproval(toolName: string, args: Record<string, unknown>) {
+    const pathArg = typeof args.path === 'string' ? args.path : '';
+    const commandArg = typeof args.command === 'string' ? args.command : '';
+    const queryArg = typeof args.query === 'string' ? args.query : '';
+
+    switch (toolName) {
+      case 'read_file':
+        return {
+          title: 'Read file contents',
+          description: pathArg ? `Read ${pathArg}` : 'Read a file from workspace'
+        };
+      case 'list_files':
+        return {
+          title: 'List directory contents',
+          description: pathArg ? `List ${pathArg}` : 'List workspace directory'
+        };
+      case 'search_files':
+        return {
+          title: 'Search project files',
+          description: queryArg ? `Search for "${queryArg}"` : 'Search project files'
+        };
+      case 'run_command':
+        return {
+          title: 'Run terminal command',
+          description: commandArg ? `Run: ${commandArg}` : 'Run a command'
+        };
+      case 'get_problems':
+        return {
+          title: 'Read diagnostics',
+          description: pathArg ? `Get problems for ${pathArg}` : 'Get workspace diagnostics'
+        };
+      default:
+        return {
+          title: `Run tool: ${toolName}`,
+          description: ''
+        };
+    }
   }
 
   private _getProviderSettings(provider: string, config: vscode.WorkspaceConfiguration) {
