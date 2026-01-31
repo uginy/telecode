@@ -57,7 +57,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
     
     // Combined regex for all tool tags - more robust with spaces
     // Group 1: blockTagName, Group 2: blockPath, Group 3: blockContent, Group 4: selfClosingTagName, Group 5: selfClosingPath, Group 6: emptyTagName
-    const toolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*>([\s\S]*?)<\/\1>|<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]*)"\s*\/>|<(get_problems)\s*\/>/g;
+    const toolRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|codebase_search|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*>([\s\S]*?)<\/\1>|<(read_file|list_files|get_problems)\s+path\s*=\s*"([^"]*)"\s*\/>|<(get_problems)\s*\/>/g;
     
     let lastIndex = 0;
     
@@ -138,7 +138,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
       const remainingText = content.substring(lastIndex);
       
       // Check for PARTIAL tool tag at the end - also more robust
-      const partialRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*(\/?>)?([\s\S]*)$/;
+      const partialRegex = /<(write_file|replace_in_file|read_file|list_files|run_command|search_files|codebase_search|get_problems)(?:\s+path\s*=\s*"([^"]*)")?\s*(\/?>)?([\s\S]*)$/;
       const partialMatch = remainingText.match(partialRegex);
 
       if (partialMatch) {

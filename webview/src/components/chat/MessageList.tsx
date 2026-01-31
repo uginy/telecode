@@ -3,6 +3,7 @@ import { useRef, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { MessageItem } from './MessageItem';
 import { ThinkingBubble } from './ThinkingBubble';
+import { ToolTimeline } from './ToolTimeline';
 import { useChatStore } from '@/store/useChatStore';
 
 export const MessageList: React.FC = () => {
@@ -92,6 +93,7 @@ export const MessageList: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
       <div className="flex flex-col gap-3 py-4 px-2 max-w-[920px] w-full mx-auto">
+        <ToolTimeline />
         {messages.map((msg) => (
           <MessageItem
             key={msg.id}

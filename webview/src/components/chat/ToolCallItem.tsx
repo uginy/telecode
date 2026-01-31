@@ -42,6 +42,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
       case 'replace_in_file': return `Edit ${args.path}`;
       case 'list_files': return `List ${args.path}`;
       case 'search_files': return `Search: ${args.content || args.query}`;
+      case 'codebase_search': return `Semantic search: ${args.content || args.query}`;
       case 'run_command': return `Run: ${args.command}`;
       case 'get_problems': return `Check Issues${args.path ? `: ${args.path}` : ''}`;
       default: return name;
