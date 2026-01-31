@@ -180,6 +180,22 @@ export class AgentOrbit {
       match = searchRegex.exec(content);
     }
 
+    // Get Problems Regex
+    const problemsRegex = /<get_problems\s+path="([^"]+)"\s*\/>|<get_problems\s*\/>/g;
+    match = problemsRegex.exec(content);
+    while (match !== null) {
+        // match[1] is path if present
+        const args: any = {};
+        if (match[1]) args.path = match[1];
+        
+        toolCalls.push({
+            id: crypto.randomUUID(),
+            name: 'get_problems',
+            arguments: JSON.stringify(args)
+        });
+        match = problemsRegex.exec(content);
+    }
+
     return toolCalls;
   }
 

@@ -51,7 +51,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     const content = message.content;
     
     // Combined regex for all tool tags
-    const toolRegex = /<(search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(read_file|list_files)\s+path="([^"]+)"\s*\/>/g;
+    const toolRegex = /<(get_problems|search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]+)")?\s*\/?>([\s\S]*?)<\/\1>|<(get_problems|read_file|list_files)\s+path="([^"]+)"\s*\/>|<(get_problems)\s*\/>/g;
     
     let lastIndex = 0;
     
@@ -101,14 +101,18 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         }
       }
 
-      const tagName = match[1] || match[5];
-      const path = match[3] || match[6];
+      // Group 1: Block tags (run_command, search_files)
+      // Group 5: Self-closing with path (read_file, list_files, get_problems)
+      // Group 7: Self-closing no path (get_problems)
+      const tagName = match[1] || match[5] || match[7];
+      const path = match[3] || match[6]; // Group 3 or 6 has path
       const toolContent = match[4] || "";
       
       const args: Record<string, string> = {};
       if (path) args.path = path;
       if (tagName === 'run_command') args.command = toolContent;
       if (tagName === 'write_file' || tagName === 'replace_in_file') args.content = toolContent;
+      if (tagName === 'search_files') args.query = toolContent;
 
       // Find tool result by index
       const result = resultValues[toolCallIndex] as ToolResult | undefined;
@@ -131,7 +135,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       const remainingText = content.substring(lastIndex);
       
       // Check for PARTIAL tool tag at the end
-      const partialRegex = /<(replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]*)")?(\s*\/?>)?([\s\S]*)$/;
+      const partialRegex = /<(get_problems|search_files|replace_in_file|write_file|read_file|list_files|run_command)(\s+path="([^"]*)")?(\s*\/?>)?([\s\S]*)$/;
       const partialMatch = remainingText.match(partialRegex);
 
       if (partialMatch) {

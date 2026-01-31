@@ -2,7 +2,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { 
   FileText, Terminal, FolderTree, ChevronDown, ChevronRight, 
-  CheckCircle2, XCircle, Loader2, Search
+  CheckCircle2, XCircle, Loader2, Search, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ToolResult } from './MessageItem';
@@ -30,6 +30,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
       case 'list_files': return <FolderTree className="w-3.5 h-3.5" />;
       case 'search_files': return <Search className="w-3.5 h-3.5 text-blue-400" />;
       case 'run_command': return <Terminal className="w-3.5 h-3.5" />;
+      case 'get_problems': return <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />;
       default: return <Terminal className="w-3.5 h-3.5" />;
     }
   };
@@ -42,6 +43,7 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
       case 'list_files': return `List ${args.path}`;
       case 'search_files': return `Search: ${args.content || args.query}`;
       case 'run_command': return `Run: ${args.command}`;
+      case 'get_problems': return `Check Issues${args.path ? `: ${args.path}` : ''}`;
       default: return name;
     }
   };
