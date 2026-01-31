@@ -1,231 +1,14 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { ToolCallItem } from './ToolCallItem';
-
-export interface ToolCall {
-  id: string;
-  name: string;
-  arguments: string;
-}
-
-export interface ToolResult {
-  toolCallId: string;
-  output: string;
-  isError: boolean;
-}
-
-export interface EditProposal {
-    id: string;
-    filePath: string;
-    description: string;
-    timestamp: number;
-}
-
-export interface ToolApprovalRequest {
-  id: string;
-  toolCallId: string;
-  toolName: string;
-  title: string;
-  description?: string;
-  args: Record<string, unknown>;
-  timestamp: number;
-}
-
-export interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
-  statusKey?: string;
-  toolCalls?: ToolCall[];
-  toolResult?: ToolResult;
-  toolResults?: Record<string, ToolResult>;
-  approvalData?: EditProposal;
-  isApprovalRequest?: boolean;
-  toolApprovalData?: ToolApprovalRequest;
-  isToolApprovalRequest?: boolean;
-}
+import type { Message, ToolResult } from './messageTypes';
+import { EditProposalCard, ToolApprovalCard } from './ApprovalCards';
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
-import { Button } from '../ui/button';
-import { Check, X, Eye } from 'lucide-react';
-
-const EditProposalCard: React.FC<{ data: EditProposal }> = ({ data }) => {
-    const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
-
-    const handleAction = (action: 'approve' | 'reject' | 'diff') => {
-        if (action === 'diff') {
-            (window as any).vscode?.postMessage({ type: 'openDiff', id: data.id });
-            return;
-        }
-
-        (window as any).vscode?.postMessage({ 
-            type: 'editApproval', 
-            id: data.id, 
-            approved: action === 'approve' 
-        });
-
-        setStatus(action === 'approve' ? 'approved' : 'rejected');
-    };
-
-    if (status !== 'pending') {
-         return (
-             <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border mt-2">
-                 {status === 'approved' ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
-                 <span className="text-xs opacity-70">
-                     Edit to <code>{data.filePath.split(/[/\\]/).pop()}</code> {status}.
-                 </span>
-             </div>
-         );
-    }
-
-    return (
-        <div className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border border-blue-500/30 mt-2">
-            <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-blue-400">PROPOSED EDIT</span>
-                    <code className="text-[11px] bg-background px-1.5 py-0.5 rounded break-all">
-                        {data.filePath.split(/[/\\]/).pop()}
-                    </code>
-                    <span className="text-[11px] opacity-70">{data.description}</span>
-                </div>
-                <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => handleAction('diff')}
-                >
-                    <Eye className="w-3.5 h-3.5" />
-                    Review Diff
-                </Button>
-            </div>
-            <div className="flex gap-2 w-full">
-                 <Button 
-                    className="flex-1 h-8 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('approve')}
-                 >
-                    <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Approve
-                 </Button>
-                 <Button 
-                    className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('reject')}
-                 >
-                    <X className="w-3.5 h-3.5 mr-1.5" />
-                    Reject
-                 </Button>
-            </div>
-        </div>
-    );
-};
-
-const ToolApprovalCard: React.FC<{ data: ToolApprovalRequest }> = ({ data }) => {
-    const [status, setStatus] = React.useState<'pending' | 'approved' | 'rejected'>('pending');
-    const [isExpanded, setIsExpanded] = React.useState(false);
-
-    const handleAction = (action: 'approve_once' | 'approve_session' | 'approve_tool' | 'reject') => {
-        if (action === 'approve_session') {
-            (window as any).vscode?.postMessage({
-                type: 'setSessionToolApprovals',
-                allowAll: true
-            });
-        }
-
-        if (action === 'approve_tool') {
-            (window as any).vscode?.postMessage({
-                type: 'setToolApproval',
-                toolName: data.toolName,
-                allow: true
-            });
-        }
-
-        (window as any).vscode?.postMessage({
-            type: 'toolApprovalResponse',
-            id: data.id,
-            approved: action !== 'reject'
-        });
-
-        setStatus(action === 'reject' ? 'rejected' : 'approved');
-    };
-
-    if (status !== 'pending') {
-        return (
-            <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border border-border mt-2">
-                {status === 'approved' ? <Check className="w-4 h-4 text-green-500" /> : <X className="w-4 h-4 text-red-500" />}
-                <span className="text-xs opacity-70">
-                    Tool request {status}.
-                </span>
-            </div>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-3 p-3 bg-muted/30 rounded-lg border border-border mt-2">
-            <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-blue-400">TOOL APPROVAL</span>
-                    <span className="text-[11px] opacity-80">{data.title}</span>
-                    {data.description && (
-                        <span className="text-[11px] opacity-60">{data.description}</span>
-                    )}
-                </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    {isExpanded ? 'Hide' : 'Details'}
-                </Button>
-            </div>
-
-            {isExpanded && (
-                <pre className="p-2 bg-black/40 rounded border border-white/10 text-[10px] font-mono overflow-x-auto max-h-40">
-                    {JSON.stringify(data.args, null, 2)}
-                </pre>
-            )}
-
-            <div className="flex gap-2 w-full flex-wrap">
-                <Button 
-                    className="flex-1 h-8 text-xs bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('approve_once')}
-                >
-                    <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Approve once
-                </Button>
-                <Button 
-                    className="flex-1 h-8 text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('approve_session')}
-                >
-                    <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Approve this chat
-                </Button>
-                <Button 
-                    className="flex-1 h-8 text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('approve_tool')}
-                >
-                    <Check className="w-3.5 h-3.5 mr-1.5" />
-                    Always allow tool
-                </Button>
-                <Button 
-                    className="flex-1 h-8 text-xs bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30"
-                    variant="outline"
-                    onClick={() => handleAction('reject')}
-                >
-                    <X className="w-3.5 h-3.5 mr-1.5" />
-                    Reject
-                </Button>
-            </div>
-        </div>
-    );
-};
+import { Badge } from '../ui/badge';
 interface MessageItemProps {
   message: Message;
   statusText?: string;
@@ -262,7 +45,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
     if (isUser) {
     // ... existing logic ...
       return (
-        <div className="text-foreground bg-muted/50 px-3 py-1.5 rounded-2xl rounded-tr-none shadow-sm whitespace-pre-wrap">
+        <div className="text-[13px] leading-relaxed whitespace-pre-wrap text-foreground">
           {message.content}
         </div>
       );
@@ -404,7 +187,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
     }
 
     return (
-      <div className="text-foreground pl-1 font-medium w-full">
+      <div className="text-foreground font-medium w-full">
         {parts.length > 0 ? parts : (
            <div className="markdown-body text-xs prose prose-invert max-w-none leading-normal">
              <ReactMarkdown 
@@ -440,27 +223,36 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
 
   return (
     <div className={cn(
-      "px-4 py-2 flex flex-col gap-1 transition-colors w-full",
-      isUser 
-        ? "items-end bg-background" 
-        : "items-start border-l-2 border-primary/30 bg-primary/10"
+      "px-4 py-1 flex flex-col gap-2 transition-colors w-full",
+      isUser ? "items-end" : "items-start"
     )}>
       <div className={cn(
-        "flex items-center gap-1.5 px-0.5 mt-1 w-full relative",
+        "flex items-center gap-2 w-full",
         isUser ? "justify-end" : "justify-start"
       )}>
-        <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">
+        <span className="text-[10px] font-semibold tracking-[0.3em] uppercase text-muted-foreground">
           {isUser ? 'You' : 'AIS'}
         </span>
+        {!isUser && statusText ? (
+          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary/80">
+            {statusText}
+          </Badge>
+        ) : null}
       </div>
-      {!isUser && statusText ? (
-        <div className="text-[11px] text-foreground/70 px-0.5">{statusText}</div>
-      ) : null}
       <div className={cn(
         "text-xs leading-relaxed wrap-break-word",
-        isUser ? "w-fit max-w-[85%] pb-1" : "w-full"
+        isUser ? "w-fit max-w-[82%] pb-1" : "w-full"
       )}>
-        {renderContent()}
+        <div
+          className={cn(
+            "rounded-2xl border border-border/60 px-4 py-3 shadow-sm",
+            isUser
+              ? "bg-primary/15 text-foreground border-primary/20"
+              : "bg-card/60 text-foreground"
+          )}
+        >
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

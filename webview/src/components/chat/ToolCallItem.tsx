@@ -5,7 +5,7 @@ import {
   CheckCircle2, XCircle, Loader2, Search, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ToolResult } from './MessageItem';
+import type { ToolResult } from './messageTypes';
 
 interface ToolCallItemProps {
   name: string;
@@ -55,19 +55,19 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
   };
 
   return (
-    <div className="my-2 border border-white/5 rounded-lg overflow-hidden bg-black/20 backdrop-blur-sm animate-in fade-in slide-in-from-left-2 duration-300">
+    <div className="my-3 border border-border/60 rounded-2xl overflow-hidden bg-card/60 backdrop-blur-sm animate-in fade-in slide-in-from-left-2 duration-300 shadow-sm">
       <div 
-        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors group"
+        className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors group"
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={(e) => e.key === 'Enter' && setIsExpanded(!isExpanded)}
         tabIndex={0}
         role="button"
       >
-        <div className="opacity-60 group-hover:opacity-100 transition-opacity">
+        <div className="h-8 w-8 rounded-lg bg-muted/50 border border-border/60 flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
           {getIcon()}
         </div>
         
-        <span className="flex-1 text-[11px] font-bold truncate opacity-80">
+        <span className="flex-1 text-[12px] font-semibold truncate text-foreground/80">
           {getLabel()}
         </span>
         
@@ -78,12 +78,12 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
       </div>
       
       {isExpanded && (
-        <div className="px-3 pb-3 border-t border-white/5 animate-in slide-in-from-top-1 duration-200">
+        <div className="px-3 pb-3 border-t border-border/60 animate-in slide-in-from-top-1 duration-200">
           {/* Action Arguments */}
           {(name === 'write_file' || name === 'replace_in_file') && (
             <div className="mt-3 space-y-1.5">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Content</p>
-              <pre className="p-2 bg-black/40 rounded border border-white/5 text-[10px] font-mono overflow-x-auto max-h-40">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.3em]">Content</p>
+              <pre className="p-2 bg-muted/40 rounded border border-border/60 text-[10px] font-mono overflow-x-auto max-h-40">
                 {args.content}
               </pre>
             </div>
@@ -92,11 +92,11 @@ export const ToolCallItem: React.FC<ToolCallItemProps> = ({
           {/* Tool Result */}
           {result && (
             <div className="mt-3 space-y-1.5">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.3em]">
                 {result.isError ? 'Error Output' : 'Result'}
               </p>
               <pre className={cn(
-                "p-2 bg-black/40 rounded border border-white/5 text-[10px] font-mono overflow-x-auto max-h-40",
+                "p-2 bg-muted/40 rounded border border-border/60 text-[10px] font-mono overflow-x-auto max-h-40",
                 result.isError ? "text-red-400 border-red-500/20" : "text-primary/80"
               )}>
                 {result.output}

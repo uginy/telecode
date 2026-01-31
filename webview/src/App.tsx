@@ -38,7 +38,7 @@ const VsCodeApp: React.FC<{
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans relative">
+    <div className="app-shell flex flex-col h-screen text-foreground overflow-hidden font-sans relative">
       <ChatHeader />
       <MessageList />
       <ChatInput onSend={onSend} onSearch={onSearch} onStop={onStop} />

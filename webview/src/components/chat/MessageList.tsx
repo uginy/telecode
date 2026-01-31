@@ -35,6 +35,27 @@ export const MessageList: React.FC = () => {
           searching_codebase: 'Ищу по кодовой базе…',
           running_tools: 'Запускаю инструменты…',
         },
+        zh: {
+          thinking: '正在思考…',
+          analyzing: '正在分析请求…',
+          building_context: '正在构建上下文…',
+          searching_codebase: '正在搜索代码库…',
+          running_tools: '正在运行工具…',
+        },
+        ja: {
+          thinking: '思考中…',
+          analyzing: 'リクエストを分析中…',
+          building_context: 'コンテキストを準備中…',
+          searching_codebase: 'コードベースを検索中…',
+          running_tools: 'ツールを実行中…',
+        },
+        ko: {
+          thinking: '생각 중…',
+          analyzing: '요청 분석 중…',
+          building_context: '컨텍스트 구성 중…',
+          searching_codebase: '코드베이스 검색 중…',
+          running_tools: '도구 실행 중…',
+        },
       }[statusLocale]?.[assistantStatus.key] ??
       {
         thinking: 'Thinking…',
@@ -53,12 +74,14 @@ export const MessageList: React.FC = () => {
   if (messages.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 min-h-[300px]">
-          <Sparkles className="w-10 h-10 text-primary opacity-20 animate-pulse" />
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-foreground/90 tracking-tight">How can I help you?</h2>
-            <p className="text-[11px] text-muted-foreground max-w-[180px] mx-auto leading-relaxed">
-              I can build, fix, and explain code in this workspace.
+        <div className="flex flex-col items-center justify-center text-center p-10 space-y-5 min-h-[320px]">
+          <div className="h-14 w-14 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-primary/80" />
+          </div>
+          <div className="space-y-2 max-w-[260px]">
+            <h2 className="text-base font-semibold text-foreground/90 tracking-tight">Where do we start?</h2>
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
+              Ask for a project overview, describe a bug, or drop files to build context fast.
             </p>
           </div>
         </div>
@@ -68,7 +91,7 @@ export const MessageList: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
-      <div className="flex flex-col gap-0 py-2">
+      <div className="flex flex-col gap-3 py-4 px-2 max-w-[920px] w-full mx-auto">
         {messages.map((msg) => (
           <MessageItem
             key={msg.id}

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Message, ToolResult } from '@/components/chat/MessageItem';
+import type { Message, ToolResult } from '@/components/chat/messageTypes';
 
 export type StatusKey =
   | 'thinking'

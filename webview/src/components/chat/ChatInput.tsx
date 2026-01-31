@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, X, File as FileIcon, Folder as FolderIcon, Terminal as TerminalIcon, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useChatStore, type SearchResult } from '@/store/useChatStore';
 import { cn } from '@/lib/utils';
 import { useFileDrop } from '@/hooks/useFileDrop';
@@ -147,7 +148,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
 
   return (
     <footer 
-        className="p-2 border-t border-border bg-background/95 backdrop-blur-sm relative"
+        className="p-3 border-t border-border/70 bg-background/80 backdrop-blur-sm relative"
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -165,17 +166,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
 
        {/* Context Items Chips */}
        {contextItems.length > 0 && (
-           <div className="flex flex-wrap gap-2 mb-2 px-1">
+           <div className="flex flex-wrap gap-2 mb-3 px-1">
                {contextItems.map(item => {
                    const Icon = getIcon(item.type);
                    return (
-                       <span key={item.value} className="flex items-center gap-1 bg-secondary/50 text-xs px-2 py-1 rounded-md border border-border/50 animate-in fade-in zoom-in-0 duration-200">
+                       <Badge key={item.value} variant="secondary" className="gap-1.5 text-[11px] py-1">
                            <Icon className="w-3 h-3 opacity-70" />
-                           <span className="max-w-[150px] truncate">{item.label}</span>
+                           <span className="max-w-[180px] truncate">{item.label}</span>
                            <button type="button" onClick={() => removeItem(item.value)} className="hover:text-destructive">
                                <X className="w-3 h-3" />
                            </button>
-                       </span>
+                       </Badge>
                    );
                })}
            </div>
@@ -183,12 +184,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
 
       {/* Suggestions Popup and Slash Commands */}
       {(showSuggestions && searchResults.length > 0) || (showCommandMenu && SLASH_COMMANDS.length > 0) ? (
-          <div className="absolute bottom-full left-2 mb-2 w-72 max-h-64 bg-popover border border-border rounded-lg shadow-lg overflow-y-auto z-50 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="absolute bottom-full left-2 mb-3 w-72 max-h-64 bg-popover/90 border border-border/70 rounded-2xl shadow-lg overflow-y-auto z-50 animate-in slide-in-from-bottom-2 duration-200">
               
               {/* SLASH COMMANDS */}
               {showCommandMenu && (
                   <div>
-                      <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider sticky top-0 backdrop-blur-sm flex items-center gap-1">
+                      <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground bg-muted/40 uppercase tracking-[0.3em] sticky top-0 backdrop-blur-sm flex items-center gap-1">
                            <TerminalIcon className="w-3 h-3" /> Commands
                       </div>
                       {SLASH_COMMANDS.filter(cmd => cmd.label.toLowerCase().startsWith(value.match(/\/?(\w*)$/)?.[1]?.toLowerCase() || '')).map((cmd, idx) => (
@@ -197,7 +198,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
                               key={cmd.label}
                               onClick={() => selectCommand(cmd)}
                               className={cn(
-                                  "w-full text-left px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors",
+                                  "w-full text-left px-3 py-2.5 text-[12px] hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors",
                                   idx === selectedIndex && "bg-accent text-accent-foreground"
                               )}
                           >
@@ -220,7 +221,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
                   
                   return (
                       <div key={type}>
-                          <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground bg-muted/30 uppercase tracking-wider sticky top-0 backdrop-blur-sm border-t border-border/50 first:border-0">
+                          <div className="px-3 py-2 text-[10px] font-semibold text-muted-foreground bg-muted/40 uppercase tracking-[0.3em] sticky top-0 backdrop-blur-sm border-t border-border/50 first:border-0">
                               {type}s
                           </div>
                           {items.map((item) => {
@@ -259,9 +260,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
             value={value}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={isStreaming ? "AIS is thinking..." : "Message AIS Code... (Type @ or drop files)"}
+            placeholder={isStreaming ? "AIS is thinking..." : "Ask anything. Use @ to attach context."}
             disabled={isStreaming}
-            className="w-full min-h-[40px] max-h-[200px] bg-muted/40 border border-border/50 focus:border-primary/40 focus:bg-muted/40 rounded-xl px-3 py-2.5 text-xs focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/50 disabled:opacity-50"
+            className="w-full min-h-[44px] max-h-[200px] bg-card/60 border border-border/60 focus:border-primary/40 focus:bg-card/70 rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/60 disabled:opacity-50 shadow-sm"
             rows={1}
           />
         </div>
@@ -271,7 +272,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
                 size="sm"
                 onClick={onStop}
                 variant="destructive"
-                className="h-8 w-8 p-0 font-bold rounded-lg shadow-sm active:scale-90 transition-all shrink-0"
+                className="h-9 w-9 p-0 font-bold rounded-full shadow-sm active:scale-90 transition-all shrink-0"
               >
                 <div className="w-3 h-3 bg-current rounded-sm" />
               </Button>
@@ -280,7 +281,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
                 size="sm"
                 onClick={handleSendClick}
                 disabled={!value.trim() && contextItems.length === 0}
-                className="h-8 w-8 p-0 font-bold rounded-lg shadow-sm active:scale-90 transition-all bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+                className="h-9 w-9 p-0 font-bold rounded-full shadow-sm active:scale-90 transition-all bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
               >
                 <Send className="w-4 h-4" />
               </Button>
