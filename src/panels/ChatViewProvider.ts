@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { AgentOrbit } from '../core/agent/AgentOrbit';
 import { ToolRegistry } from '../core/tools/registry';
-import { ReadFileTool, WriteFileTool, ListFilesTool } from '../core/tools/implementations/FileSystem';
+import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '../core/tools/implementations/FileSystem';
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
 import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
@@ -20,6 +20,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry = new ToolRegistry();
     this._toolRegistry.register(new ReadFileTool());
     this._toolRegistry.register(new WriteFileTool());
+    this._toolRegistry.register(new ReplaceInFileTool());
     this._toolRegistry.register(new ListFilesTool());
     
     this._sessionManager = new SessionManager(context);
@@ -254,14 +255,26 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (history.length > 0) {
         this._agent.setHistory(history);
       }
+    }
 
-      // Inject Workspace Context
-      try {
-         const summary = await getWorkspaceSummary();
-         this._agent.updateSystemContext(summary);
-      } catch (e) {
-        console.error('Failed to load workspace summary:', e);
-      }
+    // Inject Workspace & Active File Context (Update on every message)
+    try {
+       const summary = await getWorkspaceSummary();
+       
+       let activeFileContext = '';
+       const editor = vscode.window.activeTextEditor;
+       if (editor && editor.document.uri.scheme === 'file') {
+          const filePath = editor.document.uri.fsPath;
+          const relativePath = vscode.workspace.asRelativePath(filePath);
+          const content = editor.document.getText();
+          if (content.length < 100000) { // Limit to ~100KB
+             activeFileContext = `Active File: ${relativePath}\nContent:\n\`\`\`\n${content}\n\`\`\``;
+          }
+       }
+
+       this._agent.updateSystemContext(summary, activeFileContext);
+    } catch (e) {
+      console.error('Failed to load context:', e);
     }
 
     this._view?.webview.postMessage({ type: 'setStreaming', value: true });

@@ -20,8 +20,8 @@ export class AgentOrbit {
     this.context = new ContextManager(maxTokens);
   }
 
-  updateSystemContext(contextString: string) {
-    const systemPromptContent = CORE_SYSTEM_PROMPT(contextString);
+  updateSystemContext(contextString: string, activeFileContext?: string) {
+    const systemPromptContent = CORE_SYSTEM_PROMPT(contextString, activeFileContext);
 
     this.context.setSystemMessage({
       id: 'system-prompt',
@@ -114,6 +114,7 @@ export class AgentOrbit {
     const readRegex = /<read_file\s+path="([^"]+)"\s*\/>|<read_file\s+path="([^"]+)">[\s\S]*?<\/read_file>/g;
     const listRegex = /<list_files\s+path="([^"]+)"\s*\/>|<list_files\s+path="([^"]+)">[\s\S]*?<\/list_files>/g;
     const commandRegex = /<run_command>([\s\S]*?)<\/run_command>/g;
+    const replaceRegex = /<replace_in_file\s+path="([^"]+)">([\s\S]*?)<\/replace_in_file>/g;
 
     let match: RegExpExecArray | null;
     
@@ -125,6 +126,16 @@ export class AgentOrbit {
         arguments: JSON.stringify({ path: match[1], content: match[2] })
       });
       match = writeRegex.exec(content);
+    }
+    
+    match = replaceRegex.exec(content);
+    while (match !== null) {
+      toolCalls.push({
+        id: crypto.randomUUID(),
+        name: 'replace_in_file',
+        arguments: JSON.stringify({ path: match[1], content: match[2] })
+      });
+      match = replaceRegex.exec(content);
     }
     
     match = readRegex.exec(content);
