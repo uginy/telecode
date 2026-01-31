@@ -3,6 +3,7 @@ import { AgentOrbit } from '../core/agent/AgentOrbit';
 import { ToolRegistry } from '../core/tools/registry';
 import { ReadFileTool, WriteFileTool, ListFilesTool, ReplaceInFileTool } from '../core/tools/implementations/FileSystem';
 import { SearchFilesTool } from '../core/tools/implementations/Search';
+import { RunCommandTool } from '../core/tools/implementations/Terminal';
 import { OpenRouterProvider } from '../core/providers/implementations/OpenRouter';
 import { getWorkspaceSummary } from '../utils/workspace';
 import { SessionManager } from '../core/session/SessionManager';
@@ -24,6 +25,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this._toolRegistry.register(new ReplaceInFileTool());
     this._toolRegistry.register(new ListFilesTool());
     this._toolRegistry.register(new SearchFilesTool());
+    this._toolRegistry.register(new RunCommandTool());
     
     this._sessionManager = new SessionManager(context);
   }
