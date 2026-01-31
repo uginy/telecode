@@ -3,17 +3,23 @@ import { useRef, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageItem } from './MessageItem';
+import { ThinkingBubble } from './ThinkingBubble';
 import { useChatStore } from '@/store/useChatStore';
 
 export const MessageList: React.FC = () => {
-  const messages = useChatStore((state) => state.messages);
+  const { messages, isStreaming } = useChatStore((state) => ({ 
+    messages: state.messages, 
+    isStreaming: state.isStreaming 
+  }));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]); 
+  }, [messages, isStreaming]); 
+
+  const showThinking = isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user';
 
   if (messages.length === 0) {
     return (
@@ -37,6 +43,7 @@ export const MessageList: React.FC = () => {
         {messages.map((msg) => (
           <MessageItem key={msg.id} message={msg} />
         ))}
+        {showThinking && <ThinkingBubble />}
         <div ref={scrollRef} className="h-6" />
       </div>
     </ScrollArea>

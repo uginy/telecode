@@ -201,14 +201,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         ? "items-end bg-background" 
         : "items-start border-l-2 border-primary/30 bg-primary/10"
     )}>
-      <div className="flex items-center gap-1.5 px-0.5 mt-1 w-full relative">
+      <div className={cn(
+        "flex items-center gap-1.5 px-0.5 mt-1 w-full relative",
+        isUser ? "justify-end" : "justify-start"
+      )}>
         <span className="text-[10px] font-bold tracking-wider uppercase opacity-70 select-none text-foreground/50">
           {isUser ? 'You' : 'AIS'}
         </span>
       </div>
       <div className={cn(
-        "text-xs leading-relaxed max-w-full break-words w-full",
-        isUser ? "pb-1 max-w-[95%]" : ""
+        "text-xs leading-relaxed break-words",
+        isUser ? "w-fit max-w-[85%] pb-1" : "w-full"
       )}>
         {renderContent()}
       </div>
