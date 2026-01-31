@@ -7,6 +7,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { useChatStore, type SearchResult } from '@/store/useChatStore';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { HistoryView } from '@/components/history/HistoryView';
+import { ContextView } from '@/components/context/ContextView';
 
 interface VsCodeApi {
   postMessage: (message: unknown) => void;
@@ -32,6 +33,10 @@ const VsCodeApp: React.FC<{
     return <HistoryView />;
   }
 
+  if (activeView === 'context') {
+    return <ContextView />;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans relative">
       <ChatHeader />
@@ -50,7 +55,8 @@ const App: React.FC = () => {
     updateSettings,
     setSessionAllowAllTools,
     setCheckpoints,
-    setSessionAllowedTools
+    setSessionAllowedTools,
+    setLastContextSnapshot
   } = useChatStore();
 
   useEffect(() => {
@@ -99,6 +105,11 @@ const App: React.FC = () => {
             setCheckpoints(message.checkpoints);
           }
           break;
+        case 'contextSnapshot':
+          if (message.snapshot) {
+            setLastContextSnapshot(message.snapshot);
+          }
+          break;
         case 'toolResult':
           useChatStore.getState().addToolResult(message.result);
           break;
@@ -136,7 +147,17 @@ const App: React.FC = () => {
 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [updateLastMessage, updateSettings, setStreaming]);
+  }, [
+    addMessage,
+    setMessages,
+    updateLastMessage,
+    updateSettings,
+    setStreaming,
+    setSessionAllowAllTools,
+    setSessionAllowedTools,
+    setCheckpoints,
+    setLastContextSnapshot
+  ]);
 
   const handleSend = useCallback((text: string, contextItems: SearchResult[] = []) => {
     addMessage({ id: Math.random().toString(36).substring(2, 11), role: 'user', content: text });

@@ -46,6 +46,7 @@ export async function handleSendMessage(
       lastActiveEditor: deps.lastActiveEditor
     });
     fullContext = context.contextDetails;
+    deps.view?.webview.postMessage({ type: 'contextSnapshot', snapshot: context.snapshot });
 
     if (fullContext) {
       const message = contextItems && contextItems.length > 0

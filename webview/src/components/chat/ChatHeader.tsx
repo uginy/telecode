@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Plus, Settings, History, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Plus, Settings, History, ShieldCheck, ShieldOff, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,6 +17,10 @@ export const ChatHeader: React.FC = () => {
 
   const handleHistory = () => {
     setView('history');
+  };
+
+  const handleContext = () => {
+    setView('context');
   };
 
   const handleToggleToolApproval = () => {
@@ -57,6 +61,15 @@ export const ChatHeader: React.FC = () => {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" sideOffset={8}>History</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleContext}>
+              <Search className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={8}>Context</TooltipContent>
         </Tooltip>
 
         <Tooltip>

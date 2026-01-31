@@ -32,12 +32,31 @@ export interface Checkpoint {
   existed: boolean;
 }
 
+export interface ContextSnapshotItem {
+  label: string;
+  content: string;
+  truncated: boolean;
+}
+
+export interface ContextSnapshotSection {
+  title: string;
+  items: ContextSnapshotItem[];
+}
+
+export interface ContextSnapshot {
+  totalChars: number;
+  maxChars: number;
+  usedSearch: boolean;
+  usedSemantic: boolean;
+  sections: ContextSnapshotSection[];
+}
+
 interface ChatState {
   messages: Message[];
   sessions: Session[];
   activeSessionId: string | null;
   isStreaming: boolean;
-  activeView: 'chat' | 'settings' | 'history'; 
+  activeView: 'chat' | 'settings' | 'history' | 'context'; 
   settings: Settings;
   usage: { used: number; total: number };
   sessionAllowAllTools: boolean;
@@ -49,7 +68,7 @@ interface ChatState {
   updateLastMessage: (content: string) => void;
   clearHistory: () => void;
   setStreaming: (isStreaming: boolean) => void;
-  setView: (view: 'chat' | 'settings' | 'history') => void;
+  setView: (view: 'chat' | 'settings' | 'history' | 'context') => void;
   updateSettings: (settings: Partial<Settings>) => void;
   updateUsage: (usage: { used: number; total: number }) => void;
   addToolResult: (result: ToolResult) => void;
@@ -68,6 +87,8 @@ interface ChatState {
 
   checkpoints: Checkpoint[];
   setCheckpoints: (checkpoints: Checkpoint[]) => void;
+  lastContextSnapshot: ContextSnapshot | null;
+  setLastContextSnapshot: (snapshot: ContextSnapshot | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -120,7 +141,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setStreaming: (isStreaming: boolean) => set({ isStreaming }),
 
-  setView: (activeView: 'chat' | 'settings' | 'history') => set({ activeView }),
+  setView: (activeView: 'chat' | 'settings' | 'history' | 'context') => set({ activeView }),
 
   updateSettings: (newSettings: Partial<Settings>) =>
     set((state) => ({ settings: { ...state.settings, ...newSettings } })),
@@ -165,4 +186,6 @@ export const useChatStore = create<ChatState>((set) => ({
 
   checkpoints: [],
   setCheckpoints: (checkpoints: Checkpoint[]) => set({ checkpoints }),
+  lastContextSnapshot: null,
+  setLastContextSnapshot: (snapshot: ContextSnapshot | null) => set({ lastContextSnapshot: snapshot }),
 }));

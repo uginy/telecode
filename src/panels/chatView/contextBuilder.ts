@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getWorkspaceSummary, resolveWorkspacePath } from '../../utils/workspace';
 import { TerminalHistory } from '../../core/tools/TerminalHistory';
+import { SemanticIndex } from './semanticIndex';
 
 const MAX_TOTAL_CONTEXT_CHARS = 120000;
 const MAX_FILE_CONTEXT_CHARS = 20000;
@@ -14,10 +15,31 @@ interface ContextState {
   used: number;
 }
 
+interface ContextSectionItem {
+  label: string;
+  content: string;
+  truncated: boolean;
+}
+
+interface ContextSection {
+  title: string;
+  items: ContextSectionItem[];
+}
+
+interface ContextSnapshot {
+  totalChars: number;
+  maxChars: number;
+  usedSearch: boolean;
+  usedSemantic: boolean;
+  sections: ContextSection[];
+}
+
 interface ContextBuildResult {
   workspaceSummary: string;
   contextDetails: string;
   usedSearch: boolean;
+  usedSemantic: boolean;
+  snapshot: ContextSnapshot;
 }
 
 function appendContext(state: ContextState, chunk: string) {
@@ -26,6 +48,19 @@ function appendContext(state: ContextState, chunk: string) {
   const sliced = chunk.length > remaining ? `${chunk.slice(0, remaining)}\n[...truncated]` : chunk;
   state.content += sliced;
   state.used += sliced.length;
+}
+
+function addSection(sections: ContextSection[], title: string) {
+  const section: ContextSection = { title, items: [] };
+  sections.push(section);
+  return section;
+}
+
+function addSectionItem(section: ContextSection, label: string, content: string) {
+  const maxItemChars = 5000;
+  const truncated = content.length > maxItemChars;
+  const trimmed = truncated ? `${content.slice(0, maxItemChars)}\n[...truncated]` : content;
+  section.items.push({ label, content: trimmed, truncated });
 }
 
 function getOpenTabUris(): vscode.Uri[] {
@@ -96,7 +131,32 @@ function extractKeywords(text: string): string[] {
   return unique.slice(0, 6);
 }
 
-async function collectSearchSnippets(state: ContextState, keywords: string[]) {
+function findSnippetByKeywords(text: string, keywords: string[]): string {
+  const lines = text.split(/\r?\n/);
+  if (keywords.length === 0) {
+    return lines.slice(0, 120).join('\n');
+  }
+
+  const lowerKeywords = keywords.map(k => k.toLowerCase());
+  let bestLine = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if (lowerKeywords.some(k => line.includes(k))) {
+      bestLine = i;
+      break;
+    }
+  }
+
+  const start = Math.max(0, bestLine - 12);
+  const end = Math.min(lines.length, bestLine + 12);
+  return lines.slice(start, end).join('\n');
+}
+
+async function collectSearchSnippets(
+  state: ContextState,
+  keywords: string[],
+  sections: ContextSection[]
+) {
   if (keywords.length === 0) return false;
 
   const results: Array<{ uri: vscode.Uri; line: number }> = [];
@@ -115,7 +175,7 @@ async function collectSearchSnippets(state: ContextState, keywords: string[]) {
 
   if (results.length === 0) return false;
 
-  appendContext(state, '\n[Context: Codebase Matches]\n');
+  const section = addSection(sections, 'Codebase Matches');
 
   for (const match of results) {
     if (state.used >= MAX_TOTAL_CONTEXT_CHARS) break;
@@ -125,16 +185,49 @@ async function collectSearchSnippets(state: ContextState, keywords: string[]) {
     const end = Math.min(lines.length, match.line + 12);
     const snippet = lines.slice(start, end).join('\n');
     const relativePath = vscode.workspace.asRelativePath(match.uri);
-    appendContext(
-      state,
-      `File: ${relativePath}\nSnippet:\n\`\`\`\n${snippet.slice(0, MAX_SNIPPET_CONTEXT_CHARS)}\n\`\`\`\n`
-    );
+    const trimmed = snippet.slice(0, MAX_SNIPPET_CONTEXT_CHARS);
+    appendContext(state, `File: ${relativePath}\nSnippet:\n\`\`\`\n${trimmed}\n\`\`\`\n`);
+    addSectionItem(section, relativePath, trimmed);
   }
 
   return true;
 }
 
-async function appendOpenTabContext(state: ContextState, lastActiveEditor?: vscode.TextEditor) {
+async function collectSemanticSnippets(
+  state: ContextState,
+  keywords: string[],
+  sections: ContextSection[]
+) {
+  const config = vscode.workspace.getConfiguration('aisCode');
+  const workspaceIndex = config.get<boolean>('workspaceIndex') ?? true;
+  if (!workspaceIndex) return false;
+
+  const results = await SemanticIndex.getInstance().search(keywords.join(' '), 6);
+  if (results.length === 0) return false;
+
+  const section = addSection(sections, 'Semantic Matches');
+  for (const result of results) {
+    if (state.used >= MAX_TOTAL_CONTEXT_CHARS) break;
+    try {
+      const uri = vscode.Uri.file(result.path);
+      const text = await getDocumentText(uri);
+      const snippet = findSnippetByKeywords(text, keywords).slice(0, MAX_SNIPPET_CONTEXT_CHARS);
+      const relativePath = vscode.workspace.asRelativePath(uri);
+      appendContext(state, `File: ${relativePath}\nSnippet:\n\`\`\`\n${snippet}\n\`\`\`\n`);
+      addSectionItem(section, relativePath, snippet);
+    } catch {
+      // ignore
+    }
+  }
+
+  return true;
+}
+
+async function appendOpenTabContext(
+  state: ContextState,
+  sections: ContextSection[],
+  lastActiveEditor?: vscode.TextEditor
+) {
   const openUris = getOpenTabUris();
   const activeUri = vscode.window.activeTextEditor?.document.uri || lastActiveEditor?.document.uri;
 
@@ -144,7 +237,7 @@ async function appendOpenTabContext(state: ContextState, lastActiveEditor?: vsco
 
   if (openUris.length === 0) return;
 
-  appendContext(state, '\n[Context: Open Tabs]\n');
+  const section = addSection(sections, 'Open Tabs');
 
   for (const uri of openUris.slice(0, MAX_OPEN_TABS)) {
     if (state.used >= MAX_TOTAL_CONTEXT_CHARS) break;
@@ -166,18 +259,17 @@ async function appendOpenTabContext(state: ContextState, lastActiveEditor?: vsco
       snippet = text.slice(0, MAX_FILE_CONTEXT_CHARS);
     }
 
-    appendContext(
-      state,
-      `File: ${label}\nContent:\n\`\`\`\n${snippet}\n\`\`\`\n`
-    );
+    appendContext(state, `File: ${label}\nContent:\n\`\`\`\n${snippet}\n\`\`\`\n`);
+    addSectionItem(section, label, snippet);
   }
 }
 
 async function appendExplicitContext(
   state: ContextState,
-  contextItems: { type: string; value: string }[]
+  contextItems: { type: string; value: string }[],
+  sections: ContextSection[]
 ) {
-  appendContext(state, '\n[Explicit Context Items]\n');
+  const section = addSection(sections, 'Explicit Context Items');
   for (const item of contextItems) {
     if (state.used >= MAX_TOTAL_CONTEXT_CHARS) break;
     try {
@@ -187,6 +279,7 @@ async function appendExplicitContext(
           const text = await getDocumentText(uris[0]);
           const trimmed = text.slice(0, MAX_FILE_CONTEXT_CHARS);
           appendContext(state, `File: ${item.value}\nContent:\n\`\`\`\n${trimmed}\n\`\`\`\n`);
+          addSectionItem(section, item.value, trimmed);
         }
       } else if (item.type === 'folder') {
         const resolved = resolveWorkspacePath(item.value);
@@ -199,12 +292,14 @@ async function appendExplicitContext(
         );
         const listed = files.map(uri => vscode.workspace.asRelativePath(uri)).join('\n');
         appendContext(state, `Folder: ${item.value}\nFiles:\n${listed}\n`);
+        addSectionItem(section, item.value, listed);
       } else if (item.type === 'terminal') {
         const entries = TerminalHistory.getRecent();
         const formatted = entries
           .map(entry => `[${new Date(entry.timestamp).toLocaleTimeString()}] $ ${entry.command}\n${entry.output}`)
           .join('\n\n');
         appendContext(state, `Terminal: ${item.value}\n${formatted}\n`);
+        addSectionItem(section, item.value, formatted);
       }
     } catch (e) {
       console.warn(`Failed to read context item ${item.value}:`, e);
@@ -212,11 +307,13 @@ async function appendExplicitContext(
   }
 }
 
-function appendTerminalSummary(state: ContextState) {
+function appendTerminalSummary(state: ContextState, sections: ContextSection[]) {
   const terminals = vscode.window.terminals;
   if (terminals.length === 0) return;
   const names = terminals.map(t => t.name).join(', ');
   appendContext(state, `\n[Context: Terminals]\n${names}\n`);
+  const section = addSection(sections, 'Terminals');
+  addSectionItem(section, 'Open terminals', names);
 }
 
 export async function buildContext(params: {
@@ -225,30 +322,44 @@ export async function buildContext(params: {
   lastActiveEditor?: vscode.TextEditor;
 }): Promise<ContextBuildResult> {
   const state: ContextState = { content: '', used: 0 };
+  const sections: ContextSection[] = [];
   const summary = await getWorkspaceSummary();
   const hasExplicitContext = !!(params.contextItems && params.contextItems.length > 0);
   const hasMentions = params.text.includes('@');
   const shouldUseOpenTabs = !hasExplicitContext && !hasMentions;
 
   if (hasExplicitContext) {
-    await appendExplicitContext(state, params.contextItems || []);
+    await appendExplicitContext(state, params.contextItems || [], sections);
   }
 
   if (shouldUseOpenTabs) {
-    await appendOpenTabContext(state, params.lastActiveEditor);
-    appendTerminalSummary(state);
+    await appendOpenTabContext(state, sections, params.lastActiveEditor);
+    appendTerminalSummary(state, sections);
   }
 
   const keywords = extractKeywords(params.text);
   let usedSearch = false;
+  let usedSemantic = false;
 
   if (!hasExplicitContext && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
-    usedSearch = await collectSearchSnippets(state, keywords);
+    usedSearch = await collectSearchSnippets(state, keywords, sections);
+  }
+
+  if (!hasExplicitContext && keywords.length > 0 && state.used < MAX_TOTAL_CONTEXT_CHARS * 0.6) {
+    usedSemantic = await collectSemanticSnippets(state, keywords, sections);
   }
 
   return {
     workspaceSummary: summary,
     contextDetails: state.content,
-    usedSearch
+    usedSearch,
+    usedSemantic,
+    snapshot: {
+      totalChars: state.used,
+      maxChars: MAX_TOTAL_CONTEXT_CHARS,
+      usedSearch,
+      usedSemantic,
+      sections
+    }
   };
 }
