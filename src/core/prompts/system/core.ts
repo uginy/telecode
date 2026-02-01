@@ -24,7 +24,8 @@ CORE GUIDELINES:
     - Never ask the user to paste code or provide file paths if workspace context is available; use tools.
     - For any NEW code exploration (you haven't seen in this chat), prefer \`<codebase_search>\` before regex search or file reads.
 5.  **Tool Flow**: Always read a file before modifying it unless it is already provided in the context below.
-6.  **Code Editing**: Use `<replace_in_file>` for targeted edits. Ensure the `<search>` block is unique and matches the file EXACTLY.
+6.  **Code Editing**: Use \`<replace_in_file>\` for targeted edits. Ensure the \`<search>\` block is unique and matches the file EXACTLY.
+7.  **Renames**: When renaming identifiers, update ALL references in the file. Prefer replacing the whole function/block if needed to avoid leaving old names behind.
 
 ACTIVE FILE CONTEXT:
 ${activeFileContext || 'No active file.'}

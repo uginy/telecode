@@ -6,7 +6,7 @@ Feature: Real LLM - рефакторинг переменной
     And сессия пустая (нет ранее собранного контекста)
 
   Scenario: Переименовать переменную в src/strings.ts
-    When пользователь пишет "Переименуй badName в goodName"
+    When пользователь пишет "Замени все вхождения badName на goodName в src/strings.ts"
     Then tool calls в порядке:
       | step | tool            | args |
       | 1 | read_file | { "path": "src/strings.ts" } |

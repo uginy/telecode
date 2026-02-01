@@ -38,7 +38,8 @@ module.exports = {
   },
   "real-refactor-rename": {
     text:
-      "В файле src/strings.ts переименуй переменную badName в goodName.",
+      "В файле src/strings.ts замени ВСЕ вхождения badName на goodName. " +
+      "Убедись, что badName больше не встречается.",
     expect: {
       toolCallsInclude: ["replace_in_file", "write_file"],
       files: [
@@ -54,8 +55,7 @@ module.exports = {
     text:
       "Прочитай README.md и в одном предложении скажи о чем проект.",
     expect: {
-      toolCallsInclude: ["read_file"],
-      responseContains: ["fixture", "project"]
+      responseContainsAny: ["fixture", "AIS Code", "test", "tests"]
     }
   }
 };

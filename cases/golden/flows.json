@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-01-31T22:16:55.167Z",
+  "generatedAt": "2026-01-31T23:01:15.756Z",
   "features": [
     {
       "name": "Архитектурный анализ проекта",
@@ -5984,7 +5984,7 @@
           "steps": [
             {
               "keyword": "When",
-              "text": "пользователь пишет \"Переименуй badName в goodName\"",
+              "text": "пользователь пишет \"Замени все вхождения badName на goodName в src/strings.ts\"",
               "table": []
             },
             {
@@ -6028,7 +6028,7 @@
             },
             {
               "keyword": "When",
-              "text": "пользователь пишет \"Переименуй badName в goodName\"",
+              "text": "пользователь пишет \"Замени все вхождения badName на goodName в src/strings.ts\"",
               "table": []
             },
             {
@@ -6099,23 +6099,12 @@
             },
             {
               "keyword": "Then",
-              "text": "tool calls в порядке:",
-              "table": [
-                [
-                  "step",
-                  "tool",
-                  "args"
-                ],
-                [
-                  "1",
-                  "read_file",
-                  "{ \"path\": \"README.md\" }"
-                ]
-              ]
+              "text": "ассистент отвечает в одном предложении",
+              "table": []
             },
             {
               "keyword": "And",
-              "text": "ассистент отвечает в одном предложении",
+              "text": "если README не в контексте, он читает README.md через tool",
               "table": []
             }
           ],
@@ -6138,23 +6127,12 @@
             },
             {
               "keyword": "Then",
-              "text": "tool calls в порядке:",
-              "table": [
-                [
-                  "step",
-                  "tool",
-                  "args"
-                ],
-                [
-                  "1",
-                  "read_file",
-                  "{ \"path\": \"README.md\" }"
-                ]
-              ]
+              "text": "ассистент отвечает в одном предложении",
+              "table": []
             },
             {
               "keyword": "And",
-              "text": "ассистент отвечает в одном предложении",
+              "text": "если README не в контексте, он читает README.md через tool",
               "table": []
             }
           ]

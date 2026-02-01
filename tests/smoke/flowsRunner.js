@@ -239,6 +239,16 @@ async function run() {
             );
           }
         }
+        if (task.expect?.responseContainsAny) {
+          const needles = task.expect.responseContainsAny;
+          const matched = needles.some((needle) =>
+            responseText.toLowerCase().includes(needle.toLowerCase())
+          );
+          assert.ok(
+            matched,
+            `Expected response to contain one of: ${needles.join(", ")}`
+          );
+        }
       }
 
       if (delayMs > 0) {

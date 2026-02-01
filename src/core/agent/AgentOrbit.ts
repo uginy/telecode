@@ -34,7 +34,10 @@ export class AgentOrbit {
   }
 
   updateSystemContext(contextString: string, activeFileContext?: string) {
-    const systemPromptContent = CORE_SYSTEM_PROMPT(contextString, activeFileContext);
+    const systemPromptContent =
+      typeof CORE_SYSTEM_PROMPT === 'function'
+        ? CORE_SYSTEM_PROMPT(contextString, activeFileContext)
+        : String(CORE_SYSTEM_PROMPT);
 
     this.context.setSystemMessage({
       id: 'system-prompt',

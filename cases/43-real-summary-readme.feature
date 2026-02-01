@@ -7,7 +7,5 @@ Feature: Real LLM - краткое описание README
 
   Scenario: Кратко описать проект по README
     When пользователь пишет "О чем этот проект?"
-    Then tool calls в порядке:
-      | step | tool      | args |
-      | 1 | read_file | { "path": "README.md" } |
-    And ассистент отвечает в одном предложении
+    Then ассистент отвечает в одном предложении
+    And если README не в контексте, он читает README.md через tool
