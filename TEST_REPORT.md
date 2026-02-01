@@ -4,7 +4,8 @@
 - Golden flows (non‑real): 29/29
 - Real LLM flows: 4/4
 - Edge regressions: 6/6
-- Total: 39/39 scenarios
+- AAA mega‑refactor: 1/1 (tag @aaa)
+- Total: 40/40 scenarios
 
 ## How results are verified (criteria)
 The current runner is **not a full UI automation**. It validates a realistic proxy of user behavior through the extension API and tool pipeline.
@@ -61,6 +62,7 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 
 ## Logs
 - `.vscode-test/logs/flows-smoke.log`
+- `.vscode-test/logs/llm-openrouter.log` (real HTTP requests with timestamps, model, duration)
 
 ## Latest full real run (2026-02-01)
 - Command: `node scripts/flows-smoke.mjs --real-llm`
@@ -68,6 +70,12 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 - Log entry: see the last run block in `.vscode-test/logs/flows-smoke.log`
 
 ## Latest run update (2026-02-01)
-- Full flows run: PASS (39/39)
+- Full flows run: PASS (40/40, includes @aaa)
 - Webview E2E: PASS (see console log `E2E PASS: webview chat scenario completed.`)
 - Notes: VS Code reported file watcher warnings on `/Volumes/Ext1tb/...` (network share), not affecting test outcomes
+
+## AAA mega‑refactor (2026-02-01)
+- Command: `node scripts/flows-smoke.mjs --real-llm --tags=@aaa --delay=5000 --batch=1 --batch-delay=15000`
+- Result: PASS (1/1)
+- Artifacts: `tests/results/aaa/unknown-model/2026-02-01T21-59-31-827Z/`
+- E2E render check: `node scripts/e2e-aaa-landing.mjs` → PASS

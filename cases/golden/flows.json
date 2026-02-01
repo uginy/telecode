@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-01T14:09:31.590Z",
+  "generatedAt": "2026-02-01T20:38:59.000Z",
   "features": [
     {
       "name": "Архитектурный анализ проекта",
@@ -5745,6 +5745,63 @@
             {
               "keyword": "And",
               "text": "tool timeline содержит 1 запись",
+              "table": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AAA Mega Refactor legacy landing page",
+      "file": "cases/35-aaa-mega-refactor.feature",
+      "tags": [
+        "@real",
+        "@aaa",
+        "@priority-high",
+        "@id:real-aaa-mega-refactor"
+      ],
+      "background": [],
+      "scenarios": [
+        {
+          "name": "Split a 1500+ line legacy HTML landing into clean structure with bugs fixed",
+          "tags": [
+            "@real",
+            "@aaa",
+            "@priority-high",
+            "@id:real-aaa-mega-refactor"
+          ],
+          "steps": [
+            {
+              "keyword": "Given",
+              "text": "a legacy landing page exists at tests/fixtures/mega-landing/legacy.html with ~1500 lines",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "the user asks to refactor and decompose the landing page into clean HTML/CSS/JS files",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "the result should create a clean structure, fix intentional bugs, and keep the site functional",
+              "table": []
+            }
+          ],
+          "id": "real-aaa-mega-refactor",
+          "resolvedSteps": [
+            {
+              "keyword": "Given",
+              "text": "a legacy landing page exists at tests/fixtures/mega-landing/legacy.html with ~1500 lines",
+              "table": []
+            },
+            {
+              "keyword": "When",
+              "text": "the user asks to refactor and decompose the landing page into clean HTML/CSS/JS files",
+              "table": []
+            },
+            {
+              "keyword": "Then",
+              "text": "the result should create a clean structure, fix intentional bugs, and keep the site functional",
               "table": []
             }
           ]

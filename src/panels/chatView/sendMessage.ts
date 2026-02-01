@@ -57,6 +57,9 @@ export async function handleSendMessage(
   const fileWriteIntentEn = /(?:^|\b)(create|write|save|update|add|generate|draft|compose|make)\b.*\b(file|doc(?:ument)?|readme|changelog|spec|report|plan|policy|license|notes|markdown|md)\b|\b(?:save|store|write)\b.*\b(file|doc(?:ument)?|readme|changelog|spec|report|plan|policy|license|notes|markdown|md)\b|\b[A-Za-z0-9_\-./\\]+\.(md|txt|json|yaml|yml)\b/i;
   const fileWriteIntentRu = /(?:созда[ййте]|сохрани|запиши|обнови|добавь|сделай|напис[аать]|сформируй|сгенерируй)[\s\S]*\b(файл|документ|доку|ридми|readme|спецификац|тз|отчет|план|инструкц|политик|лиценз|markdown|md)\b/i;
   const requiresFileWrite = fileWriteIntentEn.test(trimmedInput) || fileWriteIntentRu.test(trimmedInput);
+  const codeEditIntentEn = /\b(fix|edit|update|modify|refactor|rename|replace|remove|delete|add|change|rewrite)\b/i;
+  const codeEditIntentRu = /\b(исправь|пофикси|почини|обнови|измени|замени|удали|переименуй|рефактор|перепиши|добавь|замени)\b/i;
+  const requiresCodeEdit = codeEditIntentEn.test(trimmedInput) || codeEditIntentRu.test(trimmedInput);
   const shouldAvoidTools =
     intent === 'project_overview' ||
     (intent === 'general' && !intentResult?.requireCodeContext && trimmedInput.length <= 80 && !requiresFileWrite);
@@ -227,21 +230,45 @@ If the information is missing, ask one short clarifying question.
     });
   }
 
-  try {
+  const forceTools =
+    text.trim().startsWith('/fix') ||
+    text.trim().startsWith('/test') ||
+    requiresFileWrite ||
+    requiresCodeEdit;
+
+  const runAgentOnce = async (input: string) => {
+    let toolCallsSeen = false;
+    let writeToolSeen = false;
     await agent.run(
-      promptText,
+      input,
       (chunk: string) => {
         deps.view?.webview.postMessage({ type: 'streamToken', text: chunk });
       },
       (result: { toolCallId: string; output: string; isError: boolean }) => {
         deps.view?.webview.postMessage({ type: 'toolResult', result });
       },
-      (status) => postStatus(status as StatusKey)
-      ,
+      (status) => postStatus(status as StatusKey),
       (calls) => {
+        toolCallsSeen = toolCallsSeen || (calls?.length ?? 0) > 0;
+        if (calls && calls.length > 0) {
+          for (const call of calls) {
+            if (call?.name === 'write_file' || call?.name === 'replace_in_file') {
+              writeToolSeen = true;
+            }
+          }
+        }
         deps.view?.webview.postMessage({ type: 'toolCalls', calls });
       }
     );
+    return { toolCallsSeen, writeToolSeen };
+  };
+
+  try {
+    const firstRun = await runAgentOnce(promptText);
+    if ((!firstRun.toolCallsSeen || !firstRun.writeToolSeen) && forceTools) {
+      const correctivePrompt = `${languageInstruction}\n[CRITICAL: You must apply file changes now. Use <write_file> / <replace_in_file> as needed. Respond ONLY with tool calls.]\n${fullContext ? `CODE CONTEXT:\\n${fullContext}\\n\\n` : ''}USER COMMAND: ${text}`;
+      await runAgentOnce(correctivePrompt);
+    }
 
     const usage = agent.getUsage();
     deps.view?.webview.postMessage({ type: 'updateUsage', usage });

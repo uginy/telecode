@@ -1,4 +1,7 @@
 import * as https from 'https';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { URL } from 'url';
 import * as vscode from 'vscode';
 import { BaseProvider, type Message, type Model, type StreamCallbacks, type UsageStats } from './base';
@@ -46,6 +49,47 @@ export class OpenRouterProvider extends BaseProvider {
     return this.requestOverrides?.temperature
       ?? config.get<number>('temperature')
       ?? 0.7;
+  }
+
+  private getLogPath(): string | null {
+    if (process.env.AIS_CODE_TEST_MODE !== '1') {
+      return null;
+    }
+
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+      return path.join(workspaceRoot, '.vscode-test', 'logs', 'llm-openrouter.log');
+    }
+
+    return path.join(os.tmpdir(), 'ais-code-llm-openrouter.log');
+  }
+
+  private appendLog(line: string): void {
+    const logPath = this.getLogPath();
+    if (!logPath) return;
+    try {
+      fs.mkdirSync(path.dirname(logPath), { recursive: true });
+      fs.appendFileSync(logPath, `${line}\n`);
+    } catch (error) {
+      console.error('Failed to write LLM log:', error);
+    }
+  }
+
+  private logRequestStart(requestId: string, payload: { model: string; messages: Array<{ role: string; content: string }>; max_tokens: number; temperature: number }) {
+    const now = new Date().toISOString();
+    const messageCount = payload.messages.length;
+    const totalChars = payload.messages.reduce((sum, m) => sum + m.content.length, 0);
+    this.appendLog(`[${now}] request.start id=${requestId} model=${payload.model} messages=${messageCount} chars=${totalChars} max_tokens=${payload.max_tokens} temp=${payload.temperature}`);
+  }
+
+  private logRequestEnd(requestId: string, statusCode: number | undefined, durationMs: number) {
+    const now = new Date().toISOString();
+    this.appendLog(`[${now}] request.end id=${requestId} status=${statusCode ?? 'unknown'} duration_ms=${durationMs}`);
+  }
+
+  private logRequestError(requestId: string, message: string) {
+    const now = new Date().toISOString();
+    this.appendLog(`[${now}] request.error id=${requestId} message=${message}`);
   }
 
   isConfigured(): boolean {
@@ -122,6 +166,15 @@ export class OpenRouterProvider extends BaseProvider {
 
     console.log('Starting stream via https module...');
 
+    const requestId = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+    const startedAt = Date.now();
+    this.logRequestStart(requestId, {
+      model: payload.model,
+      messages: payload.messages,
+      max_tokens: payload.max_tokens,
+      temperature: payload.temperature
+    });
+
     return new Promise<UsageStats>((resolve) => {
       const url = new URL('https://openrouter.ai/api/v1/chat/completions');
       const options = {
@@ -136,11 +189,13 @@ export class OpenRouterProvider extends BaseProvider {
       };
 
       const req = https.request(url, options, (res) => {
+        this.logRequestEnd(requestId, res.statusCode, Date.now() - startedAt);
         if (res.statusCode && res.statusCode >= 400) {
            let errorBody = '';
            res.on('data', chunk => errorBody += chunk);
            res.on('end', () => {
              console.error(`Status ${res.statusCode}: ${errorBody}`);
+             this.logRequestError(requestId, `status=${res.statusCode} body=${errorBody.slice(0, 200)}`);
              callbacks.onError(new Error(`OpenRouter Error ${res.statusCode}: ${errorBody}`));
              resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
            });
@@ -186,6 +241,7 @@ export class OpenRouterProvider extends BaseProvider {
         });
 
         res.on('error', (err) => {
+          this.logRequestError(requestId, err.message);
           callbacks.onError(err);
           resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
         });
@@ -193,6 +249,7 @@ export class OpenRouterProvider extends BaseProvider {
 
       req.on('error', (err) => {
         console.error('Network request failed:', err);
+        this.logRequestError(requestId, err.message);
         callbacks.onError(err);
         resolve({ inputTokens: 0, outputTokens: 0, totalCost: 0 });
       });

@@ -91,6 +91,57 @@ const assertToolCalls = (calls, expectedList) => {
   );
 };
 
+const getModelLabel = () => {
+  const raw =
+    process.env.AIS_CODE_TEST_OPENROUTER_MODEL ||
+    process.env.AIS_CODE_TEST_MODEL ||
+    "unknown-model";
+  return raw.replace(/[^\w.-]+/g, "_");
+};
+
+const ensureDir = (dir) => {
+  fs.mkdirSync(dir, { recursive: true });
+};
+
+const copyIfExists = (from, to) => {
+  if (!fs.existsSync(from)) return;
+  ensureDir(path.dirname(to));
+  fs.cpSync(from, to, { recursive: true });
+};
+
+const archiveMegaLanding = (workspaceRoot) => {
+  const fixtureRoot = path.join(
+    workspaceRoot,
+    "tests/fixtures/mega-landing"
+  );
+  const resultsRoot = path.join(workspaceRoot, "tests/results/aaa");
+  const model = getModelLabel();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const archiveDir = path.join(resultsRoot, model, timestamp);
+
+  copyIfExists(path.join(fixtureRoot, "index.html"), path.join(archiveDir, "index.html"));
+  copyIfExists(path.join(fixtureRoot, "styles.css"), path.join(archiveDir, "styles.css"));
+  copyIfExists(path.join(fixtureRoot, "app.js"), path.join(archiveDir, "app.js"));
+  copyIfExists(path.join(fixtureRoot, "sections"), path.join(archiveDir, "sections"));
+
+  return { archiveDir, fixtureRoot };
+};
+
+const cleanMegaLanding = (fixtureRoot) => {
+  const targets = [
+    "index.html",
+    "styles.css",
+    "app.js",
+    "sections"
+  ].map((item) => path.join(fixtureRoot, item));
+
+  for (const target of targets) {
+    if (fs.existsSync(target)) {
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  }
+};
+
 let started = false;
 
 async function run() {
@@ -207,6 +258,7 @@ async function run() {
         assert.ok(task, `Missing real task mapping for ${scenario.id}`);
 
         log(`Running real scenario: ${scenario.id}`);
+        await vscode.commands.executeCommand("aisCode.newConversation");
         const result = await vscode.commands.executeCommand(
           "aisCode.test.runMessage",
           {
@@ -248,6 +300,13 @@ async function run() {
             matched,
             `Expected response to contain one of: ${needles.join(", ")}`
           );
+        }
+
+        if (scenario.id === "real-aaa-mega-refactor") {
+          const { archiveDir, fixtureRoot } = archiveMegaLanding(workspaceRoot);
+          log(`Archived AAA output to ${archiveDir}`);
+          cleanMegaLanding(fixtureRoot);
+          log("Cleaned mega-landing generated files.");
         }
       }
 

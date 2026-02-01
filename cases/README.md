@@ -57,6 +57,7 @@ npm run gherkin:flows
 Мы используем теги:
 - `@golden` - базовые сценарии качества
 - `@edge` - edge/regression сценарии
+- `@aaa` - тяжелые стресс-тесты (очень большие файлы / сложные рефакторинги)
 - `@priority-high|@priority-medium|@priority-low` - приоритет
 
 Фильтрация генерации:
@@ -81,6 +82,21 @@ npm run smoke:flows -- --real-llm --tags=@real --workspace=tests/fixtures/real-p
 ```
 
 Это добавит паузы между сценариями и защитит от rate limits.
+
+AAA-прогоны лучше запускать отдельно:
+
+```
+npm run smoke:flows -- --real-llm --tags=@aaa --delay=5000 --batch=1 --batch-delay=15000
+```
+
+После AAA-прогона результаты сохраняются в `tests/results/aaa/<model>/<timestamp>/`.
+Сгенерированные файлы в `tests/fixtures/mega-landing/` очищаются автоматически.
+
+E2E проверка отрисовки AAA:
+
+```
+npm run e2e:aaa
+```
 
 ## LLM для реальных тестов
 

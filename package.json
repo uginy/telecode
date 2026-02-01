@@ -247,6 +247,7 @@
     "smoke:flows": "node ./scripts/flows-smoke.mjs",
     "gherkin:flows": "node ./scripts/gherkin-to-flows.mjs",
     "e2e:webview": "node ./scripts/e2e-webview.mjs",
+    "e2e:aaa": "node ./scripts/e2e-aaa-landing.mjs",
     "package": "vsce package"
   },
   "dependencies": {
