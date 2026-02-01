@@ -156,25 +156,29 @@ const runCommand = async (page, command) => {
   await page.waitForTimeout(1000);
 };
 
-const resolveChatFrame = async (target) => {
+const resolveChatFrame = async (target, maxWaitMs) => {
   const page = "frames" in target ? target : target.page();
-  const frames = page.frames();
-  for (const frame of frames) {
-    try {
-      const count = await frame.locator('[data-testid="chat-input"]').count();
-      if (count > 0) {
-        return frame;
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const frames = page.frames();
+    for (const frame of frames) {
+      try {
+        const count = await frame.locator('[data-testid="chat-input"]').count();
+        if (count > 0) {
+          return frame;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
+    await new Promise((r) => setTimeout(r, 500));
   }
   return null;
 };
 
 const runScenario = async (target, text) => {
   await target.waitForLoadState("domcontentloaded", { timeout: timeoutMs });
-  let chatFrame = await resolveChatFrame(target);
+  const chatFrame = await resolveChatFrame(target, Math.min(timeoutMs, 45000));
   if (!chatFrame) {
     const snapshot = await target.evaluate(() => ({
       readyState: document.readyState,
@@ -187,11 +191,7 @@ const runScenario = async (target, text) => {
         .slice(0, 5),
     }));
     console.error("Webview not ready:", snapshot);
-    await new Promise((r) => setTimeout(r, 2000));
-    chatFrame = await resolveChatFrame(target);
-    if (!chatFrame) {
-      throw new Error("Chat input not found in any webview frame.");
-    }
+    throw new Error("Chat input not found in any webview frame.");
   }
   const input = chatFrame.locator('[data-testid="chat-input"]');
   await input.waitFor({ state: "visible", timeout: timeoutMs });
@@ -283,7 +283,8 @@ const run = async () => {
           webviewTarget = await waitForWebviewPage(browser);
         }
       }
-      await runScenario(webviewTarget, "Привет! О чем этот проект?");
+    await runScenario(webviewTarget, "Привет! О чем этот проект?");
+    console.log("E2E PASS: webview chat scenario completed.");
     } catch (error) {
       const logsDir = path.resolve(extensionDevelopmentPath, ".vscode-test", "logs");
       fs.mkdirSync(logsDir, { recursive: true });

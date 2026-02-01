@@ -51,6 +51,9 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 ### E2E command
 - `node scripts/e2e-webview.mjs --workspace=tests/fixtures/real-project --timeout=180000`
 
+### E2E result
+- PASS (see console log: `E2E PASS: webview chat scenario completed.`)
+
 ## Commands used
 - Golden: `node scripts/flows-smoke.mjs --tags=@golden --exclude=@real`
 - Edge: `node scripts/flows-smoke.mjs --tags=@edge`
