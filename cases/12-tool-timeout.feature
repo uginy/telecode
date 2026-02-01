@@ -9,7 +9,8 @@ Feature: Таймаут инструментов
       | toolTimeoutMs | 20000 |
 
   Scenario: Tool result не пришел вовремя
-    Given ассистент вызвал tool "run_command"
+    When пользователь пишет "Запусти команду, которая зависнет"
+    And ассистент вызвал tool "run_command"
     And tool result не приходит за 20 секунд
     Then статусы включают:
       | status |

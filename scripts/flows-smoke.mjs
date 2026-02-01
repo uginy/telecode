@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { runTests, downloadAndUnzipVSCode } from "@vscode/test-electron";
+import { writeTestProfile } from "./test-profile.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const extensionDevelopmentPath = path.resolve(__dirname, "..");
@@ -67,6 +68,16 @@ logStream.write(`${header}\n`);
 
 const run = async () => {
   const vscodeExecutablePath = executable?.path || (await downloadAndUnzipVSCode("stable"));
+  const userDataDir = path.resolve(extensionDevelopmentPath, ".vscode-test", "user-data");
+  const settingsPath = writeTestProfile({
+    userDataDir,
+    provider: process.env.AIS_CODE_TEST_PROVIDER,
+    openrouterKey: process.env.AIS_CODE_TEST_OPENROUTER_API_KEY,
+    openrouterModel: process.env.AIS_CODE_TEST_OPENROUTER_MODEL
+  });
+  if (settingsPath) {
+    logStream.write(`Test profile settings: ${settingsPath}\n`);
+  }
 
   const prevElectron = process.env.ELECTRON_RUN_AS_NODE;
   delete process.env.ELECTRON_RUN_AS_NODE;
@@ -75,6 +86,7 @@ const run = async () => {
       vscodeExecutablePath,
       extensionDevelopmentPath,
       extensionTestsPath,
+      userDataDir,
       extensionTestsEnv: {
         FLOW_PATH: flowsPath,
         FLOW_TAGS: tags,
