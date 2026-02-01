@@ -66,3 +66,8 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 - Command: `node scripts/flows-smoke.mjs --real-llm`
 - Result: 39/39 scenarios completed, real LLM scenarios executed (4/4)
 - Log entry: see the last run block in `.vscode-test/logs/flows-smoke.log`
+
+## Latest run update (2026-02-01)
+- Full flows run: PASS (39/39)
+- Webview E2E: PASS (see console log `E2E PASS: webview chat scenario completed.`)
+- Notes: VS Code reported file watcher warnings on `/Volumes/Ext1tb/...` (network share), not affecting test outcomes
