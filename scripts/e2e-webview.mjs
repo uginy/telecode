@@ -78,7 +78,8 @@ const waitForWebviewFrame = async (page) => {
 
 const waitForWebviewPage = async (browser) => {
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+    const maxWait = Math.min(timeoutMs, 30000);
+  while (Date.now() - start < maxWait) {
     for (const context of browser.contexts()) {
       for (const candidate of context.pages()) {
         const url = candidate.url();
@@ -117,20 +118,64 @@ const openCommandPalette = async (page) => {
 };
 
 const openAisCodeView = async (page) => {
-  const tab = page.locator('[aria-label="AIS Code"]');
-  if (await tab.count()) {
-    await tab.first().click();
-    return true;
+  const candidates = [
+    page.getByRole("tab", { name: /AIS Code/i }),
+    page.locator('[aria-label*="AIS Code"]'),
+    page.locator('[title*="AIS Code"]')
+  ];
+  for (const locator of candidates) {
+    if (await locator.count()) {
+      await locator.first().click();
+      return true;
+    }
   }
   return false;
 };
 
+const logActivityBarLabels = async (page) => {
+  try {
+    const labels = await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll("[aria-label]"));
+      return elements
+        .map((el) => el.getAttribute("aria-label"))
+        .filter((label) => label && /ais/i.test(label));
+    });
+    if (labels.length) {
+      console.log("Activity labels:", labels.slice(0, 10));
+    }
+  } catch {
+    // ignore
+  }
+};
+
+const runCommand = async (page, command) => {
+  const input = await openCommandPalette(page);
+  await input.click();
+  await input.fill(command);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1000);
+};
+
+const resolveChatFrame = async (target) => {
+  const page = "frames" in target ? target : target.page();
+  const frames = page.frames();
+  for (const frame of frames) {
+    try {
+      const count = await frame.locator('[data-testid="chat-input"]').count();
+      if (count > 0) {
+        return frame;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+};
+
 const runScenario = async (target, text) => {
   await target.waitForLoadState("domcontentloaded", { timeout: timeoutMs });
-  const input = target.locator('[data-testid="chat-input"]');
-  try {
-    await input.waitFor({ state: "visible", timeout: timeoutMs });
-  } catch (error) {
+  let chatFrame = await resolveChatFrame(target);
+  if (!chatFrame) {
     const snapshot = await target.evaluate(() => ({
       readyState: document.readyState,
       bodyText: document.body?.innerText?.slice(0, 500) || "",
@@ -142,11 +187,17 @@ const runScenario = async (target, text) => {
         .slice(0, 5),
     }));
     console.error("Webview not ready:", snapshot);
-    throw error;
+    await new Promise((r) => setTimeout(r, 2000));
+    chatFrame = await resolveChatFrame(target);
+    if (!chatFrame) {
+      throw new Error("Chat input not found in any webview frame.");
+    }
   }
+  const input = chatFrame.locator('[data-testid="chat-input"]');
+  await input.waitFor({ state: "visible", timeout: timeoutMs });
   await input.fill(text);
-  await target.locator('[data-testid="chat-send"]').click();
-  await target
+  await chatFrame.locator('[data-testid="chat-send"]').click();
+  await chatFrame
     .locator('[data-testid="message-item"][data-role="assistant"]')
     .first()
     .waitFor({ state: "visible", timeout: timeoutMs });
@@ -217,27 +268,34 @@ const run = async () => {
     await page.keyboard.press("Escape");
     await page.waitForTimeout(1500);
 
-    let webviewTarget;
     try {
-      await openAisCodeView(page);
-      webviewTarget = await waitForWebviewPage(browser);
-    } catch {
-      const commandInput = await openCommandPalette(page);
+      let webviewTarget;
       try {
-        await commandInput.fill("AIS Code: Open Chat");
+        await logActivityBarLabels(page);
+        await openAisCodeView(page);
+        webviewTarget = await waitForWebviewFrame(page);
       } catch {
-        await page.keyboard.type("AIS Code: Open Chat", { delay: 20 });
+        await runCommand(page, "AIS Code: Open Chat");
+        await runCommand(page, "AIS Code: New Conversation");
+        try {
+          webviewTarget = await waitForWebviewFrame(page);
+        } catch {
+          webviewTarget = await waitForWebviewPage(browser);
+        }
       }
-      await page.keyboard.press("Enter");
-      await page.waitForTimeout(1000);
+      await runScenario(webviewTarget, "Привет! О чем этот проект?");
+    } catch (error) {
+      const logsDir = path.resolve(extensionDevelopmentPath, ".vscode-test", "logs");
+      fs.mkdirSync(logsDir, { recursive: true });
+      const screenshotPath = path.join(logsDir, "e2e-webview-failure.png");
       try {
-        webviewTarget = await waitForWebviewPage(browser);
-      } catch {
-        const frame = await waitForWebviewFrame(page);
-        webviewTarget = frame;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.error(`Saved failure screenshot to ${screenshotPath}`);
+      } catch (screenshotError) {
+        console.error("Failed to capture screenshot:", screenshotError);
       }
+      throw error;
     }
-    await runScenario(webviewTarget, "Привет! О чем этот проект?");
 
     await browser.close();
   } finally {

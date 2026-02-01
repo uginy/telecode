@@ -21,6 +21,7 @@
     "copilot"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onView:aisCode.chatView",
     "onCommand:aisCode.openChat",
     "onCommand:aisCode.newConversation",

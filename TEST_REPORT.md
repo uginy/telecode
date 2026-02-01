@@ -46,7 +46,10 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 
 ## E2E status
 ✅ Added Webview E2E harness: `scripts/e2e-webview.mjs` (see `docs/testing/E2E.md`).  
-⚠️ Not executed in this run (requires Playwright install + API env vars).
+✅ Executed Webview E2E run against the real fixture workspace.
+
+### E2E command
+- `node scripts/e2e-webview.mjs --workspace=tests/fixtures/real-project --timeout=180000`
 
 ## Commands used
 - Golden: `node scripts/flows-smoke.mjs --tags=@golden --exclude=@real`
