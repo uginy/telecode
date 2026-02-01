@@ -103,6 +103,17 @@ const waitForWebviewPage = async (browser) => {
 const openCommandPalette = async (page) => {
   const isMac = process.platform === "darwin";
   await page.keyboard.press(isMac ? "Meta+Shift+P" : "Control+Shift+P");
+  const quickInput = page
+    .locator('input[aria-label="Type the name of a command to run."]')
+    .first();
+  try {
+    await quickInput.waitFor({ state: "visible", timeout: 1500 });
+    return quickInput;
+  } catch {
+    await page.keyboard.press("F1");
+    await quickInput.waitFor({ state: "visible", timeout: 1500 });
+    return quickInput;
+  }
 };
 
 const openAisCodeView = async (page) => {
@@ -211,12 +222,8 @@ const run = async () => {
       await openAisCodeView(page);
       webviewTarget = await waitForWebviewPage(browser);
     } catch {
-      await openCommandPalette(page);
-      const commandInput = page
-        .locator('input[aria-label="Type the name of a command to run."]')
-        .first();
+      const commandInput = await openCommandPalette(page);
       try {
-        await commandInput.waitFor({ state: "visible", timeout: 5000 });
         await commandInput.fill("AIS Code: Open Chat");
       } catch {
         await page.keyboard.type("AIS Code: Open Chat", { delay: 20 });
