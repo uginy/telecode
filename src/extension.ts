@@ -61,6 +61,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   if (process.env.AIS_CODE_TEST_MODE === '1') {
+    setTimeout(() => {
+      void vscode.commands.executeCommand('aisCode.openChat');
+    }, 1000);
     context.subscriptions.push(
       vscode.commands.registerCommand('aisCode.test.runMessage', async (payload) => {
         return chatViewProvider.runTestMessage(payload as { text: string; contextItems?: { type: string; value: string }[]; timeoutMs?: number });

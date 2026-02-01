@@ -229,7 +229,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, statusText })
   };
 
   return (
-    <div className={cn(
+    <div
+      data-testid="message-item"
+      data-role={isUser ? 'user' : 'assistant'}
+      className={cn(
       "px-4 py-1 flex flex-col gap-2 transition-colors w-full",
       isUser ? "items-end" : "items-start"
     )}>

@@ -44,6 +44,10 @@ If you want true “user‑level” coverage, we should add a UI automation laye
 
 That will move us from “spec & tool‑level validation” to “end‑to‑end UI validation.”
 
+## E2E status
+✅ Added Webview E2E harness: `scripts/e2e-webview.mjs` (see `docs/testing/E2E.md`).  
+⚠️ Not executed in this run (requires Playwright install + API env vars).
+
 ## Commands used
 - Golden: `node scripts/flows-smoke.mjs --tags=@golden --exclude=@real`
 - Edge: `node scripts/flows-smoke.mjs --tags=@edge`
@@ -51,4 +55,3 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 
 ## Logs
 - `.vscode-test/logs/flows-smoke.log`
-

@@ -161,7 +161,7 @@ export const ToolTimeline: React.FC = () => {
   );
 
   return (
-    <Card className="border-border/70 bg-card/70">
+    <Card className="border-border/70 bg-card/70" data-testid="tool-timeline">
       <CardHeader className="py-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xs uppercase tracking-[0.3em] text-muted-foreground">

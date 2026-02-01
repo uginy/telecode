@@ -257,12 +257,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
         <div className="relative flex-1 group">
           <textarea
             ref={textareaRef}
+            data-testid="chat-input"
             value={value}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={isStreaming ? "AIS is thinking..." : "Ask anything. Use @ to attach context."}
             disabled={isStreaming}
-            className="w-full min-h-[44px] max-h-[200px] bg-card/90 border border-border focus:border-primary/40 focus:bg-card rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/60 disabled:opacity-50 shadow-sm"
+            className="w-full min-h-11 max-h-50 bg-card/90 border border-border focus:border-primary/40 focus:bg-card rounded-2xl px-4 py-3 text-[13px] focus:outline-none transition-all resize-none overflow-y-auto placeholder:text-muted-foreground/60 disabled:opacity-50 shadow-sm"
             rows={1}
           />
         </div>
@@ -281,6 +282,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onSearch, onStop }
                 size="sm"
                 onClick={handleSendClick}
                 disabled={!value.trim() && contextItems.length === 0}
+                data-testid="chat-send"
                 className="h-9 w-9 p-0 font-bold rounded-full shadow-sm active:scale-90 transition-all bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
               >
                 <Send className="w-4 h-4" />

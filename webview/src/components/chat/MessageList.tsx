@@ -110,7 +110,7 @@ export const MessageList: React.FC = () => {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0">
+    <div ref={containerRef} className="flex-1 overflow-y-auto min-h-0" data-testid="message-list">
       <div className="flex flex-col gap-3 py-4 px-2 max-w-[920px] w-full mx-auto">
         <ToolTimeline />
         {messages.map((msg) => (

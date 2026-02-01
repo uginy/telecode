@@ -245,6 +245,7 @@
     "smoke": "node ./scripts/smoke.mjs",
     "smoke:flows": "node ./scripts/flows-smoke.mjs",
     "gherkin:flows": "node ./scripts/gherkin-to-flows.mjs",
+    "e2e:webview": "node ./scripts/e2e-webview.mjs",
     "package": "vsce package"
   },
   "dependencies": {
@@ -263,6 +264,7 @@
     "@vscode/test-electron": "^2.5.1",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
+    "playwright": "^1.49.1",
     "typescript": "^5.9.3"
   }
 }
