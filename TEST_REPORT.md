@@ -55,3 +55,8 @@ That will move us from “spec & tool‑level validation” to “end‑to‑end
 
 ## Logs
 - `.vscode-test/logs/flows-smoke.log`
+
+## Latest full real run (2026-02-01)
+- Command: `node scripts/flows-smoke.mjs --real-llm`
+- Result: 39/39 scenarios completed, real LLM scenarios executed (4/4)
+- Log entry: see the last run block in `.vscode-test/logs/flows-smoke.log`
