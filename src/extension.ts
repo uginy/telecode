@@ -1,293 +1,429 @@
 import * as vscode from 'vscode';
-import { CodingAgent, createAgent } from './agent/codingAgent';
-import { AgentTool, AgentEvent } from '@mariozechner/pi-agent-core';
-import { Type, Static } from '@sinclair/typebox';
-
-let agent: CodingAgent | null = null;
+import { type AgentTool } from '@mariozechner/pi-agent-core';
 import { TelegramChannel } from './channels/telegram';
+import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
+import { createRuntime } from './engine/createRuntime';
+import type { AgentRuntime, RuntimeConfig } from './engine/types';
+import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceTools';
+import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
 
+let runtime: AgentRuntime | null = null;
+let runtimeEventSubscription: (() => void) | null = null;
+let chatProvider: ChatViewProvider | null = null;
 let telegramChannel: TelegramChannel | null = null;
+let sessionApiKey = '';
+let runningConfigSignature = '';
+let telegramRefreshTimer: NodeJS.Timeout | null = null;
+let configApplyTimer: NodeJS.Timeout | null = null;
+let pendingTelegramRefresh = false;
+let pendingSettingsSync = false;
+let pendingRuntimeRestart = false;
+let autoReloadTimer: NodeJS.Timeout | null = null;
+let isReloadInProgress = false;
 
-
-const tools: AgentTool[] = [
-  {
-    name: 'read_file',
-    description: 'Read contents of a file',
-    parameters: Type.Object({
-      path: Type.String({ description: 'Path to the file' }),
-    }),
-    label: 'Read File',
-    execute: async (toolCallId, params) => {
-      const path = (params as any).path;
-      const uri = vscode.Uri.file(path);
-      try {
-        const doc = await vscode.workspace.openTextDocument(uri);
-        return { content: [{ type: 'text', text: doc.getText() }], details: {} };
-      } catch (e: any) {
-        return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: {} };
-      }
-    },
-  },
-  {
-    name: 'glob',
-    description: 'Find files matching a pattern',
-    parameters: Type.Object({
-      pattern: Type.String({ description: 'Glob pattern (e.g., **/*.ts)' }),
-    }),
-    label: 'Glob',
-    execute: async (toolCallId, params) => {
-      const pattern = (params as any).pattern;
-      const files = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
-      return { content: [{ type: 'text', text: files.map(f => f.fsPath).join('\n') }], details: {} };
-    },
-  },
-  {
-    name: 'grep',
-    description: 'Search for text in files',
-    parameters: Type.Object({
-      query: Type.String({ description: 'Text to search for' }),
-      glob: Type.Optional(Type.String({ description: 'File pattern (e.g., *.ts)' })),
-    }),
-    label: 'Grep',
-    execute: async (toolCallId, params) => {
-      const query = (params as any).query;
-      const glob = (params as any).glob || '*';
-      const files = await vscode.workspace.findFiles(glob, '**/node_modules/**');
-      const results: string[] = [];
-      for (const file of files.slice(0, 10)) {
-        const doc = await vscode.workspace.openTextDocument(file);
-        const text = doc.getText();
-        if (text.includes(query)) {
-          results.push(`${file.fsPath}: found "${query}"`);
-        }
-      }
-      return { content: [{ type: 'text', text: results.join('\n') || 'No matches found' }], details: {} };
-    },
-  },
-  {
-    name: 'bash',
-    description: 'Execute a shell command',
-    parameters: Type.Object({
-      command: Type.String({ description: 'Command to execute' }),
-    }),
-    label: 'Bash',
-    execute: async (toolCallId, params) => {
-      const command = (params as any).command;
-      const terminal = vscode.window.activeTerminal || vscode.window.createTerminal();
-      terminal.sendText(command);
-      return { content: [{ type: 'text', text: `Executing: ${command}` }], details: {} };
-    },
-  },
-];
-
-export let chatProvider: ChatViewProvider | null = null;
-
-export function activate(context: vscode.ExtensionContext) {
-  console.log('AIS Code: Extension activated');
-
-  telegramChannel = new TelegramChannel(tools);
-  telegramChannel.start();
+export function activate(context: vscode.ExtensionContext): void {
+  chatProvider = new ChatViewProvider(context.extensionUri);
 
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration(e => {
-      if (e.affectsConfiguration('aisCode.telegram')) {
-        telegramChannel?.start();
-      }
-    })
-  );
-
-  chatProvider = new ChatViewProvider(context);
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('aisCode.chatView', chatProvider)
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.openChat', () => {
-      vscode.commands.executeCommand('aisCode.chatView.focus');
+    vscode.window.registerWebviewViewProvider('aisCode.chatView', chatProvider),
+    chatProvider.onCommand((command) => {
+      void handleChatViewCommand(command);
     })
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('aisCode.openChat', () => chatProvider?.focus()),
     vscode.commands.registerCommand('aisCode.startAgent', async () => {
-      const config = vscode.workspace.getConfiguration('aisCode');
-      
-      let apiKey = config.get<string>('apiKey');
-      let provider = config.get<string>('provider') || 'openrouter';
-      let model = config.get<string>('model') || 'google/gemini-2.0-flash-exp:free';
-      
-      if (!apiKey) {
-        apiKey = await vscode.window.showInputBox({
-          prompt: 'Enter API key (or press Esc to use settings)',
-          ignoreFocusOut: true,
-        }) || '';
-        
-        if (!apiKey) {
-          vscode.window.showErrorMessage('Please set aisCode.apiKey in settings');
-          return;
-        }
-      }
-
-      try {
-        agent = createAgent({ provider, model, apiKey }, tools);
-        
-        const logToUI = (text: string) => {
-          chatProvider?.webview?.postMessage({ type: 'output', text });
-        };
-
-        logToUI(`\n✅ Agent started with provider: ${provider}, model: ${model}\n`);
-
-        agent.subscribe((event: AgentEvent) => {
-          if (event.type === 'message_update' || event.type === 'message_end') {
-             // Try to find delta
-             const ev = event as any;
-             if (ev.assistantMessageEvent?.type === 'text_delta') {
-               logToUI(ev.assistantMessageEvent.delta);
-             }
-          }
-          if (event.type === 'tool_execution_start') {
-            logToUI(`\n🔧 Executing tool: ${(event as any).toolName}\n`);
-          }
-          if (event.type === 'tool_execution_end') {
-            logToUI(`✅ Tool finished\n`);
-          }
-          if (event.type === 'tool_execution_error') {
-            logToUI(`❌ Tool error: ${(event as any).error?.message}\n`);
-          }
-        });
-
-        vscode.window.showInformationMessage(`AIS Code: Agent started with ${provider}/${model}`);
-      } catch (e: any) {
-        vscode.window.showErrorMessage(`Agent error: ${e.message}`);
-      }
-    })
-  );
-
-  context.subscriptions.push(
+      await startAgent(false);
+    }),
     vscode.commands.registerCommand('aisCode.runTask', async () => {
-      if (!agent) {
-        vscode.window.showWarningMessage('Agent not started. Run "Start Agent" first.');
-        return;
-      }
-
-      const input = await vscode.window.showInputBox({
-        prompt: 'What do you want the agent to do?',
-        placeHolder: 'e.g., create a new file called hello.txt with "Hello World"',
+      const task = await vscode.window.showInputBox({
+        prompt: 'What should AIS Code do?',
+        placeHolder: 'e.g. refactor src/extension.ts and add tests',
+        ignoreFocusOut: true,
       });
 
-      if (input) {
-        await agent.prompt(input);
+      if (task?.trim()) {
+        await runTask(task);
+      }
+    }),
+    vscode.commands.registerCommand('aisCode.stopAgent', () => {
+      stopAgent(true);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('aisCode')) {
+        pendingSettingsSync = true;
+
+        if (event.affectsConfiguration('aisCode.telegram')) {
+          pendingTelegramRefresh = true;
+        }
+
+        if (
+          runtime &&
+          (event.affectsConfiguration('aisCode.engine') ||
+            event.affectsConfiguration('aisCode.provider') ||
+            event.affectsConfiguration('aisCode.model') ||
+            event.affectsConfiguration('aisCode.apiKey') ||
+            event.affectsConfiguration('aisCode.baseUrl') ||
+            event.affectsConfiguration('aisCode.maxSteps') ||
+            event.affectsConfiguration('aisCode.allowedTools'))
+        ) {
+          pendingRuntimeRestart = true;
+        }
+
+        scheduleConfigApply();
       }
     })
   );
+
+  refreshTelegramChannel();
+  syncSettingsToChatView();
+  setStatus('Idle');
+  setupDevAutoReload(context);
 }
 
-export function deactivate() {
-  if (telegramChannel) {
-    telegramChannel.stop();
+export function deactivate(): void {
+  stopAgent(false);
+  if (autoReloadTimer) {
+    clearTimeout(autoReloadTimer);
+    autoReloadTimer = null;
+  }
+  if (configApplyTimer) {
+    clearTimeout(configApplyTimer);
+    configApplyTimer = null;
+  }
+  if (telegramRefreshTimer) {
+    clearTimeout(telegramRefreshTimer);
+    telegramRefreshTimer = null;
+  }
+  telegramChannel?.stop();
+  telegramChannel = null;
+}
+
+async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
+  if (command.command === 'startAgent') {
+    await startAgent(false);
+    return;
+  }
+
+  if (command.command === 'stopAgent') {
+    stopAgent(true);
+    return;
+  }
+
+  if (command.command === 'runTask') {
+    await runTask(command.prompt);
+    return;
+  }
+
+  if (command.command === 'requestSettings') {
+    syncSettingsToChatView();
+    return;
+  }
+
+  if (command.command === 'saveSettings') {
+    await saveSettingsFromChatView(command.settings);
   }
 }
 
-class ChatViewProvider implements vscode.WebviewViewProvider {
-  public webview?: vscode.Webview;
+async function startAgent(forceRestart: boolean): Promise<boolean> {
+  const settings = readAISCodeSettings();
+  const tools = resolveTools(settings.agent.allowedTools);
 
-  constructor(private context: vscode.ExtensionContext) {}
+  let apiKey = settings.agent.apiKey;
+  if (!apiKey && sessionApiKey) {
+    apiKey = sessionApiKey;
+  }
 
-  resolveWebviewView(
-    webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken
-  ) {
-    this.webview = webviewView.webview;
-    
-    webviewView.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [this.context.extensionUri]
-    };
-
-    webviewView.webview.html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { 
-              font-family: system-ui, -apple-system, sans-serif; 
-              padding: 20px;
-              background: #1e1e1e;
-              color: #d4d4d4;
-            }
-            h1 { color: #569cd6; }
-            .status { color: #4ec9b0; margin: 10px 0; }
-            .config { background: #2d2d2d; padding: 15px; border-radius: 8px; margin-bottom: 10px;}
-            button {
-              background: #0e639c;
-              color: white;
-              border: none;
-              padding: 8px 16px;
-              border-radius: 4px;
-              cursor: pointer;
-              margin-right: 8px;
-            }
-            button:hover { background: #1177bb; }
-            #output { 
-              background: #1e1e1e; 
-              color: #d4d4d4;
-              padding: 10px;
-              border-radius: 4px;
-              font-family: monospace;
-              white-space: pre-wrap;
-              max-height: 400px;
-              overflow-y: auto;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>🦞 AIS Code</h1>
-          
-          <div class="config">
-            <h3>Agent Control</h3>
-            <button id="startBtn">Start Agent</button>
-            <button id="taskBtn">Run Task</button>
-          </div>
-          
-          <div class="config">
-            <h3>Output</h3>
-            <div id="output">Ready. Click "Start Agent" to begin.</div>
-          </div>
-          
-          <script>
-            const vscode = acquireVsCodeApi();
-            
-            document.getElementById('startBtn').onclick = () => {
-              vscode.postMessage({ command: 'startAgent' });
-            };
-            
-            document.getElementById('taskBtn').onclick = () => {
-              vscode.postMessage({ command: 'runTask' });
-            };
-            
-            window.addEventListener('message', (event) => {
-              const msg = event.data;
-              if (msg.type === 'output') {
-                const outputDiv = document.getElementById('output');
-                outputDiv.textContent += msg.text;
-                outputDiv.scrollTop = outputDiv.scrollHeight;
-              }
-            });
-          </script>
-        </body>
-      </html>
-    `;
-
-    webviewView.webview.onDidReceiveMessage(data => {
-      switch (data.command) {
-        case 'startAgent':
-          vscode.commands.executeCommand('aisCode.startAgent');
-          break;
-        case 'runTask':
-          vscode.commands.executeCommand('aisCode.runTask');
-          break;
-      }
+  if (providerRequiresApiKey(settings.agent.provider) && apiKey.length === 0) {
+    const enteredApiKey = await vscode.window.showInputBox({
+      prompt: `Enter API key for provider "${settings.agent.provider}"`,
+      password: true,
+      ignoreFocusOut: true,
     });
+
+    if (!enteredApiKey) {
+      vscode.window.showErrorMessage('AIS Code: API key is required to start the agent.');
+      return false;
+    }
+
+    sessionApiKey = enteredApiKey.trim();
+    apiKey = sessionApiKey;
   }
+
+  const config: RuntimeConfig = {
+    provider: settings.agent.provider,
+    model: settings.agent.model,
+    apiKey,
+    baseUrl: settings.agent.baseUrl,
+    maxSteps: settings.agent.maxSteps,
+    allowedTools: settings.agent.allowedTools,
+    cwd: getPrimaryWorkspaceRoot(),
+  };
+
+  const signature = createConfigSignature(config, tools);
+  if (!forceRestart && runtime && runningConfigSignature === signature) {
+    setStatus('Ready');
+    return true;
+  }
+
+  stopAgent(false);
+
+  try {
+    const created = createRuntime(settings.agent.engine, config, tools);
+    runtime = created.runtime;
+    runtimeEventSubscription = subscribeToRuntimeEvents(runtime);
+    runningConfigSignature = signature;
+
+    appendOutput(`\n[agent] Started (${created.engine}) with ${config.provider}/${config.model}\n`);
+    if (created.fallbackReason) {
+      appendOutput(`[agent] ${created.fallbackReason}\n`);
+    }
+    setStatus('Ready');
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`AIS Code: failed to start agent - ${message}`);
+    appendOutput(`\n[agent:error] ${message}\n`);
+    setStatus('Error');
+    return false;
+  }
+}
+
+async function runTask(task: string): Promise<void> {
+  const prompt = task.trim();
+  if (prompt.length === 0) {
+    return;
+  }
+
+  const started = await startAgent(false);
+  if (!started || !runtime) {
+    return;
+  }
+
+  appendOutput(`\n[user] ${prompt}\n\n`);
+  setStatus('Running');
+
+  try {
+    await runtime.prompt(prompt);
+    setStatus('Ready');
+    appendOutput('\n');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendOutput(`\n[run:error] ${message}\n`);
+    setStatus('Error');
+  }
+}
+
+function stopAgent(logToOutput: boolean): void {
+  if (!runtime) {
+    return;
+  }
+
+  runtime.abort();
+  runtimeEventSubscription?.();
+  runtimeEventSubscription = null;
+  runtime = null;
+  runningConfigSignature = '';
+
+  if (logToOutput) {
+    appendOutput('\n[agent] Stopped\n');
+  }
+
+  setStatus('Stopped');
+}
+
+function refreshTelegramChannel(): void {
+  if (telegramRefreshTimer) {
+    clearTimeout(telegramRefreshTimer);
+    telegramRefreshTimer = null;
+  }
+
+  telegramChannel?.stop();
+  telegramChannel = null;
+
+  const settings = readAISCodeSettings();
+  const tools = resolveTools(settings.agent.allowedTools);
+
+  telegramChannel = new TelegramChannel(tools);
+  void telegramChannel.start();
+}
+
+async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<void> {
+  const config = vscode.workspace.getConfiguration('aisCode');
+  const target = vscode.ConfigurationTarget.Global;
+
+  try {
+    await config.update('engine', settings.engine, target);
+    await config.update('provider', settings.provider, target);
+    await config.update('model', settings.model, target);
+    await config.update('apiKey', settings.apiKey, target);
+    await config.update('baseUrl', settings.baseUrl, target);
+    await config.update('maxSteps', settings.maxSteps, target);
+    await config.update('telegram.enabled', settings.telegramEnabled, target);
+    await config.update('telegram.botToken', settings.telegramBotToken, target);
+    await config.update('telegram.chatId', settings.telegramChatId, target);
+
+    syncSettingsToChatView();
+    chatProvider?.notify('saved to user settings');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    chatProvider?.notify(`save failed: ${message}`);
+    vscode.window.showErrorMessage(`AIS Code: failed to save settings - ${message}`);
+    return;
+  }
+}
+
+function scheduleTelegramRefresh(): void {
+  if (telegramRefreshTimer) {
+    clearTimeout(telegramRefreshTimer);
+  }
+
+  telegramRefreshTimer = setTimeout(() => {
+    telegramRefreshTimer = null;
+    refreshTelegramChannel();
+  }, 250);
+}
+
+function scheduleConfigApply(): void {
+  if (configApplyTimer) {
+    clearTimeout(configApplyTimer);
+  }
+
+  configApplyTimer = setTimeout(() => {
+    configApplyTimer = null;
+
+    if (pendingSettingsSync) {
+      pendingSettingsSync = false;
+      syncSettingsToChatView();
+    }
+
+    if (pendingTelegramRefresh) {
+      pendingTelegramRefresh = false;
+      scheduleTelegramRefresh();
+    }
+
+    if (pendingRuntimeRestart) {
+      pendingRuntimeRestart = false;
+      appendOutput('\n[config] Settings changed. Restarting agent with latest configuration.\n');
+      void startAgent(true);
+    }
+  }, 300);
+}
+
+function resolveTools(allowedTools: string[]): AgentTool[] {
+  return filterToolsByAllowed(createWorkspaceTools(), allowedTools);
+}
+
+function subscribeToRuntimeEvents(activeRuntime: AgentRuntime): () => void {
+  return activeRuntime.onEvent((event) => {
+    if (event.type === 'text_delta') {
+      appendOutput(event.delta);
+      return;
+    }
+
+    if (event.type === 'tool_start') {
+      appendOutput(`\n[tool:start] ${event.toolName}\n`);
+      return;
+    }
+
+    if (event.type === 'tool_end') {
+      const state = event.isError ? 'error' : 'done';
+      appendOutput(`\n[tool:${state}] ${event.toolName}\n`);
+      return;
+    }
+
+    if (event.type === 'status') {
+      appendOutput(`\n[status] ${event.message}\n`);
+      return;
+    }
+
+    if (event.type === 'error') {
+      appendOutput(`\n[error] ${event.message}\n`);
+      return;
+    }
+
+    if (event.type === 'done') {
+      setStatus('Ready');
+    }
+  });
+}
+
+function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): string {
+  const settings = readAISCodeSettings();
+  return JSON.stringify({
+    engine: settings.agent.engine,
+    provider: config.provider,
+    model: config.model,
+    baseUrl: config.baseUrl || '',
+    maxSteps: config.maxSteps,
+    apiKeySet: config.apiKey.length > 0,
+    tools: tools.map((tool) => tool.name),
+  });
+}
+
+function appendOutput(text: string): void {
+  chatProvider?.appendOutput(text);
+}
+
+function setStatus(status: string): void {
+  chatProvider?.setStatus(status);
+}
+
+function getPrimaryWorkspaceRoot(): string {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  return folder ? folder.uri.fsPath : process.cwd();
+}
+
+function setupDevAutoReload(context: vscode.ExtensionContext): void {
+  if (context.extensionMode !== vscode.ExtensionMode.Development) {
+    return;
+  }
+
+  const config = vscode.workspace.getConfiguration('aisCode');
+  const enabled = config.get<boolean>('dev.autoReloadWindow', true);
+  if (!enabled) {
+    return;
+  }
+
+  const watcher = vscode.workspace.createFileSystemWatcher('**/dist/extension.js');
+  const onBundled = () => scheduleDevReload();
+
+  watcher.onDidChange(onBundled);
+  watcher.onDidCreate(onBundled);
+  context.subscriptions.push(watcher);
+}
+
+function scheduleDevReload(): void {
+  if (isReloadInProgress) {
+    return;
+  }
+
+  if (autoReloadTimer) {
+    clearTimeout(autoReloadTimer);
+  }
+
+  autoReloadTimer = setTimeout(() => {
+    autoReloadTimer = null;
+    isReloadInProgress = true;
+    void vscode.commands.executeCommand('workbench.action.reloadWindow');
+  }, 450);
+}
+
+function syncSettingsToChatView(): void {
+  const settings = readAISCodeSettings();
+  chatProvider?.setSettings({
+    engine: settings.agent.engine,
+    provider: settings.agent.provider,
+    model: settings.agent.model,
+    apiKey: settings.agent.apiKey,
+    baseUrl: settings.agent.baseUrl || '',
+    maxSteps: settings.agent.maxSteps,
+    telegramEnabled: settings.telegram.enabled,
+    telegramBotToken: settings.telegram.botToken,
+    telegramChatId: settings.telegram.chatId || '',
+  });
 }

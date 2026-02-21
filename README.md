@@ -5,9 +5,13 @@
 ## 🚀 Features
 
 - **Autonomous Agent**: Powered by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, the agent runs a continuous loop to understand your requests, look at your workspace, and execute tasks.
-- **Native VS Code Tools**: The agent natively uses VS Code's APIs to:
-  - Read files and search code matching patterns (`glob`, `grep`).
-  - Execute commands in the built-in terminal (`bash`).
+- **Dual Runtime**:
+  - `nanoclaw` runtime via `@anthropic-ai/claude-agent-sdk` for Claude-native execution
+  - `pi` runtime for multi-provider model routing (OpenAI/Anthropic/Gemini/OpenRouter/Ollama)
+- **Native Coding Toolchain**:
+  - `read_file` (line ranges), `write_file`, `edit_file` (exact replace)
+  - `glob`, `grep` (ripgrep with fallback)
+  - `bash` with captured stdout/stderr and timeouts
 - **Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini, OpenRouter, MiniMax, Moonshot, and Ollama.
 - **Messenger Control**: Designed to control your VS Code agent seamlessly from Telegram and WhatsApp, enabling remote commands and background task execution without having the editor focused.
 
@@ -32,13 +36,18 @@ npm run build
 npm run watch
 ```
 
-Press `F5` in VS Code to launch the Extension Development Host.
+For hot reload during development:
+1. Open `Run and Debug` in VS Code.
+2. Start **Run Extension (Watch)**.
+3. Edit files in `src/**` and keep coding; esbuild rebuilds automatically.
+4. Extension Host reload is automatic by default (`aisCode.dev.autoReloadWindow: true`).
 
 ## ⚙️ Settings
 
 Configure via VS Code Settings (`Cmd/Ctrl + ,` -> AIS Code):
 
 - `aisCode.provider`: Select your AI Provider (default: `openrouter`).
+- `aisCode.engine`: Runtime engine (`auto` | `nanoclaw` | `pi`).
 - `aisCode.model`: Select the model ID.
 - `aisCode.apiKey`: API key for the selected provider.
 - `aisCode.telegram.enabled`, `aisCode.telegram.botToken`, `aisCode.telegram.chatId`: Telegram bot settings.

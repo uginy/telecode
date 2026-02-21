@@ -2,19 +2,38 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "type": "shell",
+      "command": "npm run build",
       "group": "build",
       "problemMatcher": [],
-      "label": "npm: build"
+      "label": "ais: build"
     },
     {
-      "type": "npm",
-      "script": "watch",
+      "type": "shell",
+      "command": "npm run watch",
       "group": "build",
       "isBackground": true,
-      "problemMatcher": [],
-      "label": "npm: watch"
+      "problemMatcher": [
+        {
+          "owner": "esbuild",
+          "fileLocation": [
+            "relative",
+            "${workspaceFolder}"
+          ],
+          "pattern": [
+            {
+              "regexp": "^✘ \\[ERROR\\] (.+)$",
+              "message": 1
+            }
+          ],
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^\\[watch\\] build started",
+            "endsPattern": "^\\[watch\\] build finished"
+          }
+        }
+      ],
+      "label": "ais: watch"
     }
   ]
 }

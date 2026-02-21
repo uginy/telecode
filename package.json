@@ -22,13 +22,10 @@
     "autonomous"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onView:aisCode.chatView",
-    "onCommand:aisCode.openChat",
-    "onCommand:aisCode.startAgent"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
-  "icon": "media/icon.svg",
+  "icon": "media/icon.png",
   "contributes": {
     "commands": [
       {
@@ -40,6 +37,16 @@
         "command": "aisCode.startAgent",
         "title": "AIS Code: Start Agent",
         "icon": "$(play)"
+      },
+      {
+        "command": "aisCode.runTask",
+        "title": "AIS Code: Run Task",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "aisCode.stopAgent",
+        "title": "AIS Code: Stop Agent",
+        "icon": "$(debug-stop)"
       }
     ],
     "viewsContainers": {
@@ -56,7 +63,8 @@
         {
           "type": "webview",
           "id": "aisCode.chatView",
-          "name": "Chat"
+          "name": "Chat",
+          "icon": "media/icon.png"
         }
       ]
     },
@@ -85,6 +93,21 @@
             "Ollama (local)"
           ],
           "description": "AI provider"
+        },
+        "aisCode.engine": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "nanoclaw",
+            "pi"
+          ],
+          "enumDescriptions": [
+            "Auto-select engine: nanoclaw for Claude/Anthropic, pi for other providers",
+            "Force nanoclaw runtime (Claude-native flow)",
+            "Force pi runtime (multi-provider flow)"
+          ],
+          "description": "Agent runtime engine"
         },
         "aisCode.model": {
           "type": "string",
@@ -168,6 +191,11 @@
             "Task"
           ],
           "description": "Tools the agent can use"
+        },
+        "aisCode.dev.autoReloadWindow": {
+          "type": "boolean",
+          "default": true,
+          "description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
         }
       }
     }
@@ -176,7 +204,7 @@
     "vscode:prepublish": "npm run build",
     "build": "npm run build:extension",
     "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch=forever",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
