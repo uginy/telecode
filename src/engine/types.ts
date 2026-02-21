@@ -9,7 +9,7 @@ export type RuntimeEvent =
 export type RuntimeListener = (event: RuntimeEvent) => void;
 
 export interface AgentRuntime {
-  readonly engine: 'pi' | 'nanoclaw';
+  readonly engine: 'pi';
   prompt(message: string): Promise<void>;
   abort(): void;
   onEvent(listener: RuntimeListener): () => void;

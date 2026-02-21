@@ -13,7 +13,8 @@ import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
 
-type EngineName = 'auto' | 'nanoclaw' | 'pi';
+type EngineName = 'auto' | 'pi';
+
 
 const TELEGRAM_TEXT_LIMIT = 3900;
 const LOG_RING_LIMIT = 300;
@@ -65,7 +66,8 @@ export class TelegramChannel {
   private bot: Bot | null = null;
   private runtime: AgentRuntime | null = null;
   private runtimeConfigSignature = '';
-  private runtimeEngine: 'nanoclaw' | 'pi' | null = null;
+  private runtimeEngine: 'pi' | null = null;
+
   private isProcessing = false;
   private lastActivityAt = 0;
   private currentPhase = 'idle';
@@ -230,8 +232,9 @@ export class TelegramChannel {
 
       this.bot.command('engine', async (ctx) => {
         const args = getCommandArgs(ctx).toLowerCase();
-        if (args !== 'auto' && args !== 'nanoclaw' && args !== 'pi') {
-          await ctx.reply('Usage: /engine <auto|nanoclaw|pi>');
+        if (args !== 'auto' && args !== 'pi') {
+          await ctx.reply('Usage: /engine <auto|pi>');
+
           return;
         }
 
@@ -640,14 +643,10 @@ export class TelegramChannel {
       this.abortRuntime();
     }
 
-    const created = createRuntime(settings.agent.engine, config, runtimeTools);
+    const created = createRuntime(config, runtimeTools);
     this.runtime = created.runtime;
     this.runtimeConfigSignature = signature;
     this.runtimeEngine = created.engine;
-
-    if (created.fallbackReason) {
-      this.pushLog(`[runtime] ${created.fallbackReason}`);
-    }
 
     return this.runtime;
   }

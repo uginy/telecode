@@ -27,7 +27,8 @@ export function readForm(): Settings {
   const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
   const engineRaw = strVal('engine');
   const engine: Settings['engine'] =
-    engineRaw === 'nanoclaw' || engineRaw === 'pi' ? engineRaw : 'auto';
+    engineRaw === 'pi' ? 'pi' : 'auto';
+
 
   return {
     engine,

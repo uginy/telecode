@@ -1,7 +1,8 @@
 import api from './vscode-api';
 
 export type Settings = {
-  engine: 'auto' | 'nanoclaw' | 'pi';
+  engine: 'auto' | 'pi';
+
   provider: string;
   model: string;
   apiKey: string;
