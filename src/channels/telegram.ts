@@ -29,6 +29,19 @@ const telegramSendFileParams = Type.Object({
 
 type TelegramSendFileParams = Static<typeof telegramSendFileParams>;
 
+/** Maps a file extension to the appropriate Telegram send method. */
+function resolveTelegramSendMethod(
+  filePath: string
+): 'sendVoice' | 'sendAudio' | 'sendVideo' | 'sendPhoto' | 'sendDocument' {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.ogg' || ext === '.oga' || ext === '.opus') return 'sendVoice';
+  if (ext === '.mp3' || ext === '.m4a' || ext === '.flac' || ext === '.wav' || ext === '.aac') return 'sendAudio';
+  if (ext === '.mp4' || ext === '.mov' || ext === '.avi' || ext === '.mkv' || ext === '.webm') return 'sendVideo';
+  if (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.gif' || ext === '.webp') return 'sendPhoto';
+  return 'sendDocument';
+}
+
+
 const telegramApiCallParams = Type.Object({
   method: Type.String({ description: 'Telegram Bot API method name, e.g. getChat or setMyCommands' }),
   params: Type.Optional(Type.Any({ description: 'Method params as JSON object. Use *Path fields for file uploads.' })),
@@ -301,23 +314,18 @@ export class TelegramChannel {
   }
 
   private createBot(botToken: string, apiRoot: string | undefined, mode: NetworkMode): Bot {
-    const nativeFetch = (globalThis as { fetch?: typeof fetch }).fetch;
-    if (typeof nativeFetch === 'function') {
-      if (mode === 'ipv4') {
-        this.pushLog('[telegram] using native fetch (forceIPv4 agent bypassed)');
-      }
-      return new Bot(botToken, {
-        client: {
-          ...(apiRoot ? { apiRoot } : {}),
-          fetch: ((...args: any[]) => nativeFetch(...(args as [any, any?]))) as any,
-        },
-      });
-    }
-
+    // Always use node-fetch (grammY default) instead of native fetch.
+    // Native fetch cannot handle Node.js Readable streams as multipart/form-data body,
+    // which breaks sendDocument and all file uploads.
+    // For IPv4 mode we still use an https.Agent with family:4.
     const httpsAgent = new https.Agent({
       keepAlive: true,
       ...(mode === 'ipv4' ? { family: 4 } : {}),
     });
+
+    if (mode === 'ipv4') {
+      this.pushLog('[telegram] using node-fetch with IPv4 agent');
+    }
 
     return new Bot(botToken, {
       client: {
@@ -527,7 +535,10 @@ export class TelegramChannel {
           this.pushLog(
             `[tool:${suffix}] ${event.toolName}${durationMs !== null ? ` ${durationMs}ms` : ''}${resultSummary ? ` ${resultSummary}` : ''}${errorSummary ? ` ${errorSummary}` : ''}`
           );
-          if (!event.isError) {
+          if (event.isError) {
+            const shortError = errorSummary || 'tool failed';
+            setPhase(`Ошибка инструмента: ${event.toolName} — ${shortError}`);
+          } else {
             setPhase('Проверяю результат инструмента');
           }
         }
@@ -631,7 +642,12 @@ export class TelegramChannel {
     return {
       name: 'telegram_send_file',
       label: 'TG Send File',
-      description: 'Send file to current Telegram chat. Optionally zip file/folder before sending.',
+      description:
+        'Send a file or folder to the current Telegram chat. ' +
+        'IMPORTANT: Always use the absolute path to the file (e.g. /workspace/screens/1.png). ' +
+        'Before calling this tool, verify the file exists using a read or list tool. ' +
+        'Optionally set archive=true to zip first (required for folders).',
+
       parameters: telegramSendFileParams,
       execute: async (_toolCallId, params) => {
         if (!this.bot) {
@@ -673,14 +689,25 @@ export class TelegramChannel {
 
           const fileName = path.basename(uploadPath);
           const caption = typed.caption?.trim();
+          const captionOpt = caption ? { caption: caption.slice(0, 1024) } : {};
+          const sendMethod = typed.archive === true ? 'sendDocument' : resolveTelegramSendMethod(uploadPath);
+          const inputFile = new InputFile(uploadPath, fileName);
 
-          await this.bot.api.sendDocument(this.currentChatId, new InputFile(uploadPath, fileName), {
-            ...(caption ? { caption: caption.slice(0, 1024) } : {}),
-          });
+          if (sendMethod === 'sendVoice') {
+            await this.bot.api.sendVoice(this.currentChatId, inputFile, captionOpt);
+          } else if (sendMethod === 'sendAudio') {
+            await this.bot.api.sendAudio(this.currentChatId, inputFile, { ...captionOpt, title: fileName });
+          } else if (sendMethod === 'sendVideo') {
+            await this.bot.api.sendVideo(this.currentChatId, inputFile, captionOpt);
+          } else if (sendMethod === 'sendPhoto') {
+            await this.bot.api.sendPhoto(this.currentChatId, inputFile, captionOpt);
+          } else {
+            await this.bot.api.sendDocument(this.currentChatId, inputFile, captionOpt);
+          }
 
           const targetKind = stat.isDirectory() ? 'directory' : 'file';
           const sentLabel = typed.archive === true ? `archive ${fileName}` : fileName;
-          this.pushLog(`[telegram:file] sent ${sentLabel} from ${renderPath(uploadPath, workspaceRoot)}`);
+          this.pushLog(`[telegram:file] sent ${sentLabel} via ${sendMethod} from ${renderPath(uploadPath, workspaceRoot)}`);
 
           return {
             content: [
@@ -1629,21 +1656,32 @@ function summarizeToolError(result: unknown): string {
     return '';
   }
 
-  const maybeMessage =
+  // Direct message/error fields (custom tool errors)
+  const directMessage =
     (result as { message?: unknown }).message ||
     (result as { error?: unknown }).error ||
     (result as { details?: { error?: unknown } }).details?.error;
 
-  if (typeof maybeMessage !== 'string') {
-    return '';
+  if (typeof directMessage === 'string') {
+    const compact = directMessage.replace(/\s+/g, ' ').trim();
+    if (compact) {
+      return `error=${compact.length > 120 ? `${compact.slice(0, 117)}...` : compact}`;
+    }
   }
 
-  const compact = maybeMessage.replace(/\s+/g, ' ').trim();
-  if (!compact) {
-    return '';
+  // pi-agent-core error format: { content: [{ type: 'text', text: '...' }], details: {} }
+  const content = (result as { content?: unknown }).content;
+  if (Array.isArray(content) && content.length > 0) {
+    const first = content[0] as { type?: unknown; text?: unknown };
+    if (first?.type === 'text' && typeof first.text === 'string') {
+      const compact = first.text.replace(/\s+/g, ' ').trim();
+      if (compact) {
+        return `error=${compact.length > 120 ? `${compact.slice(0, 117)}...` : compact}`;
+      }
+    }
   }
 
-  return `error=${compact.length > 120 ? `${compact.slice(0, 117)}...` : compact}`;
+  return '';
 }
 
 function pushSummary(parts: string[], key: string, value: unknown): void {
