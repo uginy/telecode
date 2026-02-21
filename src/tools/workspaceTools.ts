@@ -105,8 +105,22 @@ function getWorkspaceRoot(): string {
   return folder ? folder.uri.fsPath : process.cwd();
 }
 
+/** Expand leading ~ to the user home directory. */
+function expandTilde(rawPath: string): string {
+  const trimmed = rawPath.trim();
+  if (trimmed === '~') {
+    return process.env.HOME || process.env.USERPROFILE || trimmed;
+  }
+  if (trimmed.startsWith('~/') || trimmed.startsWith('~\\')) {
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    return home ? path.join(home, trimmed.slice(2)) : trimmed;
+  }
+  return trimmed;
+}
+
 function resolveToolPath(rawPath: string, cwd: string): string {
-  return path.isAbsolute(rawPath) ? path.normalize(rawPath) : path.resolve(cwd, rawPath);
+  const expanded = expandTilde(rawPath);
+  return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(cwd, expanded);
 }
 
 function renderPath(fsPath: string, cwd: string): string {
@@ -350,7 +364,21 @@ export function createWorkspaceTools(): AgentTool[] {
             stderr += chunk.toString();
           });
 
-          child.on('error', (error) => reject(error));
+          child.on('error', async (error: NodeJS.ErrnoException) => {
+            // rg not found or not executable – fall back to VS Code API
+            if (error.code === 'ENOENT' || error.code === 'EACCES') {
+              try {
+                const files = await vscode.workspace.findFiles(typed.pattern, exclude, maxResults);
+                const lines = files.map((f) => f.fsPath).slice(0, maxResults);
+                resolve(lines.length > 0 ? lines.join('\n') : 'No files matched.');
+              } catch (fallbackErr) {
+                reject(fallbackErr);
+              }
+              return;
+            }
+            reject(error);
+          });
+
           child.on('close', (exitCode) => {
             if (exitCode !== 0 && exitCode !== 1) {
               reject(new Error(stderr || `rg --files failed with exit code ${exitCode}`));
@@ -358,12 +386,12 @@ export function createWorkspaceTools(): AgentTool[] {
             }
 
             const lines = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-            resolve(lines.slice(0, maxResults).join('\n'));
+            resolve(lines.slice(0, maxResults).join('\n') || 'No files matched.');
           });
         });
 
         return {
-          content: [{ type: 'text', text: output || 'No files matched.' }],
+          content: [{ type: 'text', text: output }],
           details: {
             cwd,
             maxResults,
@@ -460,6 +488,20 @@ export function createWorkspaceTools(): AgentTool[] {
 
         if (result.exitCode !== 0) {
           const combined = [result.stdout, result.stderr].filter((part) => part.length > 0).join('\n');
+          // If there is stdout output, return it as a warning instead of throwing.
+          // This handles commands like `find` that exit 1 due to permission denied
+          // on some dirs but still produce useful results.
+          if (result.stdout.trim().length > 0) {
+            const warning = `[exit code ${result.exitCode}${result.stderr.trim() ? ` — ${result.stderr.trim().split('\n')[0]}` : ''}]`;
+            return {
+              content: [{ type: 'text', text: trimOutput(`${result.stdout}\n${warning}`) }],
+              details: {
+                command: typed.command,
+                cwd,
+                exitCode: result.exitCode,
+              },
+            };
+          }
           throw new Error(`Command failed with exit code ${result.exitCode}.\n${combined}`);
         }
 
