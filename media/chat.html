@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{NONCE}}';" />
+  <title>AIS Code</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="header">
+    <span class="brand">◆ AIS Code</span>
+    <span id="status" class="status-badge" data-state="idle">Idle</span>
+  </header>
+
+  <!-- ── Tabs ───────────────────────────────────────────── -->
+  <nav class="tabs">
+    <button id="tabLogs"     class="tab active" type="button">Logs</button>
+    <button id="tabSettings" class="tab"        type="button">Settings</button>
+  </nav>
+
+  <!-- ── Logs pane ──────────────────────────────────────── -->
+  <section id="logsPane" class="pane">
+    <div id="phase" class="phase" data-busy="0">Ready</div>
+    <div id="output" class="output"></div>
+    <div class="input-area">
+      <textarea id="prompt" placeholder="Describe the task…" rows="3"></textarea>
+      <div class="actions">
+        <button id="startBtn" class="btn btn-ghost"    type="button">Start</button>
+        <button id="stopBtn"  class="btn btn-ghost"    type="button">Stop</button>
+        <button id="runBtn"   class="btn btn-primary"  type="button">Run ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Settings pane ──────────────────────────────────── -->
+  <section id="settingsPane" class="pane hidden">
+    <form id="settingsForm" class="settings-form">
+      <div class="field">
+        <label for="engine">Engine</label>
+        <select id="engine">
+          <option value="auto">auto</option>
+          <option value="nanoclaw">nanoclaw</option>
+          <option value="pi">pi</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="maxSteps">Max Steps</label>
+        <input id="maxSteps" type="number" min="1" max="1000" />
+      </div>
+      <div class="field full">
+        <label for="provider">Provider</label>
+        <input id="provider" type="text" />
+      </div>
+      <div class="field full">
+        <label for="model">Model</label>
+        <input id="model" type="text" />
+      </div>
+      <div class="field full">
+        <label for="apiKey">API Key</label>
+        <input id="apiKey" type="password" />
+      </div>
+      <div class="field full">
+        <label for="baseUrl">Base URL</label>
+        <input id="baseUrl" type="text" />
+      </div>
+      <div class="field full check">
+        <input id="telegramEnabled" type="checkbox" />
+        <label for="telegramEnabled">Enable Telegram Bot</label>
+      </div>
+      <div class="field full">
+        <label for="telegramBotToken">Bot Token</label>
+        <input id="telegramBotToken" type="password" />
+      </div>
+      <div class="field full">
+        <label for="telegramChatId">Chat ID</label>
+        <input id="telegramChatId" type="text" />
+      </div>
+      <div class="field full">
+        <label for="telegramApiRoot">API Root</label>
+        <input id="telegramApiRoot" type="text" />
+      </div>
+      <div class="field full check">
+        <input id="telegramForceIPv4" type="checkbox" />
+        <label for="telegramForceIPv4">Force IPv4</label>
+      </div>
+      <div class="field full">
+        <button id="saveSettingsBtn" class="btn btn-primary" type="button">Save Settings</button>
+      </div>
+    </form>
+    <div id="settingsNote" class="settings-note"></div>
+  </section>
+
+  <script nonce="{{NONCE}}">{{JS}}</script>
+</body>
+</html>

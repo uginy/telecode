@@ -1,243 +1,259 @@
-:root {
-  color-scheme: light dark;
-  --accent: #2f8bfd;
-  --panel: rgba(127, 127, 127, 0.08);
-  --border: rgba(127, 127, 127, 0.24);
-}
+/* ── Reset & base ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 14px;
-  box-sizing: border-box;
+  padding: 0;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: var(--vscode-font-family);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--vscode-foreground);
-  background: var(--vscode-editor-background);
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  overflow: hidden;
 }
 
+/* ── Layout tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --gap: 8px;
+  --radius: 6px;
+  --border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.2));
+  --muted: rgba(128,128,128,.55);
+  --accent: var(--vscode-button-background, #2f8bfd);
+  --accent-fg: var(--vscode-button-foreground, #fff);
+  --surface: var(--vscode-input-background, rgba(128,128,128,.08));
+  --mono: var(--vscode-editor-font-family, ui-monospace, Menlo, Consolas, monospace);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  padding: 10px 14px 0;
+  flex-shrink: 0;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.title {
-  margin: 0;
-  font-size: 14px;
+.brand {
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: .01em;
+  opacity: .9;
 }
 
-.status {
+/* Status badge */
+.status-badge {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  text-transform: uppercase;
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  font-size: 11px;
-  background: var(--panel);
+  border: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  transition: background 200ms, color 200ms;
+}
+.status-badge[data-state='running'] {
+  color: var(--vscode-debugIcon-startForeground, #4caf50);
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.status-badge[data-state='error'] {
+  color: var(--vscode-errorForeground, #f44747);
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* ── Tabs ───────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 2px;
+  padding: 8px 14px 0;
+  flex-shrink: 0;
 }
 
-.tab-btn {
+.tab {
   background: transparent;
-  color: var(--vscode-foreground);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  color: var(--muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font: inherit;
   font-size: 11px;
-  padding: 5px 10px;
+  font-weight: 500;
+  padding: 4px 8px 6px;
   cursor: pointer;
+  transition: color 150ms, border-color 150ms;
 }
+.tab:hover  { color: var(--vscode-foreground); }
+.tab.active { color: var(--vscode-foreground); border-bottom-color: var(--accent); }
 
-.tab-btn.active {
-  background: var(--accent);
-  border-color: transparent;
-  color: #fff;
-}
-
+/* ── Panes ──────────────────────────────────────────────────────────────────── */
 .pane {
-  display: none;
-  min-height: 0;
-}
-
-.pane.active {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 1;
   min-height: 0;
+  padding: var(--gap) 14px 14px;
+  gap: var(--gap);
 }
+.pane.hidden { display: none; }
 
-.meta {
-  margin-bottom: 8px;
+/* ── Phase bar ───────────────────────────────────────────────────────────────── */
+.phase {
   font-size: 11px;
-  opacity: 0.8;
-}
-
-.progress {
-  margin-bottom: 10px;
-}
-
-.progress-text {
-  font-size: 11px;
-  opacity: 0.88;
-  margin-bottom: 4px;
-}
-
-.progress-bar {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  transition: opacity 200ms;
+}
+.phase[data-busy='1']::before {
+  content: '⟳ ';
+  display: inline-block;
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Log output ──────────────────────────────────────────────────────────────── */
+.output {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 8px;
+  scrollbar-width: thin;
 }
 
-.progress-fill {
-  width: 0;
-  height: 100%;
-  background: var(--accent);
-  opacity: 0;
-  transition: width 120ms ease, opacity 120ms ease;
+.log-line {
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
-.progress-fill.busy {
-  width: 36%;
-  opacity: 1;
-  animation: progress-slide 1.2s ease-in-out infinite;
-}
+/* semantic colouring via data-kind */
+.log-line[data-kind='tool-start'] { color: var(--vscode-symbolIcon-variableForeground, #9cdcfe); }
+.log-line[data-kind='tool-done']  { color: var(--vscode-terminal-ansiGreen, #4caf50); opacity: .8; }
+.log-line[data-kind='tool-error'] { color: var(--vscode-errorForeground, #f44747); }
+.log-line[data-kind='phase']      { color: var(--muted); font-style: italic; }
+.log-line[data-kind='status']     { color: var(--muted); opacity: .6; }
+.log-line[data-kind='llm']        { color: var(--vscode-symbolIcon-colorForeground, #c586c0); opacity: .75; }
+.log-line[data-kind='text']       { color: var(--vscode-foreground); }
 
-@keyframes progress-slide {
-  0%   { transform: translateX(-120%); }
-  100% { transform: translateX(320%); }
-}
-
-.controls {
+/* ── Input area ──────────────────────────────────────────────────────────────── */
+.input-area {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-button {
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 7px 10px;
-}
-
-button.secondary {
-  background: transparent;
-  color: var(--vscode-foreground);
-  border-color: var(--border);
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 textarea {
   width: 100%;
-  resize: vertical;
-  min-height: 72px;
-  box-sizing: border-box;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--panel);
+  resize: none;
+  min-height: 60px;
+  max-height: 140px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
   color: inherit;
-  padding: 10px;
-  font: inherit;
-  margin-bottom: 8px;
-}
-
-.send {
-  width: 100%;
-  margin-bottom: 12px;
-}
-
-details {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-summary {
-  cursor: pointer;
   padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  user-select: none;
+  font: inherit;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 150ms;
+}
+textarea:focus { border-color: var(--accent); }
+
+/* ── Action row ──────────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
-.settings {
+.btn {
+  border: var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: opacity 150ms, background 150ms;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .38; cursor: default; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--vscode-foreground);
+}
+.btn-ghost:not(:disabled):hover { background: var(--surface); }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+  margin-left: auto;
+  font-weight: 500;
+}
+.btn-primary:not(:disabled):hover { opacity: .88; }
+
+/* ── Settings form ───────────────────────────────────────────────────────────── */
+.settings-form {
   display: grid;
-  gap: 8px;
+  gap: var(--gap);
   grid-template-columns: 1fr 1fr;
-  overflow: auto;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
   padding-right: 2px;
 }
 
 .field {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
+.field.full   { grid-column: 1 / -1; }
+.field.check  { flex-direction: row; align-items: center; gap: 8px; padding-top: 4px; }
 
-.field.full {
-  grid-column: 1 / -1;
-}
-
-.field label {
-  font-size: 11px;
-  opacity: 0.86;
-}
+.field label  { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.field.check label { text-transform: none; letter-spacing: 0; font-size: 12px; color: inherit; }
 
 .field input,
 .field select {
-  box-sizing: border-box;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--vscode-input-foreground, inherit);
   min-height: 28px;
   padding: 4px 8px;
   font: inherit;
   font-size: 12px;
+  outline: none;
+  transition: border-color 150ms;
 }
+.field input:focus,
+.field select:focus { border-color: var(--accent); }
 
-.field.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-pre {
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px;
-  background: var(--panel);
-  min-height: 200px;
-  flex: 1 1 auto;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+.settings-note {
   font-size: 11px;
-  line-height: 1.22;
+  color: var(--muted);
+  min-height: 14px;
+  grid-column: 1 / -1;
 }
 
-#settingsNote {
-  margin-top: 8px;
-  font-size: 11px;
-  opacity: 0.88;
-  min-height: 16px;
-}
+/* ── Scrollbars ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 999px; }

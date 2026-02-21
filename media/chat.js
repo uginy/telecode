@@ -1,174 +1,253 @@
-// @ts-nocheck — this file runs inside the VS Code Webview (browser context)
-/* global acquireVsCodeApi */
+"use strict";
+(() => {
+  var __defProp = Object.defineProperty;
+  var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-const vscode = acquireVsCodeApi();
+  // src/webview/vscode-api.ts
+  var api = acquireVsCodeApi();
+  var vscode_api_default = api;
 
-const statusEl        = document.getElementById('status');
-const buildInfoEl     = document.getElementById('buildInfo');
-const progressTextEl  = document.getElementById('progressText');
-const progressFillEl  = document.getElementById('progressFill');
-const outputEl        = document.getElementById('output');
-const promptEl        = document.getElementById('prompt');
-const startBtnEl      = document.getElementById('startBtn');
-const stopBtnEl       = document.getElementById('stopBtn');
-const runBtnEl        = document.getElementById('runBtn');
-const tabLogsEl       = document.getElementById('tabLogs');
-const tabSettingsEl   = document.getElementById('tabSettings');
-const logsPaneEl      = document.getElementById('logsPane');
-const settingsPaneEl  = document.getElementById('settingsPane');
-const settingsNoteEl  = document.getElementById('settingsNote');
+  // src/webview/commands.ts
+  var cmd = {
+    startAgent: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "startAgent" }), "startAgent"),
+    stopAgent: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "stopAgent" }), "stopAgent"),
+    runTask: /* @__PURE__ */ __name((prompt) => vscode_api_default.postMessage({ command: "runTask", prompt }), "runTask"),
+    requestSettings: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "requestSettings" }), "requestSettings"),
+    saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings")
+  };
 
-const engineEl            = document.getElementById('engine');
-const providerEl          = document.getElementById('provider');
-const modelEl             = document.getElementById('model');
-const apiKeyEl            = document.getElementById('apiKey');
-const baseUrlEl           = document.getElementById('baseUrl');
-const maxStepsEl          = document.getElementById('maxSteps');
-const telegramEnabledEl   = document.getElementById('telegramEnabled');
-const telegramBotTokenEl  = document.getElementById('telegramBotToken');
-const telegramChatIdEl    = document.getElementById('telegramChatId');
-const telegramApiRootEl   = document.getElementById('telegramApiRoot');
-const telegramForceIPv4El = document.getElementById('telegramForceIPv4');
-
-const applyControlState = () => {
-  const status = (statusEl.textContent || '').toLowerCase();
-  const isRunning = status.includes('running') || status.includes('thinking') || status.includes('tool ');
-  const isReady   = status.includes('ready');
-
-  startBtnEl.textContent = isReady ? 'Agent Ready' : 'Start Agent';
-  startBtnEl.disabled = isRunning || isReady;
-  stopBtnEl.disabled  = !isRunning && !isReady;
-  runBtnEl.disabled   = isRunning;
-};
-
-const appendOutput = (text) => {
-  outputEl.textContent += text;
-  outputEl.scrollTop = outputEl.scrollHeight;
-  vscode.setState({ output: outputEl.textContent, prompt: promptEl.value, status: statusEl.textContent });
-};
-
-const setTab = (tab) => {
-  const isLogs = tab === 'logs';
-  tabLogsEl.classList.toggle('active', isLogs);
-  tabSettingsEl.classList.toggle('active', !isLogs);
-  logsPaneEl.classList.toggle('active', isLogs);
-  settingsPaneEl.classList.toggle('active', !isLogs);
-  const nextState = vscode.getState() || {};
-  vscode.setState({ ...nextState, tab });
-};
-
-tabLogsEl.addEventListener('click', () => setTab('logs'));
-tabSettingsEl.addEventListener('click', () => setTab('settings'));
-
-document.getElementById('startBtn').addEventListener('click', () => {
-  vscode.postMessage({ command: 'startAgent' });
-});
-
-document.getElementById('stopBtn').addEventListener('click', () => {
-  vscode.postMessage({ command: 'stopAgent' });
-});
-
-const runTask = () => {
-  const prompt = promptEl.value.trim();
-  if (!prompt) return;
-  vscode.postMessage({ command: 'runTask', prompt });
-};
-
-document.getElementById('runBtn').addEventListener('click', runTask);
-promptEl.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') runTask();
-});
-
-document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-  const maxStepsRaw = Number.parseInt(maxStepsEl.value || '100', 10);
-  const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
-  vscode.postMessage({
-    command: 'saveSettings',
-    settings: {
-      engine:             engineEl.value,
-      provider:           providerEl.value.trim(),
-      model:              modelEl.value.trim(),
-      apiKey:             apiKeyEl.value.trim(),
-      baseUrl:            baseUrlEl.value.trim(),
-      maxSteps,
-      telegramEnabled:    telegramEnabledEl.checked,
-      telegramBotToken:   telegramBotTokenEl.value.trim(),
-      telegramChatId:     telegramChatIdEl.value.trim(),
-      telegramApiRoot:    telegramApiRootEl.value.trim(),
-      telegramForceIPv4:  telegramForceIPv4El.checked,
-    },
-  });
-});
-
-window.addEventListener('message', (event) => {
-  const message = event.data;
-
-  if (message.type === 'status') {
-    statusEl.textContent = message.text;
-    applyControlState();
+  // src/webview/ui-state.ts
+  var el = {
+    status: /* @__PURE__ */ __name(() => document.getElementById("status"), "status"),
+    phase: /* @__PURE__ */ __name(() => document.getElementById("phase"), "phase"),
+    output: /* @__PURE__ */ __name(() => document.getElementById("output"), "output"),
+    prompt: /* @__PURE__ */ __name(() => document.getElementById("prompt"), "prompt"),
+    startBtn: /* @__PURE__ */ __name(() => document.getElementById("startBtn"), "startBtn"),
+    stopBtn: /* @__PURE__ */ __name(() => document.getElementById("stopBtn"), "stopBtn"),
+    runBtn: /* @__PURE__ */ __name(() => document.getElementById("runBtn"), "runBtn"),
+    tabLogs: /* @__PURE__ */ __name(() => document.getElementById("tabLogs"), "tabLogs"),
+    tabSettings: /* @__PURE__ */ __name(() => document.getElementById("tabSettings"), "tabSettings"),
+    logsPane: /* @__PURE__ */ __name(() => document.getElementById("logsPane"), "logsPane"),
+    settingsPane: /* @__PURE__ */ __name(() => document.getElementById("settingsPane"), "settingsPane"),
+    settingsNote: /* @__PURE__ */ __name(() => document.getElementById("settingsNote"), "settingsNote")
+  };
+  function setStatus(text) {
+    const s = el.status();
+    s.textContent = text;
+    const lower = text.toLowerCase();
+    s.dataset["state"] = lower.includes("error") ? "error" : lower.includes("idle") ? "idle" : "running";
   }
-
-  if (message.type === 'buildInfo') {
-    buildInfoEl.textContent = message.text || 'Last update: unknown';
+  __name(setStatus, "setStatus");
+  function setPhaseText(text) {
+    el.phase().textContent = text;
   }
+  __name(setPhaseText, "setPhaseText");
+  function setControlState(statusText) {
+    const lower = statusText.toLowerCase();
+    const running = lower.includes("running") || lower.includes("thinking") || lower.includes("tool ");
+    const ready = lower.includes("ready");
+    el.startBtn().disabled = running || ready;
+    el.startBtn().textContent = ready ? "Ready" : "Start";
+    el.stopBtn().disabled = !running && !ready;
+    el.runBtn().disabled = running;
+  }
+  __name(setControlState, "setControlState");
+  function setTab(tab) {
+    const isLogs = tab === "logs";
+    el.tabLogs().classList.toggle("active", isLogs);
+    el.tabSettings().classList.toggle("active", !isLogs);
+    el.logsPane().classList.toggle("hidden", !isLogs);
+    el.settingsPane().classList.toggle("hidden", isLogs);
+  }
+  __name(setTab, "setTab");
 
-  if (message.type === 'progress') {
-    progressTextEl.textContent = message.text || '';
-    if (message.busy === true) {
-      progressFillEl.classList.add('busy');
-    } else {
-      progressFillEl.classList.remove('busy');
+  // src/webview/log.ts
+  function classifyLine(line) {
+    if (line.startsWith("[tool:start]")) return "tool-start";
+    if (line.startsWith("[tool:done]")) return "tool-done";
+    if (line.startsWith("[tool:error]")) return "tool-error";
+    if (line.startsWith("[phase]")) return "phase";
+    if (line.startsWith("[status]") || line.startsWith("[heartbeat]")) return "status";
+    if (line.startsWith("[llm:")) return "llm";
+    return "text";
+  }
+  __name(classifyLine, "classifyLine");
+  function makeLine(text) {
+    const div = document.createElement("div");
+    div.className = "log-line";
+    div.dataset["kind"] = classifyLine(text);
+    div.textContent = text;
+    return div;
+  }
+  __name(makeLine, "makeLine");
+  function appendLine(text) {
+    const out = el.output();
+    const atBottom = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+    out.appendChild(makeLine(text));
+    if (atBottom) out.scrollTop = out.scrollHeight;
+  }
+  __name(appendLine, "appendLine");
+  function replaceOutput(text) {
+    const out = el.output();
+    out.innerHTML = "";
+    if (!text) return;
+    for (const line of text.split("\n")) {
+      out.appendChild(makeLine(line));
+    }
+    out.scrollTop = out.scrollHeight;
+  }
+  __name(replaceOutput, "replaceOutput");
+  function appendOutput(text) {
+    for (const line of text.split("\n")) {
+      appendLine(line);
     }
   }
-
-  if (message.type === 'replaceOutput') {
-    outputEl.textContent = message.text;
-    outputEl.scrollTop = outputEl.scrollHeight;
+  __name(appendOutput, "appendOutput");
+  function clearOutput() {
+    el.output().innerHTML = "";
   }
+  __name(clearOutput, "clearOutput");
 
-  if (message.type === 'appendOutput') {
-    appendOutput(message.text);
+  // src/webview/settings.ts
+  var $ = /* @__PURE__ */ __name((id) => document.getElementById(id), "$");
+  function strVal(id) {
+    return ($(id)?.value ?? "").trim();
   }
-
-  if (message.type === 'clearOutput') {
-    outputEl.textContent = '';
+  __name(strVal, "strVal");
+  function boolVal(id) {
+    return !!$(id)?.checked;
   }
-
-  if (message.type === 'notify' && typeof message.text === 'string') {
-    appendOutput('[settings] ' + message.text + '\n');
-    settingsNoteEl.textContent = message.text;
+  __name(boolVal, "boolVal");
+  function setStr(id, val) {
+    const el2 = $(id);
+    if (el2) el2.value = val;
   }
-
-  if (message.type === 'settings' && message.settings) {
-    const s = message.settings;
-    engineEl.value              = s.engine || 'auto';
-    providerEl.value            = s.provider || '';
-    modelEl.value               = s.model || '';
-    apiKeyEl.value              = s.apiKey || '';
-    baseUrlEl.value             = s.baseUrl || '';
-    maxStepsEl.value            = String(s.maxSteps || 100);
-    telegramEnabledEl.checked   = s.telegramEnabled === true;
-    telegramBotTokenEl.value    = s.telegramBotToken || '';
-    telegramChatIdEl.value      = s.telegramChatId || '';
-    telegramApiRootEl.value     = s.telegramApiRoot || '';
-    telegramForceIPv4El.checked = s.telegramForceIPv4 !== false;
+  __name(setStr, "setStr");
+  function setBool(id, val) {
+    const el2 = $(id);
+    if (el2) el2.checked = val;
   }
-
-  if (message.type === 'activateTab' && message.tab === 'settings') {
-    setTab('settings');
+  __name(setBool, "setBool");
+  function readForm() {
+    const maxStepsRaw = Number.parseInt(strVal("maxSteps") || "100", 10);
+    const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
+    const engineRaw = strVal("engine");
+    const engine = engineRaw === "nanoclaw" || engineRaw === "pi" ? engineRaw : "auto";
+    return {
+      engine,
+      provider: strVal("provider"),
+      model: strVal("model"),
+      apiKey: strVal("apiKey"),
+      baseUrl: strVal("baseUrl"),
+      maxSteps,
+      telegramEnabled: boolVal("telegramEnabled"),
+      telegramBotToken: strVal("telegramBotToken"),
+      telegramChatId: strVal("telegramChatId"),
+      telegramApiRoot: strVal("telegramApiRoot"),
+      telegramForceIPv4: boolVal("telegramForceIPv4")
+    };
   }
+  __name(readForm, "readForm");
+  function writeForm(s) {
+    setStr("engine", s.engine ?? "auto");
+    setStr("provider", s.provider ?? "");
+    setStr("model", s.model ?? "");
+    setStr("apiKey", s.apiKey ?? "");
+    setStr("baseUrl", s.baseUrl ?? "");
+    setStr("maxSteps", String(s.maxSteps ?? 100));
+    setBool("telegramEnabled", s.telegramEnabled === true);
+    setStr("telegramBotToken", s.telegramBotToken ?? "");
+    setStr("telegramChatId", s.telegramChatId ?? "");
+    setStr("telegramApiRoot", s.telegramApiRoot ?? "");
+    setBool("telegramForceIPv4", s.telegramForceIPv4 !== false);
+  }
+  __name(writeForm, "writeForm");
 
-  vscode.setState({ output: outputEl.textContent, prompt: promptEl.value, status: statusEl.textContent });
-});
+  // src/webview/messages.ts
+  function handleMessage(raw) {
+    const msg = raw;
+    switch (msg.type) {
+      case "status":
+        setStatus(msg.text);
+        setControlState(msg.text);
+        break;
+      case "progress":
+        setPhaseText(msg.text ?? "");
+        el.phase().dataset["busy"] = msg.busy ? "1" : "0";
+        break;
+      case "replaceOutput":
+        replaceOutput(msg.text);
+        break;
+      case "appendOutput":
+        appendOutput(msg.text);
+        break;
+      case "clearOutput":
+        clearOutput();
+        break;
+      case "notify":
+        if (typeof msg.text === "string") {
+          appendLine(`[settings] ${msg.text}`);
+          el.settingsNote().textContent = msg.text;
+        }
+        break;
+      case "settings":
+        if (msg.settings) writeForm(msg.settings);
+        break;
+      case "activateTab":
+        if (msg.tab === "settings") setTab("settings");
+        break;
+      case "buildInfo":
+        break;
+    }
+  }
+  __name(handleMessage, "handleMessage");
 
-// Restore state after webview soft-refresh (no Extension Host reload)
-const state = vscode.getState();
-if (state) {
-  if (typeof state.output === 'string')  outputEl.textContent = state.output;
-  if (typeof state.prompt === 'string')  promptEl.value = state.prompt;
-  if (typeof state.status === 'string')  statusEl.textContent = state.status;
-  if (state.tab === 'settings')          setTab('settings');
-}
-
-applyControlState();
-vscode.postMessage({ command: 'requestSettings' });
+  // src/webview/index.ts
+  function saveState() {
+    vscode_api_default.setState({
+      output: el.output().textContent,
+      prompt: el.prompt().value,
+      status: el.status().textContent
+    });
+  }
+  __name(saveState, "saveState");
+  el.tabLogs().addEventListener("click", () => {
+    setTab("logs");
+    vscode_api_default.setState({ ...vscode_api_default.getState(), tab: "logs" });
+  });
+  el.tabSettings().addEventListener("click", () => {
+    setTab("settings");
+    vscode_api_default.setState({ ...vscode_api_default.getState(), tab: "settings" });
+  });
+  el.startBtn().addEventListener("click", () => cmd.startAgent());
+  el.stopBtn().addEventListener("click", () => cmd.stopAgent());
+  function runTask() {
+    const prompt = el.prompt().value.trim();
+    if (!prompt) return;
+    cmd.runTask(prompt);
+  }
+  __name(runTask, "runTask");
+  el.runBtn().addEventListener("click", runTask);
+  el.prompt().addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runTask();
+  });
+  document.getElementById("saveSettingsBtn").addEventListener("click", () => {
+    cmd.saveSettings(readForm());
+  });
+  window.addEventListener("message", (e) => {
+    handleMessage(e.data);
+    saveState();
+  });
+  var saved = vscode_api_default.getState();
+  if (saved) {
+    if (saved.output) replaceOutput(saved.output);
+    if (saved.prompt) el.prompt().value = saved.prompt;
+    if (saved.status) {
+      setStatus(saved.status);
+      setControlState(saved.status);
+    }
+    if (saved.tab === "settings") setTab("settings");
+  }
+  setControlState(el.status().textContent ?? "");
+  cmd.requestSettings();
+})();

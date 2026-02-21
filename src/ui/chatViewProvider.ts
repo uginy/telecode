@@ -182,83 +182,25 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.webview?.postMessage(message);
   }
 
-  private renderHtml(webview: vscode.Webview): string {
+  private renderHtml(_webview: vscode.Webview): string {
     const nonce = createNonce();
     const mediaPath = join(__dirname, '..', 'media');
 
-    // Read CSS and JS fresh from disk on every call.
-    // This enables soft hot-reload: changing media/chat.css or media/chat.js
-    // only needs a webview refresh (chatProvider.refresh()), NOT an Extension
-    // Host reload. No TypeScript compilation required.
-    const css = readFileSync(join(mediaPath, 'chat.css'), 'utf8');
-    const js  = readFileSync(join(mediaPath, 'chat.js'),  'utf8');
+    // All three assets are read fresh on every call — no Extension Host restart needed.
+    // Edit media/chat.html, media/chat.css or media/chat.js and call refresh() to see changes.
+    const html = readFileSync(join(mediaPath, 'chat.html'), 'utf8');
+    const css  = readFileSync(join(mediaPath, 'chat.css'),  'utf8');
+    const js   = readFileSync(join(mediaPath, 'chat.js'),   'utf8');
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta
-    http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
-  />
-  <title>AIS Code</title>
-  <style>${css}</style>
-</head>
-<body>
-  <div class="header">
-    <h1 class="title">AIS Code</h1>
-    <div class="header-actions">
-      <span id="status" class="status">Idle</span>
-    </div>
-  </div>
-  <div class="tabs">
-    <button id="tabLogs" class="tab-btn active" type="button">Logs</button>
-    <button id="tabSettings" class="tab-btn" type="button">Settings</button>
-  </div>
-
-  <section id="logsPane" class="pane active">
-    <div id="buildInfo" class="meta">Last update: unknown</div>
-    <div class="progress">
-      <div id="progressText" class="progress-text">Idle</div>
-      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-    </div>
-
-    <div class="controls">
-      <button id="startBtn" type="button">Start Agent</button>
-      <button id="stopBtn" type="button" class="secondary">Stop</button>
-    </div>
-
-    <textarea id="prompt" placeholder="Describe the coding task..."></textarea>
-    <button id="runBtn" type="button" class="send">Run Task</button>
-
-    <pre id="output"></pre>
-  </section>
-
-  <section id="settingsPane" class="pane">
-    <div class="settings">
-      <div class="field"><label for="engine">Engine</label><select id="engine"><option value="auto">auto</option><option value="nanoclaw">nanoclaw</option><option value="pi">pi</option></select></div>
-      <div class="field"><label for="provider">Provider</label><input id="provider" type="text" /></div>
-      <div class="field"><label for="model">Model</label><input id="model" type="text" /></div>
-      <div class="field"><label for="maxSteps">Max Steps</label><input id="maxSteps" type="number" min="1" max="1000" /></div>
-      <div class="field full"><label for="apiKey">API Key</label><input id="apiKey" type="password" /></div>
-      <div class="field full"><label for="baseUrl">Base URL</label><input id="baseUrl" type="text" /></div>
-      <div class="field checkbox full"><input id="telegramEnabled" type="checkbox" /><label for="telegramEnabled">Enable Telegram Bot</label></div>
-      <div class="field full"><label for="telegramBotToken">Telegram Bot Token</label><input id="telegramBotToken" type="password" /></div>
-      <div class="field full"><label for="telegramChatId">Telegram Chat ID</label><input id="telegramChatId" type="text" /></div>
-      <div class="field full"><label for="telegramApiRoot">Telegram API Root</label><input id="telegramApiRoot" type="text" /></div>
-      <div class="field checkbox full"><input id="telegramForceIPv4" type="checkbox" /><label for="telegramForceIPv4">Force IPv4 (recommended)</label></div>
-      <div class="field full"><button id="saveSettingsBtn" type="button">Save Settings</button></div>
-    </div>
-    <div id="settingsNote"></div>
-  </section>
-
-  <script nonce="${nonce}">${js}</script>
-</body>
-</html>`;
+    return html
+      .replaceAll('{{NONCE}}', nonce)
+      .replace('{{CSS}}', css)
+      .replace('{{JS}}', js);
   }
 
 }
+
+
 
 function createNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
