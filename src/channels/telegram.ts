@@ -13,7 +13,6 @@ import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
 
-type EngineName = 'auto' | 'pi';
 
 
 const TELEGRAM_TEXT_LIMIT = 3900;
@@ -66,9 +65,9 @@ export class TelegramChannel {
   private bot: Bot | null = null;
   private runtime: AgentRuntime | null = null;
   private runtimeConfigSignature = '';
-  private runtimeEngine: 'pi' | null = null;
 
   private isProcessing = false;
+
   private lastActivityAt = 0;
   private currentPhase = 'idle';
   private currentChatId: number | null = null;
@@ -228,18 +227,6 @@ export class TelegramChannel {
           this.pushLog(`[telegram:api:error] ${message}`);
           await ctx.reply(limitText(`API call failed: ${message}`));
         }
-      });
-
-      this.bot.command('engine', async (ctx) => {
-        const args = getCommandArgs(ctx).toLowerCase();
-        if (args !== 'auto' && args !== 'pi') {
-          await ctx.reply('Usage: /engine <auto|pi>');
-
-          return;
-        }
-
-        await this.updateSetting('engine', args as EngineName);
-        await ctx.reply(`Engine updated to ${args}`);
       });
 
       this.bot.command('model', async (ctx) => {
@@ -592,7 +579,7 @@ export class TelegramChannel {
       });
 
       // Initial status — send immediately (lastEditTime is 0 → gap >= throttle)
-      scheduleUpdate(`Starting (${this.runtimeEngine || runtime.engine})\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
+      scheduleUpdate(`Starting\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
 
       await runtime.prompt(normalizedTask);
 
@@ -646,7 +633,6 @@ export class TelegramChannel {
     const created = createRuntime(config, runtimeTools);
     this.runtime = created.runtime;
     this.runtimeConfigSignature = signature;
-    this.runtimeEngine = created.engine;
 
     return this.runtime;
   }
@@ -658,7 +644,6 @@ export class TelegramChannel {
 
     this.runtime = null;
     this.runtimeConfigSignature = '';
-    this.runtimeEngine = null;
   }
 
   private createTelegramSendFileTool(): AgentTool {
@@ -1047,7 +1032,6 @@ export class TelegramChannel {
     return [
       `status: ${executionState}`,
       `connection: ${connectionState}`,
-      `engine: ${settings.agent.engine}${this.runtimeEngine ? ` (active: ${this.runtimeEngine})` : ''}`,
       `provider: ${settings.agent.provider}`,
       `model: ${settings.agent.model}`,
       `workspace: ${getWorkspaceRoot()}`,
@@ -1061,7 +1045,6 @@ export class TelegramChannel {
     const settings = readAISCodeSettings();
 
     return [
-      `engine: ${settings.agent.engine}`,
       `provider: ${settings.agent.provider}`,
       `model: ${settings.agent.model}`,
       `baseUrl: ${settings.agent.baseUrl || '(none)'}`,
@@ -1098,7 +1081,6 @@ function renderHelp(): string {
     '/diff <file> - git diff for file',
     '/rollback - restore changed files to HEAD',
     '/api <method> [json] - call raw Telegram Bot API method',
-    '/engine <auto|nanoclaw|pi> - switch runtime',
     '/provider <id> - switch provider',
     '/model <id> - switch model',
     '/help - this message',

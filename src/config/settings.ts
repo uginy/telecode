@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 
 export interface AgentSettings {
-  engine: 'auto' | 'pi';
   provider: string;
   model: string;
   apiKey: string;
@@ -57,9 +56,6 @@ export function providerRequiresApiKey(provider: string): boolean {
 export function readAISCodeSettings(): AISCodeSettings {
   const config = vscode.workspace.getConfiguration('aisCode');
 
-  const engineRaw = (config.get<string>('engine') || 'auto').trim().toLowerCase();
-  const engine: AgentSettings['engine'] = engineRaw === 'pi' ? 'pi' : 'auto';
-
   const provider = (config.get<string>('provider') || 'openrouter').trim();
   const model = (config.get<string>('model') || 'arcee-ai/trinity-large-preview:free').trim();
   const apiKey = (config.get<string>('apiKey') || '').trim();
@@ -76,7 +72,6 @@ export function readAISCodeSettings(): AISCodeSettings {
 
   return {
     agent: {
-      engine,
       provider,
       model,
       apiKey,

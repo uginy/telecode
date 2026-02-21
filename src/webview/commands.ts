@@ -1,7 +1,6 @@
 import api from './vscode-api';
 
 export type Settings = {
-  engine: 'auto' | 'pi';
 
   provider: string;
   model: string;

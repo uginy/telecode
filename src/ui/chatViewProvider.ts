@@ -11,7 +11,6 @@ export type ChatViewCommand =
   | { command: 'saveSettings'; settings: ChatViewSettings };
 
 export interface ChatViewSettings {
-  engine: 'auto' | 'nanoclaw' | 'pi';
   provider: string;
   model: string;
   apiKey: string;
@@ -90,16 +89,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       if (command === 'saveSettings' && payload.settings && typeof payload.settings === 'object') {
         const raw = payload.settings as Record<string, unknown>;
-        const engineValue = raw.engine;
-        const engine: ChatViewSettings['engine'] =
-          engineValue === 'nanoclaw' || engineValue === 'pi' ? engineValue : 'auto';
         const maxStepsRaw = typeof raw.maxSteps === 'number' ? raw.maxSteps : Number(raw.maxSteps);
         const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? Math.floor(maxStepsRaw) : 100;
 
         this.commandEmitter.fire({
           command: 'saveSettings',
           settings: {
-            engine,
             provider: typeof raw.provider === 'string' ? raw.provider : '',
             model: typeof raw.model === 'string' ? raw.model : '',
             apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : '',
