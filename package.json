@@ -1,7 +1,7 @@
 {
   "name": "ais-code",
   "displayName": "AIS Code",
-  "description": "AI Studio Code - Multi-Agent IDE Extension with Spec-Driven Development",
+  "description": "AI coding agent - control via messengers (Telegram, WhatsApp)",
   "version": "0.1.0",
   "publisher": "ais-code",
   "license": "MIT",
@@ -16,19 +16,19 @@
   "keywords": [
     "ai",
     "coding",
-    "assistant",
     "agent",
-    "copilot"
+    "telegram",
+    "whatsapp",
+    "autonomous"
   ],
   "activationEvents": [
     "onStartupFinished",
     "onView:aisCode.chatView",
     "onCommand:aisCode.openChat",
-    "onCommand:aisCode.newConversation",
-    "onCommand:aisCode.restoreLastCheckpoint"
+    "onCommand:aisCode.startAgent"
   ],
   "main": "./dist/extension.js",
-  "icon": "media/icon.png",
+  "icon": "media/icon.svg",
   "contributes": {
     "commands": [
       {
@@ -37,14 +37,9 @@
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "aisCode.newConversation",
-        "title": "AIS Code: New Conversation",
-        "icon": "$(add)"
-      },
-      {
-        "command": "aisCode.restoreLastCheckpoint",
-        "title": "AIS Code: Restore Last Checkpoint",
-        "icon": "$(history)"
+        "command": "aisCode.startAgent",
+        "title": "AIS Code: Start Agent",
+        "icon": "$(play)"
       }
     ],
     "viewsContainers": {
@@ -73,200 +68,111 @@
           "default": "openrouter",
           "enum": [
             "openrouter",
-            "openai-compatible",
+            "openai",
             "anthropic",
-            "openai"
+            "google",
+            "minimax",
+            "moonshot",
+            "ollama"
           ],
           "enumDescriptions": [
             "OpenRouter (free models available)",
-            "OpenAI-compatible API (Ollama, LM Studio)",
-            "Anthropic Claude (requires API key)",
-            "OpenAI GPT (requires API key)"
+            "OpenAI",
+            "Anthropic Claude",
+            "Google Gemini",
+            "MiniMax",
+            "Moonshot (Kimi)",
+            "Ollama (local)"
           ],
-          "description": "AI provider to use"
+          "description": "AI provider"
         },
-        "aisCode.openrouter.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "OpenRouter API key (get at openrouter.ai)"
-        },
-        "aisCode.openrouter.model": {
+        "aisCode.model": {
           "type": "string",
           "default": "google/gemini-2.0-flash-exp:free",
-          "description": "OpenRouter model ID"
+          "description": "Model ID (e.g., google/gemini-2.0-flash-exp:free)"
         },
-        "aisCode.openaiCompatible.baseUrl": {
-          "type": "string",
-          "default": "http://localhost:11434/v1",
-          "description": "Base URL for OpenAI-compatible API (e.g., http://localhost:11434/v1 for Ollama)"
-        },
-        "aisCode.openaiCompatible.apiKey": {
+        "aisCode.apiKey": {
           "type": "string",
           "default": "",
-          "description": "API key (optional for local APIs like Ollama)"
+          "description": "API key for the selected provider"
         },
-        "aisCode.openaiCompatible.model": {
-          "type": "string",
-          "default": "llama3.2",
-          "description": "Model name (e.g., llama3.2, qwen2.5-coder, deepseek-coder-v2)"
-        },
-        "aisCode.anthropic.apiKey": {
+        "aisCode.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "Anthropic API key"
+          "description": "Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1)"
         },
-        "aisCode.anthropic.model": {
-          "type": "string",
-          "default": "claude-sonnet-4-20250514",
-          "description": "Anthropic model to use"
+        "aisCode.telegram.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Telegram bot"
         },
-        "aisCode.openai.apiKey": {
+        "aisCode.telegram.botToken": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API key"
+          "description": "Telegram bot token from @BotFather"
         },
-        "aisCode.openai.model": {
+        "aisCode.telegram.chatId": {
           "type": "string",
-          "default": "gpt-4o",
-          "description": "OpenAI model to use"
+          "default": "",
+          "description": "Your Telegram chat ID"
         },
-        "aisCode.maxTokens": {
-          "type": "number",
-          "default": 4096,
-          "description": "Maximum tokens in response"
+        "aisCode.whatsapp.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable WhatsApp bot"
         },
-        "aisCode.temperature": {
-          "type": "number",
-          "default": 0.7,
-          "minimum": 0,
-          "maximum": 2,
-          "description": "Temperature for AI responses"
+        "aisCode.whatsapp.sessionPath": {
+          "type": "string",
+          "default": "~/.ais-code/whatsapp-session.json",
+          "description": "Path to WhatsApp session file"
         },
         "aisCode.autoApprove": {
           "type": "boolean",
           "default": true,
-          "description": "Auto-approve tool actions and file changes (Agent mode)"
+          "description": "Auto-approve tool actions"
         },
-        "aisCode.diffOnly": {
-          "type": "boolean",
-          "default": true,
-          "description": "Require unified diff patches when auto-approve is off"
-        },
-        "aisCode.workspaceIndex": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable workspace indexing for faster context search"
-        },
-        "aisCode.intentRouting.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable intent routing using a micro-model before building context"
-        },
-        "aisCode.intentRouting.model": {
-          "type": "string",
-          "default": "",
-          "description": "Optional model ID for intent routing (leave empty to use the primary model)"
-        },
-        "aisCode.intentRouting.maxTokens": {
+        "aisCode.maxSteps": {
           "type": "number",
-          "default": 256,
-          "minimum": 16,
-          "maximum": 2048,
-          "description": "Max tokens for intent routing responses"
+          "default": 100,
+          "description": "Max agent steps per task"
         },
-        "aisCode.intentRouting.temperature": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Temperature for intent routing (lower is more deterministic)"
-        },
-        "aisCode.context.useOpenTabs": {
-          "type": "boolean",
-          "default": true,
-          "description": "Include open editor tabs in context by default"
-        },
-        "aisCode.context.useTerminals": {
-          "type": "boolean",
-          "default": true,
-          "description": "Include terminal list/history in context by default"
-        },
-        "aisCode.context.useSearch": {
-          "type": "boolean",
-          "default": true,
-          "description": "Include regex-based code search snippets in context"
-        },
-        "aisCode.context.useSemantic": {
-          "type": "boolean",
-          "default": true,
-          "description": "Include semantic search snippets in context"
-        },
-        "aisCode.context.semanticFirst": {
-          "type": "boolean",
-          "default": true,
-          "description": "Prefer semantic context before regex search when exploring code"
-        },
-        "aisCode.context.maxOpenTabs": {
-          "type": "number",
-          "default": 8,
-          "minimum": 1,
-          "maximum": 50,
-          "description": "Max number of open tabs to include in context"
-        },
-        "aisCode.context.maxSearchSnippets": {
-          "type": "number",
-          "default": 8,
-          "minimum": 1,
-          "maximum": 50,
-          "description": "Max number of search/semantic snippets to include in context"
-        },
-        "aisCode.context.trackFiles": {
-          "type": "boolean",
-          "default": true,
-          "description": "Track files read/edited to detect stale context"
-        },
-        "aisCode.context.warnStale": {
-          "type": "boolean",
-          "default": true,
-          "description": "Warn when tracked files change outside AIS Code"
+        "aisCode.allowedTools": {
+          "type": "array",
+          "default": [
+            "Read",
+            "Edit",
+            "Write",
+            "Bash",
+            "Glob",
+            "Grep",
+            "WebFetch",
+            "TodoWrite",
+            "Task"
+          ],
+          "description": "Tools the agent can use"
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "bun run build",
-    "build": "bun run build:extension && bun run build:webview",
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:extension",
     "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "build:webview": "cd webview && bun run build",
-    "watch": "bun run watch:extension & bun run watch:webview",
-    "watch:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
-    "watch:webview": "cd webview && bun run dev",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
     "lint": "eslint src --ext ts",
-    "test": "bun test",
-    "smoke": "node ./scripts/smoke.mjs",
-    "smoke:flows": "node ./scripts/flows-smoke.mjs",
-    "gherkin:flows": "node ./scripts/gherkin-to-flows.mjs",
-    "e2e:webview": "node ./scripts/e2e-webview.mjs",
-    "e2e:aaa": "node ./scripts/e2e-aaa-landing.mjs",
     "package": "vsce package"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.72.1",
-    "diff": "^8.0.3",
-    "js-tiktoken": "^1.0.21",
-    "openai": "^6.17.0"
+    "@anthropic-ai/claude-agent-sdk": "^0.2.50",
+    "@mariozechner/pi-agent-core": "^0.54.0",
+    "@mariozechner/pi-ai": "^0.54.0",
+    "grammy": "^1.40.0"
   },
   "devDependencies": {
-    "@types/diff": "^8.0.0",
-    "@types/node": "^25.1.0",
+    "@types/node": "^22.0.0",
     "@types/vscode": "^1.108.1",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
     "@vscode/vsce": "^3.7.1",
-    "@vscode/test-electron": "^2.5.1",
-    "esbuild": "^0.27.2",
-    "eslint": "^9.39.2",
-    "playwright": "^1.49.1",
-    "typescript": "^5.9.3"
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
   }
 }

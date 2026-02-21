@@ -1,3 +1,0 @@
-
-# Test Doc
-OK
