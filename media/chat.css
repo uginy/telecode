@@ -1,0 +1,243 @@
+:root {
+  color-scheme: light dark;
+  --accent: #2f8bfd;
+  --panel: rgba(127, 127, 127, 0.08);
+  --border: rgba(127, 127, 127, 0.24);
+}
+
+body {
+  margin: 0;
+  padding: 14px;
+  box-sizing: border-box;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  background: var(--panel);
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tab-btn {
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+
+.pane {
+  display: none;
+  min-height: 0;
+}
+
+.pane.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.meta {
+  margin-bottom: 8px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.progress {
+  margin-bottom: 10px;
+}
+
+.progress-text {
+  font-size: 11px;
+  opacity: 0.88;
+  margin-bottom: 4px;
+}
+
+.progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  opacity: 0;
+  transition: width 120ms ease, opacity 120ms ease;
+}
+
+.progress-fill.busy {
+  width: 36%;
+  opacity: 1;
+  animation: progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 7px 10px;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--vscode-foreground);
+  border-color: var(--border);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 72px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  padding: 10px;
+  font: inherit;
+  margin-bottom: 8px;
+}
+
+.send {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+summary {
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.settings {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  font-size: 11px;
+  opacity: 0.86;
+}
+
+.field input,
+.field select {
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  min-height: 28px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.field.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+pre {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--panel);
+  min-height: 200px;
+  flex: 1 1 auto;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.22;
+}
+
+#settingsNote {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: 0.88;
+  min-height: 16px;
+}

@@ -509,15 +509,28 @@ function setupDevAutoReload(context: vscode.ExtensionContext): void {
     return;
   }
 
-  const watcher = vscode.workspace.createFileSystemWatcher('**/dist/extension.js');
+  // IMPORTANT: use RelativePattern anchored to the extension's own folder.
+  // A bare glob string like '**/dist/extension.js' watches relative to the
+  // workspace folders open in the Development Host — which may be a completely
+  // different project. That means dist/extension.js changes are never detected
+  // and the window never auto-reloads.
+  const extRoot = context.extensionUri;
+
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(extRoot, 'dist/extension.js')
+  );
   const onBundled = () => scheduleDevReload();
-  devReloadArmedAt = Date.now() + 4_000;
+  // Arm after 1.5 s — enough for esbuild to finish its initial build on startup
+  // but short enough that a quick manual save triggers reload immediately after.
+  devReloadArmedAt = Date.now() + 1_500;
 
   watcher.onDidChange(onBundled);
   watcher.onDidCreate(onBundled);
   context.subscriptions.push(watcher);
 
-  const uiWatcher = vscode.workspace.createFileSystemWatcher('{src/ui/**/*.ts,media/**/*.{css,js,html}}');
+  const uiWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(extRoot, 'media/*.{css,js,html}')
+  );
   const onUiChanged = (uri: vscode.Uri) => {
     scheduleUiRefresh(path.basename(uri.fsPath));
   };
@@ -543,10 +556,18 @@ function scheduleDevReload(): void {
   autoReloadTimer = setTimeout(() => {
     autoReloadTimer = null;
     isReloadInProgress = true;
-    void vscode.commands.executeCommand('workbench.action.reloadWindow');
-    setTimeout(() => {
-      isReloadInProgress = false;
-    }, 8_000);
+    void vscode.commands.executeCommand('workbench.action.reloadWindow').then(
+      () => {
+        // Window is reloading — flag will be reset naturally when the new
+        // Extension Host activates. Safety reset in case reload was rejected.
+        setTimeout(() => { isReloadInProgress = false; }, 5_000);
+      },
+      () => {
+        // Command rejected (e.g. another modal was open) — reset immediately
+        // so the next file save can trigger reload again.
+        isReloadInProgress = false;
+      }
+    );
   }, 450);
 }
 
@@ -785,7 +806,12 @@ function formatRuntimeStatus(message: string): string {
     return `Prompt stack: ${message.replace('prompt_stack ', '')}`;
   }
   if (message.startsWith('prompt_stack_missing ')) {
-    return `Prompt stack missing: ${message.replace('prompt_stack_missing ', '')}`;
+    const raw = message.replace('prompt_stack_missing ', '').trim();
+    const items = raw.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
+    if (items.length <= 4) {
+      return `Prompt stack missing: ${items.join(', ')}`;
+    }
+    return `Prompt stack missing: ${items.slice(0, 3).join(', ')} (+${items.length - 3} more)`;
   }
   if (message.startsWith('llm_config ')) {
     return `LLM config: ${message.replace('llm_config ', '')}`;

@@ -523,8 +523,9 @@ export class TelegramChannel {
           const startedAt = toolStartedAt.get(event.toolName);
           const durationMs = startedAt ? Date.now() - startedAt : null;
           const resultSummary = summarizeToolResult(event.result);
+          const errorSummary = event.isError ? summarizeToolError(event.result) : '';
           this.pushLog(
-            `[tool:${suffix}] ${event.toolName}${durationMs !== null ? ` ${durationMs}ms` : ''}${resultSummary ? ` ${resultSummary}` : ''}`
+            `[tool:${suffix}] ${event.toolName}${durationMs !== null ? ` ${durationMs}ms` : ''}${resultSummary ? ` ${resultSummary}` : ''}${errorSummary ? ` ${errorSummary}` : ''}`
           );
           if (!event.isError) {
             setPhase('Проверяю результат инструмента');
@@ -532,7 +533,9 @@ export class TelegramChannel {
         }
 
         if (event.type === 'status') {
-          this.pushLog(`[status] ${event.message}`);
+          if (shouldLogTelegramStatus(event.message)) {
+            this.pushLog(`[status] ${compactTelegramStatus(event.message)}`);
+          }
           const nextPhase = describeRuntimePhase(event.message);
           if (nextPhase) {
             setPhase(nextPhase);
@@ -641,10 +644,13 @@ export class TelegramChannel {
 
         const typed = params as TelegramSendFileParams;
         const workspaceRoot = getWorkspaceRoot();
-        const targetPath = path.isAbsolute(typed.path)
-          ? path.normalize(typed.path)
-          : path.resolve(workspaceRoot, typed.path);
-        const stat = await fs.stat(targetPath);
+        const resolved = await resolveExistingPath(typed.path, workspaceRoot);
+        if (!resolved) {
+          throw new Error(buildMissingPathError(typed.path, workspaceRoot));
+        }
+
+        const targetPath = resolved.path;
+        const stat = resolved.stat;
 
         let uploadPath = targetPath;
         let tempDir: string | null = null;
@@ -656,9 +662,10 @@ export class TelegramChannel {
           }
 
           const uploadStat = await fs.stat(uploadPath);
-          if (uploadStat.size > TELEGRAM_MAX_DOCUMENT_BYTES) {
+          const uploadBytes = toNumberBytes(uploadStat.size);
+          if (uploadBytes > TELEGRAM_MAX_DOCUMENT_BYTES) {
             throw new Error(
-              `File is too large for Telegram Bot API (${Math.ceil(uploadStat.size / (1024 * 1024))}MB > ${Math.ceil(
+              `File is too large for Telegram Bot API (${Math.ceil(uploadBytes / (1024 * 1024))}MB > ${Math.ceil(
                 TELEGRAM_MAX_DOCUMENT_BYTES / (1024 * 1024)
               )}MB).`
             );
@@ -690,7 +697,7 @@ export class TelegramChannel {
               uploadPath: renderPath(uploadPath, workspaceRoot),
               chatId: this.currentChatId,
               archived: typed.archive === true,
-              bytes: uploadStat.size,
+              bytes: uploadBytes,
             },
           };
         } finally {
@@ -788,15 +795,20 @@ export class TelegramChannel {
       throw new Error('Upload path cannot be empty');
     }
 
-    const absolutePath = path.isAbsolute(normalized) ? path.normalize(normalized) : path.resolve(workspaceRoot, normalized);
-    const stat = await fs.stat(absolutePath);
+    const resolved = await resolveExistingPath(normalized, workspaceRoot);
+    if (!resolved) {
+      throw new Error(buildMissingPathError(normalized, workspaceRoot));
+    }
+    const absolutePath = resolved.path;
+    const stat = resolved.stat;
     if (!stat.isFile()) {
       throw new Error(`Upload path is not a file: ${absolutePath}`);
     }
 
-    if (stat.size > TELEGRAM_MAX_DOCUMENT_BYTES) {
+    const sizeBytes = toNumberBytes(stat.size);
+    if (sizeBytes > TELEGRAM_MAX_DOCUMENT_BYTES) {
       throw new Error(
-        `File is too large for Telegram Bot API (${Math.ceil(stat.size / (1024 * 1024))}MB > ${Math.ceil(
+        `File is too large for Telegram Bot API (${Math.ceil(sizeBytes / (1024 * 1024))}MB > ${Math.ceil(
           TELEGRAM_MAX_DOCUMENT_BYTES / (1024 * 1024)
         )}MB).`
       );
@@ -1612,6 +1624,28 @@ function summarizeToolResult(result: unknown): string {
   return parts.join(' ');
 }
 
+function summarizeToolError(result: unknown): string {
+  if (!result || typeof result !== 'object') {
+    return '';
+  }
+
+  const maybeMessage =
+    (result as { message?: unknown }).message ||
+    (result as { error?: unknown }).error ||
+    (result as { details?: { error?: unknown } }).details?.error;
+
+  if (typeof maybeMessage !== 'string') {
+    return '';
+  }
+
+  const compact = maybeMessage.replace(/\s+/g, ' ').trim();
+  if (!compact) {
+    return '';
+  }
+
+  return `error=${compact.length > 120 ? `${compact.slice(0, 117)}...` : compact}`;
+}
+
 function pushSummary(parts: string[], key: string, value: unknown): void {
   if (value === undefined || value === null) {
     return;
@@ -1704,6 +1738,37 @@ function isLikelyNetworkError(error: unknown): boolean {
   );
 }
 
+function shouldLogTelegramStatus(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.startsWith('event:')) {
+    return false;
+  }
+
+  return true;
+}
+
+function compactTelegramStatus(message: string): string {
+  if (!message.startsWith('prompt_stack_missing ')) {
+    return message;
+  }
+
+  const raw = message.replace('prompt_stack_missing ', '').trim();
+  if (!raw) {
+    return 'prompt_stack_missing';
+  }
+
+  const items = raw.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
+  if (items.length <= 4) {
+    return `prompt_stack_missing ${items.join(',')}`;
+  }
+
+  return `prompt_stack_missing ${items.slice(0, 3).join(',')} (+${items.length - 3} more)`;
+}
+
 function parseTelegramChatId(raw?: string): number | null {
   const value = (raw || '').trim();
   if (value.length === 0) {
@@ -1720,6 +1785,60 @@ function parseTelegramChatId(raw?: string): number | null {
   }
 
   return parsed;
+}
+
+type ExistingPathResolution = {
+  path: string;
+  stat: Awaited<ReturnType<typeof fs.stat>>;
+};
+
+function getWorkspaceRoots(): string[] {
+  const folders = vscode.workspace.workspaceFolders || [];
+  const roots = folders.map((folder) => folder.uri.fsPath).filter((value) => value.length > 0);
+  if (roots.length > 0) {
+    return roots;
+  }
+  return [process.cwd()];
+}
+
+function getCandidatePaths(rawPath: string, primaryRoot: string): string[] {
+  const normalized = rawPath.trim();
+  if (!normalized) {
+    return [];
+  }
+
+  if (path.isAbsolute(normalized)) {
+    return [path.normalize(normalized)];
+  }
+
+  const roots = [primaryRoot, ...getWorkspaceRoots(), process.cwd()];
+  const uniqueRoots = [...new Set(roots)];
+  return uniqueRoots.map((root) => path.resolve(root, normalized));
+}
+
+async function resolveExistingPath(rawPath: string, primaryRoot: string): Promise<ExistingPathResolution | null> {
+  const candidates = getCandidatePaths(rawPath, primaryRoot);
+  for (const candidate of candidates) {
+    try {
+      const stat = await fs.stat(candidate);
+      return { path: candidate, stat };
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return null;
+}
+
+function buildMissingPathError(rawPath: string, primaryRoot: string): string {
+  const candidates = getCandidatePaths(rawPath, primaryRoot);
+  const preview = candidates.slice(0, 4).join(', ');
+  const suffix = candidates.length > 4 ? ` (+${candidates.length - 4} more)` : '';
+  return `Path not found: ${rawPath}. Tried: ${preview}${suffix}`;
+}
+
+function toNumberBytes(value: number | bigint): number {
+  return typeof value === 'bigint' ? Number(value) : value;
 }
 
 function createRuntimeSignature(config: RuntimeConfig, tools: AgentTool[]): string {

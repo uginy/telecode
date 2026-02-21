@@ -103,6 +103,11 @@ export class PiRuntime implements AgentRuntime {
       return;
     }
 
+    if (event.type === 'message_update') {
+      // Non-text message_update events are noisy and not actionable for users.
+      return;
+    }
+
     if (event.type === 'tool_execution_start') {
       this.emit({ type: 'status', message: `tool_execution_start:${event.toolName}` });
       this.emit({ type: 'tool_start', toolName: event.toolName, args: event.args });

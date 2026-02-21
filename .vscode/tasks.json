@@ -2,36 +2,41 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "ais: build",
       "type": "shell",
       "command": "npm run build",
       "group": "build",
       "problemMatcher": [],
       "presentation": {
-        "reveal": "never",
-        "panel": "shared"
-      },
-      "label": "ais: build"
+        "reveal": "silent",
+        "panel": "shared",
+        "close": true
+      }
     },
     {
+      "label": "ais: watch",
       "type": "shell",
       "command": "npm run watch",
       "group": "build",
       "isBackground": true,
       "presentation": {
-        "reveal": "never",
+        "reveal": "silent",
         "panel": "dedicated"
       },
       "problemMatcher": [
         {
           "owner": "esbuild",
-          "fileLocation": [
-            "relative",
-            "${workspaceFolder}"
-          ],
+          "fileLocation": ["relative", "${workspaceFolder}"],
           "pattern": [
             {
               "regexp": "^✘ \\[ERROR\\] (.+)$",
               "message": 1
+            },
+            {
+              "regexp": "^\\s+(.+):(\\d+):(\\d+):$",
+              "file": 1,
+              "line": 2,
+              "column": 3
             }
           ],
           "background": {
@@ -40,8 +45,7 @@
             "endsPattern": "^\\[watch\\] build finished"
           }
         }
-      ],
-      "label": "ais: watch"
+      ]
     }
   ]
 }

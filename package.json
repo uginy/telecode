@@ -219,7 +219,7 @@
     "vscode:prepublish": "npm run build",
     "build": "npm run build:extension",
     "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --keep-names",
-    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch=forever",
+    "watch": "node scripts/watch.mjs",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },

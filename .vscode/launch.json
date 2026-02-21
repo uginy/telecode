@@ -11,10 +11,16 @@
       ],
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
       ]
     },
     {
-      "name": "Run Extension",
+      "name": "Run Extension (Build once)",
       "type": "extensionHost",
       "request": "launch",
       "preLaunchTask": "ais: build",
@@ -23,6 +29,12 @@
       ],
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**",
+        "**/node_modules/**"
       ]
     }
   ]
