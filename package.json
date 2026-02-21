@@ -89,7 +89,25 @@
         "aisCode.model": {
           "type": "string",
           "default": "google/gemini-2.0-flash-exp:free",
-          "description": "Model ID (e.g., google/gemini-2.0-flash-exp:free)"
+          "enum": [
+            "google/gemini-2.0-flash-exp:free",
+            "google/gemini-2.0-flash-thinking-exp:free",
+            "qwen/qwen-2.5-coder-32b-instruct",
+            "anthropic/claude-3-5-sonnet:beta",
+            "openai/gpt-4o",
+            "deepseek/deepseek-chat",
+            "deepseek/deepseek-coder"
+          ],
+          "enumDescriptions": [
+            "Gemini 2.0 Flash (Free on OpenRouter)",
+            "Gemini 2.0 Flash Thinking (Free on OpenRouter)",
+            "Qwen 2.5 Coder 32B (Great for code/OpenRouter)",
+            "Claude 3.5 Sonnet",
+            "GPT-4o",
+            "DeepSeek V3",
+            "DeepSeek Coder"
+          ],
+          "description": "Model ID (e.g., google/gemini-2.0-flash-exp:free). You can type any custom model ID manually in settings.json"
         },
         "aisCode.apiKey": {
           "type": "string",

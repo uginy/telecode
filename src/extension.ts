@@ -80,6 +80,8 @@ const tools: AgentTool[] = [
   },
 ];
 
+export let chatProvider: ChatViewProvider | null = null;
+
 export function activate(context: vscode.ExtensionContext) {
   console.log('AIS Code: Extension activated');
 
@@ -94,10 +96,10 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  const provider = new ChatViewProvider(context);
+  chatProvider = new ChatViewProvider(context);
 
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('aisCode.chatView', provider)
+    vscode.window.registerWebviewViewProvider('aisCode.chatView', chatProvider)
   );
 
   context.subscriptions.push(
@@ -129,15 +131,28 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         agent = createAgent({ provider, model, apiKey }, tools);
         
+        const logToUI = (text: string) => {
+          chatProvider?.webview?.postMessage({ type: 'output', text });
+        };
+
+        logToUI(`\n✅ Agent started with provider: ${provider}, model: ${model}\n`);
+
         agent.subscribe((event: AgentEvent) => {
-          if (event.type === 'message_update' && (event as any).assistantMessageEvent?.type === 'text_delta') {
-            process.stdout.write((event as any).assistantMessageEvent.delta);
+          if (event.type === 'message_update' || event.type === 'message_end') {
+             // Try to find delta
+             const ev = event as any;
+             if (ev.assistantMessageEvent?.type === 'text_delta') {
+               logToUI(ev.assistantMessageEvent.delta);
+             }
           }
           if (event.type === 'tool_execution_start') {
-            console.log(`Executing tool: ${(event as any).toolName}`);
+            logToUI(`\n🔧 Executing tool: ${(event as any).toolName}\n`);
           }
           if (event.type === 'tool_execution_end') {
-            console.log('Tool executed');
+            logToUI(`✅ Tool finished\n`);
+          }
+          if (event.type === 'tool_execution_error') {
+            logToUI(`❌ Tool error: ${(event as any).error?.message}\n`);
           }
         });
 
@@ -174,6 +189,8 @@ export function deactivate() {
 }
 
 class ChatViewProvider implements vscode.WebviewViewProvider {
+  public webview?: vscode.Webview;
+
   constructor(private context: vscode.ExtensionContext) {}
 
   resolveWebviewView(
@@ -181,6 +198,8 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ) {
+    this.webview = webviewView.webview;
+    
     webviewView.webview.options = {
       enableScripts: true,
       localResourceRoots: [this.context.extensionUri]
@@ -250,12 +269,25 @@ class ChatViewProvider implements vscode.WebviewViewProvider {
             window.addEventListener('message', (event) => {
               const msg = event.data;
               if (msg.type === 'output') {
-                document.getElementById('output').textContent += msg.text;
+                const outputDiv = document.getElementById('output');
+                outputDiv.textContent += msg.text;
+                outputDiv.scrollTop = outputDiv.scrollHeight;
               }
             });
           </script>
         </body>
       </html>
     `;
+
+    webviewView.webview.onDidReceiveMessage(data => {
+      switch (data.command) {
+        case 'startAgent':
+          vscode.commands.executeCommand('aisCode.startAgent');
+          break;
+        case 'runTask':
+          vscode.commands.executeCommand('aisCode.runTask');
+          break;
+      }
+    });
   }
 }
