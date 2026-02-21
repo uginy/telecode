@@ -39,59 +39,106 @@
   <!-- ── Settings pane ──────────────────────────────────── -->
   <section id="settingsPane" class="pane hidden">
     <form id="settingsForm" class="settings-form">
-      <div class="field">
-        <label for="engine">Engine</label>
-        <select id="engine">
-          <option value="auto">auto</option>
-          <option value="nanoclaw">nanoclaw</option>
-          <option value="pi">pi</option>
-        </select>
+
+      <!-- ── Inference ───────────────────────────────────────── -->
+      <div class="settings-block">
+        <div class="settings-block-header">
+          <span class="settings-block-title">Inference</span>
+          <span class="settings-block-desc">Model and API configuration for the agent loop.</span>
+        </div>
+
+        <div class="field">
+          <label for="engine">Engine</label>
+          <span class="field-hint">Runtime that drives the agent loop.</span>
+          <select id="engine">
+            <option value="auto">auto</option>
+            <option value="nanoclaw">nanoclaw</option>
+            <option value="pi">pi</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="provider">Provider</label>
+          <span class="field-hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
+          <input id="provider" type="text" placeholder="openai" />
+        </div>
+
+        <div class="field">
+          <label for="model">Model</label>
+          <span class="field-hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
+          <input id="model" type="text" placeholder="gpt-4o" />
+        </div>
+
+        <div class="field">
+          <label for="apiKey">API Key</label>
+          <span class="field-hint">Secret key for the selected provider. Never shared.</span>
+          <input id="apiKey" type="password" placeholder="sk-…" />
+        </div>
+
+        <div class="field">
+          <label for="baseUrl">Base URL</label>
+          <span class="field-hint">Custom API endpoint. Leave blank to use the provider default.</span>
+          <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
+        </div>
+
+        <div class="field field-inline">
+          <div>
+            <label for="maxSteps">Max Steps</label>
+            <span class="field-hint">Maximum tool calls allowed per task (1–1000).</span>
+          </div>
+          <input id="maxSteps" type="number" min="1" max="1000" placeholder="100" style="width:80px" />
+        </div>
       </div>
-      <div class="field">
-        <label for="maxSteps">Max Steps</label>
-        <input id="maxSteps" type="number" min="1" max="1000" />
+
+      <!-- ── Telegram Bot ─────────────────────────────────────── -->
+      <div class="settings-block">
+        <div class="settings-block-header">
+          <span class="settings-block-title">Telegram Bot</span>
+          <span class="settings-block-desc">Receive and respond to tasks via a Telegram bot.</span>
+        </div>
+
+        <div class="field field-check">
+          <input id="telegramEnabled" type="checkbox" />
+          <div>
+            <label for="telegramEnabled">Enable Telegram Bot</label>
+            <span class="field-hint">Start the bot when the agent is running.</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="telegramBotToken">Bot Token</label>
+          <span class="field-hint">Token from @BotFather. Keep secret.</span>
+          <input id="telegramBotToken" type="password" placeholder="1234567890:ABC…" />
+        </div>
+
+        <div class="field">
+          <label for="telegramChatId">Chat ID</label>
+          <span class="field-hint">Your Telegram user ID or group ID allowed to send tasks.</span>
+          <input id="telegramChatId" type="text" placeholder="128529419" />
+        </div>
+
+        <div class="field">
+          <label for="telegramApiRoot">API Root</label>
+          <span class="field-hint">Custom API server URL. Leave blank for api.telegram.org.</span>
+          <input id="telegramApiRoot" type="text" placeholder="https://api.telegram.org" />
+        </div>
+
+        <div class="field field-check">
+          <input id="telegramForceIPv4" type="checkbox" />
+          <div>
+            <label for="telegramForceIPv4">Force IPv4</label>
+            <span class="field-hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
+          </div>
+        </div>
       </div>
-      <div class="field full">
-        <label for="provider">Provider</label>
-        <input id="provider" type="text" />
-      </div>
-      <div class="field full">
-        <label for="model">Model</label>
-        <input id="model" type="text" />
-      </div>
-      <div class="field full">
-        <label for="apiKey">API Key</label>
-        <input id="apiKey" type="password" />
-      </div>
-      <div class="field full">
-        <label for="baseUrl">Base URL</label>
-        <input id="baseUrl" type="text" />
-      </div>
-      <div class="field full check">
-        <input id="telegramEnabled" type="checkbox" />
-        <label for="telegramEnabled">Enable Telegram Bot</label>
-      </div>
-      <div class="field full">
-        <label for="telegramBotToken">Bot Token</label>
-        <input id="telegramBotToken" type="password" />
-      </div>
-      <div class="field full">
-        <label for="telegramChatId">Chat ID</label>
-        <input id="telegramChatId" type="text" />
-      </div>
-      <div class="field full">
-        <label for="telegramApiRoot">API Root</label>
-        <input id="telegramApiRoot" type="text" />
-      </div>
-      <div class="field full check">
-        <input id="telegramForceIPv4" type="checkbox" />
-        <label for="telegramForceIPv4">Force IPv4</label>
-      </div>
-      <div class="field full">
+
+      <!-- ── Actions ─────────────────────────────────────────── -->
+      <div class="settings-actions">
+        <span id="settingsNote" class="settings-note"></span>
         <button id="saveSettingsBtn" class="btn btn-primary" type="button">Save Settings</button>
       </div>
+
     </form>
-    <div id="settingsNote" class="settings-note"></div>
   </section>
 
   <script nonce="{{NONCE}}">{{JS}}</script>

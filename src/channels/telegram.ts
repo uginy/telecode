@@ -393,45 +393,63 @@ export class TelegramChannel {
     const statusMessage = await ctx.reply('Working on it...');
     const startedAt = Date.now();
 
+    // ── Throttled status updater ──────────────────────────────────────────────
+    // Telegram limits message edits; we keep ONE status message and update it
+    // at most once every STATUS_THROTTLE_MS. If a new phase arrives while we're
+    // in the cooldown window, we schedule a deferred flush so nothing is lost.
+    const STATUS_THROTTLE_MS = 8_000;
     let lastEditTime = 0;
-    const updateReply = async (text: string): Promise<void> => {
-      const now = Date.now();
-      if (now - lastEditTime < 1300) {
+    let pendingFlush: NodeJS.Timeout | null = null;
+    let pendingText = '';
+
+    const flushStatus = async (): Promise<void> => {
+      if (pendingFlush) {
+        clearTimeout(pendingFlush);
+        pendingFlush = null;
+      }
+      if (!ctx.chat?.id || !pendingText) {
         return;
       }
-
-      if (!ctx.chat?.id) {
-        return;
-      }
-
       try {
-        await ctx.api.editMessageText(ctx.chat.id, statusMessage.message_id, limitText(text));
-        lastEditTime = now;
+        await ctx.api.editMessageText(ctx.chat.id, statusMessage.message_id, limitText(pendingText));
+        lastEditTime = Date.now();
+        pendingText = '';
       } catch {
-        // ignore rate errors, final message still posted
+        // ignore rate errors — final message still posted
       }
     };
+
+    // Call this instead of ctx.api.editMessageText directly.
+    // Emits immediately if cooldown has passed, otherwise schedules a deferred flush.
+    const scheduleUpdate = (text: string): void => {
+      pendingText = text;
+      const gap = Date.now() - lastEditTime;
+      if (gap >= STATUS_THROTTLE_MS) {
+        void flushStatus();
+      } else if (!pendingFlush) {
+        pendingFlush = setTimeout(() => void flushStatus(), STATUS_THROTTLE_MS - gap);
+      }
+      // else: already scheduled, pendingText is updated above
+    };
+    // ─────────────────────────────────────────────────────────────────────────
 
     let unsubscribe: (() => void) | null = null;
     const toolStartedAt = new Map<string, number>();
     let lastEventAt = Date.now();
     let lastEventLabel = 'task_started';
-    let phaseLabel = 'Обработка запроса';
+    let phaseLabel = 'Processing';
 
-    const formatProgress = (): string => {
-      return phaseLabel;
-    };
+    const formatProgress = (): string => phaseLabel;
 
     const setPhase = (nextPhase: string): void => {
       if (phaseLabel === nextPhase) {
         return;
       }
-
       phaseLabel = nextPhase;
       this.currentPhase = nextPhase;
       this.pushLog(`[phase] ${nextPhase}`);
       this.setStatus(`Running: ${nextPhase}`);
-      void updateReply(formatProgress());
+      scheduleUpdate(formatProgress());
     };
 
     const sendTyping = async (): Promise<void> => {
@@ -469,13 +487,18 @@ export class TelegramChannel {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       const staleSec = Math.floor((Date.now() - lastEventAt) / 1000);
       this.pushLog(`[heartbeat] running ${elapsed}s • last_event=${lastEventLabel} (${staleSec}s ago)`);
-      void updateReply(formatProgress());
+      // Heartbeat does NOT trigger extra Telegram edits — the throttled updater
+      // already handles periodic status. We only log here and check the watchdog.
       if (staleSec >= 180) {
         this.pushLog('[watchdog] no runtime events for 180s, aborting task');
         this.abortRuntime();
       }
     }, 12_000);
     const cleanup = () => {
+      if (pendingFlush) {
+        clearTimeout(pendingFlush);
+        pendingFlush = null;
+      }
       if (typingInterval) {
         clearInterval(typingInterval);
         typingInterval = null;
@@ -505,25 +528,25 @@ export class TelegramChannel {
         );
       }
       this.pushLog(`[request] prompt="${preview}"`);
-      await updateReply(formatProgress());
+      scheduleUpdate(formatProgress());
 
       unsubscribe = runtime.onEvent((event) => {
         lastEventAt = Date.now();
         lastEventLabel = event.type === 'status' ? `status:${event.message}` : event.type;
         if (event.type === 'text_delta') {
           responseBuffer += event.delta;
-          setPhase('Пишу ответ');
+          setPhase('Writing response');
           this.setStatus('Thinking');
         }
 
         if (event.type === 'tool_start') {
           const phase = describeToolPhase(event.toolName);
-          setPhase(phase);
-          this.setStatus(`Tool ${event.toolName}`);
           toolStartedAt.set(event.toolName, Date.now());
           const argsSummary = summarizeToolArgs(event.args);
           this.pushLog(`[tool:start] ${event.toolName}${argsSummary ? ` ${argsSummary}` : ''}`);
-          void updateReply(`${phase}\nTool: ${event.toolName}${argsSummary ? ` (${argsSummary})` : ''}`);
+          this.setStatus(`Tool ${event.toolName}`);
+          // setPhase handles throttled Telegram edit
+          setPhase(`${phase} · ${event.toolName}`);
         }
 
         if (event.type === 'tool_end') {
@@ -537,9 +560,9 @@ export class TelegramChannel {
           );
           if (event.isError) {
             const shortError = errorSummary || 'tool failed';
-            setPhase(`Ошибка инструмента: ${event.toolName} — ${shortError}`);
+            setPhase(`Tool error: ${event.toolName} — ${shortError}`);
           } else {
-            setPhase('Проверяю результат инструмента');
+            setPhase('Reviewing tool result');
           }
         }
 
@@ -554,25 +577,26 @@ export class TelegramChannel {
         }
 
         if (event.type === 'error') {
-          setPhase('Ошибка во время выполнения');
+          setPhase('Runtime error');
           this.pushLog(`[error] ${event.message}`);
         }
 
         if (event.type === 'done') {
-          setPhase('Почти готово, отправляю ответ');
+          setPhase('Finalising response');
           this.setStatus('Idle');
           this.pushLog('[done]');
         }
       });
 
-      await updateReply(
-        `Запускаю (${this.runtimeEngine || runtime.engine})\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`
-      );
+      // Initial status — send immediately (lastEditTime is 0 → gap >= throttle)
+      scheduleUpdate(`Starting (${this.runtimeEngine || runtime.engine})\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
 
       await runtime.prompt(normalizedTask);
 
       this.lastResponse = responseBuffer.trim().length > 0 ? responseBuffer : 'Done.';
       this.lastActivityAt = Date.now();
+      // Flush any pending status before replacing it with the final answer
+      await flushStatus();
       await this.editMessageMarkdown(ctx, statusMessage.message_id, this.lastResponse);
     } catch (error) {
       this.setStatus('Error');
