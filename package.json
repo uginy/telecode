@@ -111,7 +111,7 @@
         },
         "aisCode.model": {
           "type": "string",
-          "default": "google/gemini-2.0-flash-exp:free",
+          "default": "arcee-ai/trinity-large-preview:free",
           "enum": [
             "google/gemini-2.0-flash-exp:free",
             "google/gemini-2.0-flash-thinking-exp:free",
@@ -122,7 +122,7 @@
             "deepseek/deepseek-coder"
           ],
           "enumDescriptions": [
-            "Gemini 2.0 Flash (Free on OpenRouter)",
+            "arcee-ai/trinity-large-preview:free",
             "Gemini 2.0 Flash Thinking (Free on OpenRouter)",
             "Qwen 2.5 Coder 32B (Great for code/OpenRouter)",
             "Claude 3.5 Sonnet",
@@ -130,7 +130,7 @@
             "DeepSeek V3",
             "DeepSeek Coder"
           ],
-          "description": "Model ID (e.g., google/gemini-2.0-flash-exp:free). You can type any custom model ID manually in settings.json"
+          "description": "Model ID (e.g., arcee-ai/trinity-large-preview:free). You can type any custom model ID manually in settings.json"
         },
         "aisCode.apiKey": {
           "type": "string",
@@ -156,6 +156,16 @@
           "type": "string",
           "default": "",
           "description": "Your Telegram chat ID"
+        },
+        "aisCode.telegram.apiRoot": {
+          "type": "string",
+          "default": "https://api.telegram.org",
+          "description": "Telegram Bot API root URL (advanced networking)"
+        },
+        "aisCode.telegram.forceIPv4": {
+          "type": "boolean",
+          "default": true,
+          "description": "Force IPv4 for Telegram API requests (helps on broken IPv6 networks)"
         },
         "aisCode.whatsapp.enabled": {
           "type": "boolean",
@@ -203,7 +213,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "npm run build:extension",
-    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --keep-names",
     "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch=forever",
     "lint": "eslint src --ext ts",
     "package": "vsce package"

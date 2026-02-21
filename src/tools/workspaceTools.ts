@@ -5,7 +5,17 @@ import * as vscode from 'vscode';
 import { Type, type Static } from '@mariozechner/pi-ai';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 
-type ToolName = 'read_file' | 'write_file' | 'edit_file' | 'glob' | 'grep' | 'bash';
+type ToolName =
+  | 'read_file'
+  | 'write_file'
+  | 'edit_file'
+  | 'glob'
+  | 'grep'
+  | 'bash'
+  | 'list_directory'
+  | 'set_working_directory'
+  | 'open_workspace'
+  | 'get_context';
 
 const DEFAULT_EXCLUDE = '**/{.git,node_modules,dist,.next,.turbo,coverage}/**';
 const MAX_TEXT_OUTPUT_CHARS = 120_000;
@@ -56,11 +66,32 @@ type GrepParams = Static<typeof grepParams>;
 
 const bashParams = Type.Object({
   command: Type.String({ description: 'Shell command to execute' }),
-  cwd: Type.Optional(Type.String({ description: 'Optional workspace-relative working directory' })),
+  cwd: Type.Optional(Type.String({ description: 'Optional absolute/relative working directory' })),
   timeoutMs: Type.Optional(Type.Integer({ minimum: 1000, maximum: 300000, description: 'Timeout in milliseconds' })),
 });
 
 type BashParams = Static<typeof bashParams>;
+
+const listDirectoryParams = Type.Object({
+  path: Type.Optional(Type.String({ description: 'Absolute path or path relative to current working directory' })),
+  recursive: Type.Optional(Type.Boolean({ description: 'List recursively (default: false)' })),
+  maxResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 5000, description: 'Result cap (default: 500)' })),
+});
+
+type ListDirectoryParams = Static<typeof listDirectoryParams>;
+
+const setWorkingDirectoryParams = Type.Object({
+  path: Type.String({ description: 'Absolute path or path relative to current working directory' }),
+});
+
+type SetWorkingDirectoryParams = Static<typeof setWorkingDirectoryParams>;
+
+const openWorkspaceParams = Type.Object({
+  path: Type.String({ description: 'Path to folder to open as VS Code workspace' }),
+  newWindow: Type.Optional(Type.Boolean({ description: 'Open in a new window (default: false)' })),
+});
+
+type OpenWorkspaceParams = Static<typeof openWorkspaceParams>;
 
 interface ProcessResult {
   stdout: string;
@@ -71,28 +102,16 @@ interface ProcessResult {
 
 function getWorkspaceRoot(): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) {
-    throw new Error('Open a workspace folder before using AIS Code tools.');
-  }
-  return folder.uri.fsPath;
+  return folder ? folder.uri.fsPath : process.cwd();
 }
 
-function resolveWorkspacePath(rawPath: string, workspaceRoot: string): string {
-  const candidate = path.isAbsolute(rawPath)
-    ? path.normalize(rawPath)
-    : path.resolve(workspaceRoot, rawPath);
-
-  const relative = path.relative(workspaceRoot, candidate);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Path is outside the workspace: ${rawPath}`);
-  }
-
-  return candidate;
+function resolveToolPath(rawPath: string, cwd: string): string {
+  return path.isAbsolute(rawPath) ? path.normalize(rawPath) : path.resolve(cwd, rawPath);
 }
 
-function toRelativePath(fsPath: string, workspaceRoot: string): string {
-  const relative = path.relative(workspaceRoot, fsPath);
-  return relative.length > 0 ? relative : '.';
+function renderPath(fsPath: string, cwd: string): string {
+  const relative = path.relative(cwd, fsPath);
+  return relative.length > 0 && !relative.startsWith('..') ? relative : fsPath;
 }
 
 function trimOutput(text: string, maxChars = MAX_TEXT_OUTPUT_CHARS): string {
@@ -161,7 +180,7 @@ async function fallbackGrep(
   query: string,
   glob: string | undefined,
   maxResults: number,
-  workspaceRoot: string
+  baseDirectory: string
 ): Promise<string> {
   const files = await vscode.workspace.findFiles(glob || '**/*', DEFAULT_EXCLUDE, 500);
   const matches: string[] = [];
@@ -176,7 +195,7 @@ async function fallbackGrep(
 
     for (let index = 0; index < lines.length; index += 1) {
       if (lines[index].includes(query)) {
-        matches.push(`${toRelativePath(file.fsPath, workspaceRoot)}:${index + 1}:${lines[index]}`);
+        matches.push(`${renderPath(file.fsPath, baseDirectory)}:${index + 1}:${lines[index]}`);
         if (matches.length >= maxResults) {
           break;
         }
@@ -195,6 +214,15 @@ function countOccurrences(haystack: string, needle: string): number {
 }
 
 export function createWorkspaceTools(): AgentTool[] {
+  let workingDirectory = getWorkspaceRoot();
+
+  const resolveCwdInput = (cwdInput?: string): string => {
+    if (!cwdInput || cwdInput.trim().length === 0) {
+      return workingDirectory;
+    }
+    return resolveToolPath(cwdInput.trim(), workingDirectory);
+  };
+
   return [
     {
       name: 'read_file',
@@ -203,8 +231,7 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: readFileParams,
       execute: async (_toolCallId, params) => {
         const typed = params as ReadFileParams;
-        const workspaceRoot = getWorkspaceRoot();
-        const filePath = resolveWorkspacePath(typed.path, workspaceRoot);
+        const filePath = resolveToolPath(typed.path, workingDirectory);
 
         const content = await fs.readFile(filePath, 'utf8');
         const lines = content.split(/\r?\n/);
@@ -221,7 +248,7 @@ export function createWorkspaceTools(): AgentTool[] {
         return {
           content: [{ type: 'text', text: trimOutput(selected) }],
           details: {
-            path: toRelativePath(filePath, workspaceRoot),
+            path: renderPath(filePath, workingDirectory),
             startLine,
             endLine,
             totalLines: lines.length,
@@ -236,16 +263,15 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: writeFileParams,
       execute: async (_toolCallId, params) => {
         const typed = params as WriteFileParams;
-        const workspaceRoot = getWorkspaceRoot();
-        const filePath = resolveWorkspacePath(typed.path, workspaceRoot);
+        const filePath = resolveToolPath(typed.path, workingDirectory);
 
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         await fs.writeFile(filePath, typed.content, 'utf8');
 
         return {
-          content: [{ type: 'text', text: `Wrote ${typed.content.length} chars to ${toRelativePath(filePath, workspaceRoot)}` }],
+          content: [{ type: 'text', text: `Wrote ${typed.content.length} chars to ${renderPath(filePath, workingDirectory)}` }],
           details: {
-            path: toRelativePath(filePath, workspaceRoot),
+            path: renderPath(filePath, workingDirectory),
             bytes: Buffer.byteLength(typed.content, 'utf8'),
           },
         };
@@ -258,8 +284,7 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: editFileParams,
       execute: async (_toolCallId, params) => {
         const typed = params as EditFileParams;
-        const workspaceRoot = getWorkspaceRoot();
-        const filePath = resolveWorkspacePath(typed.path, workspaceRoot);
+        const filePath = resolveToolPath(typed.path, workingDirectory);
 
         if (typed.oldText.length === 0) {
           throw new Error('oldText must not be empty.');
@@ -269,12 +294,12 @@ export function createWorkspaceTools(): AgentTool[] {
         const occurrences = countOccurrences(source, typed.oldText);
 
         if (occurrences === 0) {
-          throw new Error(`No matches found for oldText in ${toRelativePath(filePath, workspaceRoot)}.`);
+          throw new Error(`No matches found for oldText in ${renderPath(filePath, workingDirectory)}.`);
         }
 
         if (typed.expectedOccurrences !== undefined && occurrences !== typed.expectedOccurrences) {
           throw new Error(
-            `Expected ${typed.expectedOccurrences} occurrences but found ${occurrences} in ${toRelativePath(filePath, workspaceRoot)}.`
+            `Expected ${typed.expectedOccurrences} occurrences but found ${occurrences} in ${renderPath(filePath, workingDirectory)}.`
           );
         }
 
@@ -290,11 +315,11 @@ export function createWorkspaceTools(): AgentTool[] {
           content: [
             {
               type: 'text',
-              text: `Updated ${toRelativePath(filePath, workspaceRoot)} (${replacementCount} replacement${replacementCount === 1 ? '' : 's'}).`,
+              text: `Updated ${renderPath(filePath, workingDirectory)} (${replacementCount} replacement${replacementCount === 1 ? '' : 's'}).`,
             },
           ],
           details: {
-            path: toRelativePath(filePath, workspaceRoot),
+            path: renderPath(filePath, workingDirectory),
             replacements: replacementCount,
           },
         };
@@ -303,24 +328,45 @@ export function createWorkspaceTools(): AgentTool[] {
     {
       name: 'glob',
       label: 'Glob',
-      description: 'Find files using a glob pattern.',
+      description: 'Find files in current working directory using ripgrep file listing.',
       parameters: globParams,
       execute: async (_toolCallId, params) => {
         const typed = params as GlobParams;
-        const workspaceRoot = getWorkspaceRoot();
+        const maxResults = typed.maxResults ?? 200;
+        const cwd = workingDirectory;
+        const exclude = typed.exclude || DEFAULT_EXCLUDE;
+        const args = ['--files', '-g', typed.pattern, '-g', `!${exclude}`];
 
-        const files = await vscode.workspace.findFiles(
-          typed.pattern,
-          typed.exclude || DEFAULT_EXCLUDE,
-          typed.maxResults ?? 200
-        );
+        const output = await new Promise<string>((resolve, reject) => {
+          const child = spawn('rg', args, { cwd, env: process.env });
+          let stdout = '';
+          let stderr = '';
 
-        const output = files.map((uri) => toRelativePath(uri.fsPath, workspaceRoot)).join('\n');
+          child.stdout.on('data', (chunk: Buffer | string) => {
+            stdout += chunk.toString();
+          });
+
+          child.stderr.on('data', (chunk: Buffer | string) => {
+            stderr += chunk.toString();
+          });
+
+          child.on('error', (error) => reject(error));
+          child.on('close', (exitCode) => {
+            if (exitCode !== 0 && exitCode !== 1) {
+              reject(new Error(stderr || `rg --files failed with exit code ${exitCode}`));
+              return;
+            }
+
+            const lines = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+            resolve(lines.slice(0, maxResults).join('\n'));
+          });
+        });
 
         return {
           content: [{ type: 'text', text: output || 'No files matched.' }],
           details: {
-            count: files.length,
+            cwd,
+            maxResults,
           },
         };
       },
@@ -332,7 +378,7 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: grepParams,
       execute: async (_toolCallId, params) => {
         const typed = params as GrepParams;
-        const workspaceRoot = getWorkspaceRoot();
+        const cwd = workingDirectory;
         const maxResults = typed.maxResults ?? 200;
 
         const args = ['--line-number', '--no-heading', '--color', 'never', '--max-count', String(maxResults)];
@@ -343,7 +389,7 @@ export function createWorkspaceTools(): AgentTool[] {
 
         const output = await new Promise<string>((resolve, reject) => {
           const child = spawn('rg', args, {
-            cwd: workspaceRoot,
+            cwd,
             env: process.env,
           });
 
@@ -360,7 +406,7 @@ export function createWorkspaceTools(): AgentTool[] {
 
           child.on('error', async (error: NodeJS.ErrnoException) => {
             if (error.code === 'ENOENT') {
-              resolve(await fallbackGrep(typed.query, typed.glob, maxResults, workspaceRoot));
+              resolve(await fallbackGrep(typed.query, typed.glob, maxResults, cwd));
               return;
             }
             reject(error);
@@ -386,6 +432,7 @@ export function createWorkspaceTools(): AgentTool[] {
           details: {
             query: typed.query,
             maxResults,
+            cwd,
           },
         };
       },
@@ -397,12 +444,11 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: bashParams,
       execute: async (_toolCallId, params, signal, onUpdate) => {
         const typed = params as BashParams;
-        const workspaceRoot = getWorkspaceRoot();
-        const cwd = typed.cwd ? resolveWorkspacePath(typed.cwd, workspaceRoot) : workspaceRoot;
+        const cwd = resolveCwdInput(typed.cwd);
         const timeoutMs = typed.timeoutMs ?? DEFAULT_BASH_TIMEOUT_MS;
 
         onUpdate?.({
-          content: [{ type: 'text', text: `Running in ${toRelativePath(cwd, workspaceRoot)}: ${typed.command}` }],
+          content: [{ type: 'text', text: `Running in ${renderPath(cwd, workingDirectory)}: ${typed.command}` }],
           details: {},
         });
 
@@ -426,9 +472,104 @@ export function createWorkspaceTools(): AgentTool[] {
           content: [{ type: 'text', text: trimOutput(rendered) }],
           details: {
             command: typed.command,
-            cwd: toRelativePath(cwd, workspaceRoot),
+            cwd,
             exitCode: result.exitCode,
           },
+        };
+      },
+    },
+    {
+      name: 'list_directory',
+      label: 'List',
+      description: 'List files/directories in any path on this machine.',
+      parameters: listDirectoryParams,
+      execute: async (_toolCallId, params) => {
+        const typed = params as ListDirectoryParams;
+        const target = resolveCwdInput(typed.path);
+        const maxResults = typed.maxResults ?? 500;
+        const recursive = typed.recursive === true;
+        const command = recursive
+          ? `find . -mindepth 1 -print | sed 's#^./##' | head -n ${maxResults}`
+          : `ls -la`;
+        const result = await runShellCommand(command, target, DEFAULT_BASH_TIMEOUT_MS);
+
+        if (result.exitCode !== 0) {
+          throw new Error(result.stderr || `Failed to list directory ${target}`);
+        }
+
+        return {
+          content: [{ type: 'text', text: result.stdout.length > 0 ? result.stdout : '(empty)' }],
+          details: {
+            cwd: target,
+            recursive,
+            maxResults,
+          },
+        };
+      },
+    },
+    {
+      name: 'set_working_directory',
+      label: 'Set CWD',
+      description: 'Switch current working directory for all other tools.',
+      parameters: setWorkingDirectoryParams,
+      execute: async (_toolCallId, params) => {
+        const typed = params as SetWorkingDirectoryParams;
+        const next = resolveToolPath(typed.path, workingDirectory);
+        const stat = await fs.stat(next);
+        if (!stat.isDirectory()) {
+          throw new Error(`Not a directory: ${next}`);
+        }
+        workingDirectory = next;
+        return {
+          content: [{ type: 'text', text: `Working directory switched to: ${workingDirectory}` }],
+          details: { cwd: workingDirectory },
+        };
+      },
+    },
+    {
+      name: 'open_workspace',
+      label: 'Open Workspace',
+      description: 'Open another folder as VS Code workspace.',
+      parameters: openWorkspaceParams,
+      execute: async (_toolCallId, params) => {
+        const typed = params as OpenWorkspaceParams;
+        const target = resolveToolPath(typed.path, workingDirectory);
+        const stat = await fs.stat(target);
+        if (!stat.isDirectory()) {
+          throw new Error(`Not a directory: ${target}`);
+        }
+
+        const ok = await vscode.commands.executeCommand<boolean>(
+          'vscode.openFolder',
+          vscode.Uri.file(target),
+          typed.newWindow === true
+        );
+        workingDirectory = target;
+
+        return {
+          content: [{ type: 'text', text: `Workspace open requested: ${target} (newWindow=${typed.newWindow === true})` }],
+          details: { path: target, result: ok === true ? 'ok' : 'requested' },
+        };
+      },
+    },
+    {
+      name: 'get_context',
+      label: 'Context',
+      description: 'Show current agent execution context.',
+      parameters: Type.Object({}),
+      execute: async () => {
+        const workspaceFolders = (vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: [
+                `workingDirectory: ${workingDirectory}`,
+                `workspaceFolders: ${workspaceFolders.length > 0 ? workspaceFolders.join(', ') : '(none)'}`,
+              ].join('\n'),
+            },
+          ],
+          details: { workingDirectory, workspaceFolders },
         };
       },
     },
@@ -442,7 +583,13 @@ const TOOL_NAME_ALIASES: Record<ToolName, string[]> = {
   glob: ['glob'],
   grep: ['grep'],
   bash: ['bash'],
+  list_directory: ['list', 'list_directory'],
+  set_working_directory: ['set_cwd', 'set_working_directory'],
+  open_workspace: ['open_workspace', 'workspace'],
+  get_context: ['get_context', 'context'],
 };
+
+const ALWAYS_ALLOWED_TOOLS = new Set(['set_working_directory', 'list_directory', 'open_workspace', 'get_context']);
 
 export function filterToolsByAllowed(tools: AgentTool[], allowedTools: string[]): AgentTool[] {
   const normalizedAllowed = new Set(allowedTools.map((name) => name.trim().toLowerCase()));
@@ -452,6 +599,9 @@ export function filterToolsByAllowed(tools: AgentTool[], allowedTools: string[])
   }
 
   const filtered = tools.filter((tool) => {
+    if (ALWAYS_ALLOWED_TOOLS.has(tool.name)) {
+      return true;
+    }
     const aliases = TOOL_NAME_ALIASES[tool.name as ToolName] || [tool.name.toLowerCase()];
     return aliases.some((alias) => normalizedAllowed.has(alias));
   });

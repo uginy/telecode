@@ -17,11 +17,16 @@ export interface ChatViewSettings {
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
+  telegramApiRoot: string;
+  telegramForceIPv4: boolean;
 }
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private webview?: vscode.Webview;
   private status = 'Idle';
+  private buildInfo = '';
+  private progressText = 'Idle';
+  private progressBusy = false;
   private output = 'Ready. Start the agent and run a task.';
 
   private readonly commandEmitter = new vscode.EventEmitter<ChatViewCommand>();
@@ -44,6 +49,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.renderHtml(webviewView.webview);
 
     this.post({ type: 'status', text: this.status });
+    this.post({ type: 'buildInfo', text: this.buildInfo });
+    this.post({ type: 'progress', text: this.progressText, busy: this.progressBusy });
     this.post({ type: 'replaceOutput', text: this.output });
 
     webviewView.webview.onDidReceiveMessage((message: unknown) => {
@@ -90,6 +97,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',
+            telegramApiRoot: typeof raw.telegramApiRoot === 'string' ? raw.telegramApiRoot : '',
+            telegramForceIPv4: raw.telegramForceIPv4 !== false,
           },
         });
       }
@@ -103,6 +112,17 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   setStatus(status: string): void {
     this.status = status;
     this.post({ type: 'status', text: status });
+  }
+
+  setBuildInfo(info: string): void {
+    this.buildInfo = info;
+    this.post({ type: 'buildInfo', text: info });
+  }
+
+  setProgress(text: string, busy: boolean): void {
+    this.progressText = text;
+    this.progressBusy = busy;
+    this.post({ type: 'progress', text, busy });
   }
 
   appendOutput(text: string): void {
@@ -156,6 +176,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     body {
       margin: 0;
       padding: 14px;
+      box-sizing: border-box;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
       font-family: var(--vscode-font-family);
       color: var(--vscode-foreground);
       background: var(--vscode-editor-background);
@@ -180,6 +204,49 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       border: 1px solid var(--border);
       font-size: 11px;
       background: var(--panel);
+    }
+
+    .meta {
+      margin-bottom: 10px;
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .progress {
+      margin-bottom: 10px;
+    }
+
+    .progress-text {
+      font-size: 11px;
+      opacity: 0.88;
+      margin-bottom: 4px;
+    }
+
+    .progress-bar {
+      height: 4px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      background: var(--accent);
+      opacity: 0;
+      transition: width 120ms ease, opacity 120ms ease;
+    }
+
+    .progress-fill.busy {
+      width: 36%;
+      opacity: 1;
+      animation: progress-slide 1.2s ease-in-out infinite;
+    }
+
+    @keyframes progress-slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
     }
 
     .controls {
@@ -292,8 +359,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       border-radius: 8px;
       padding: 10px;
       background: var(--panel);
-      min-height: 220px;
-      max-height: 48vh;
+      min-height: 200px;
+      flex: 1 1 auto;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
@@ -307,6 +374,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <div class="header">
     <h1 class="title">AIS Code</h1>
     <span id="status" class="status">Idle</span>
+  </div>
+  <div id="buildInfo" class="meta">Last update: unknown</div>
+  <div class="progress">
+    <div id="progressText" class="progress-text">Idle</div>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
   </div>
 
   <div class="controls">
@@ -360,6 +432,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         <label for="telegramChatId">Telegram Chat ID</label>
         <input id="telegramChatId" type="text" />
       </div>
+      <div class="field full">
+        <label for="telegramApiRoot">Telegram API Root</label>
+        <input id="telegramApiRoot" type="text" />
+      </div>
+      <div class="field checkbox full">
+        <input id="telegramForceIPv4" type="checkbox" />
+        <label for="telegramForceIPv4">Force IPv4 (recommended)</label>
+      </div>
       <div class="settings-actions">
         <button id="saveSettingsBtn" type="button">Save Settings</button>
       </div>
@@ -372,6 +452,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const vscode = acquireVsCodeApi();
 
     const statusEl = document.getElementById('status');
+    const buildInfoEl = document.getElementById('buildInfo');
+    const progressTextEl = document.getElementById('progressText');
+    const progressFillEl = document.getElementById('progressFill');
     const outputEl = document.getElementById('output');
     const promptEl = document.getElementById('prompt');
     const startBtnEl = document.getElementById('startBtn');
@@ -386,6 +469,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const telegramEnabledEl = document.getElementById('telegramEnabled');
     const telegramBotTokenEl = document.getElementById('telegramBotToken');
     const telegramChatIdEl = document.getElementById('telegramChatId');
+    const telegramApiRootEl = document.getElementById('telegramApiRoot');
+    const telegramForceIPv4El = document.getElementById('telegramForceIPv4');
+
+    const applyControlState = () => {
+      const status = (statusEl.textContent || '').toLowerCase();
+      const isRunning = status.includes('running') || status.includes('thinking') || status.includes('tool ');
+      const isReady = status.includes('ready');
+
+      startBtnEl.textContent = isReady ? 'Agent Ready' : 'Start Agent';
+      startBtnEl.disabled = isRunning || isReady;
+      stopBtnEl.disabled = !isRunning && !isReady;
+      runBtnEl.disabled = isRunning;
+    };
 
     const appendOutput = (text) => {
       outputEl.textContent += text;
@@ -426,6 +522,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           telegramEnabled: telegramEnabledEl.checked,
           telegramBotToken: telegramBotTokenEl.value.trim(),
           telegramChatId: telegramChatIdEl.value.trim(),
+          telegramApiRoot: telegramApiRootEl.value.trim(),
+          telegramForceIPv4: telegramForceIPv4El.checked,
         },
       });
     });
@@ -442,6 +540,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (message.type === 'status') {
         statusEl.textContent = message.text;
         applyControlState();
+      }
+
+      if (message.type === 'buildInfo') {
+        buildInfoEl.textContent = message.text || 'Last update: unknown';
+      }
+
+      if (message.type === 'progress') {
+        progressTextEl.textContent = message.text || '';
+        if (message.busy === true) {
+          progressFillEl.classList.add('busy');
+        } else {
+          progressFillEl.classList.remove('busy');
+        }
       }
 
       if (message.type === 'replaceOutput') {
@@ -468,6 +579,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         telegramEnabledEl.checked = s.telegramEnabled === true;
         telegramBotTokenEl.value = s.telegramBotToken || '';
         telegramChatIdEl.value = s.telegramChatId || '';
+        telegramApiRootEl.value = s.telegramApiRoot || '';
+        telegramForceIPv4El.checked = s.telegramForceIPv4 !== false;
       }
 
       if (message.type === 'notify' && typeof message.text === 'string') {
@@ -506,13 +619,3 @@ function createNonce(): string {
   }
   return nonce;
 }
-    const applyControlState = () => {
-      const status = (statusEl.textContent || '').toLowerCase();
-      const isRunning = status === 'running';
-      const isReady = status === 'ready';
-
-      startBtnEl.textContent = isReady ? 'Agent Ready' : 'Start Agent';
-      startBtnEl.disabled = isRunning || isReady;
-      stopBtnEl.disabled = !isRunning && status !== 'ready';
-      runBtnEl.disabled = isRunning;
-    };

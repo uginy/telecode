@@ -14,6 +14,8 @@ export interface TelegramSettings {
   enabled: boolean;
   botToken: string;
   chatId?: string;
+  apiRoot?: string;
+  forceIPv4: boolean;
 }
 
 export interface AISCodeSettings {
@@ -60,7 +62,7 @@ export function readAISCodeSettings(): AISCodeSettings {
     engineRaw === 'nanoclaw' || engineRaw === 'pi' ? engineRaw : 'auto';
 
   const provider = (config.get<string>('provider') || 'openrouter').trim();
-  const model = (config.get<string>('model') || 'google/gemini-2.0-flash-exp:free').trim();
+  const model = (config.get<string>('model') || 'arcee-ai/trinity-large-preview:free').trim();
   const apiKey = (config.get<string>('apiKey') || '').trim();
   const baseUrlRaw = (config.get<string>('baseUrl') || '').trim();
 
@@ -70,6 +72,8 @@ export function readAISCodeSettings(): AISCodeSettings {
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
   const telegramChatIdRaw = (config.get<string>('telegram.chatId') || '').trim();
+  const telegramApiRootRaw = (config.get<string>('telegram.apiRoot') || '').trim();
+  const telegramForceIPv4 = config.get<boolean>('telegram.forceIPv4', true) !== false;
 
   return {
     agent: {
@@ -85,6 +89,8 @@ export function readAISCodeSettings(): AISCodeSettings {
       enabled: telegramEnabled,
       botToken: telegramBotToken,
       chatId: telegramChatIdRaw.length > 0 ? telegramChatIdRaw : undefined,
+      apiRoot: telegramApiRootRaw.length > 0 ? telegramApiRootRaw : undefined,
+      forceIPv4: telegramForceIPv4,
     },
   };
 }

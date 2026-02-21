@@ -51,12 +51,12 @@ export class PiRuntime implements AgentRuntime {
     }
 
     if (event.type === 'tool_execution_start') {
-      this.emit({ type: 'tool_start', toolName: event.toolName });
+      this.emit({ type: 'tool_start', toolName: event.toolName, args: event.args });
       return;
     }
 
     if (event.type === 'tool_execution_end') {
-      this.emit({ type: 'tool_end', toolName: event.toolName, isError: event.isError });
+      this.emit({ type: 'tool_end', toolName: event.toolName, isError: event.isError, result: event.result });
       return;
     }
 

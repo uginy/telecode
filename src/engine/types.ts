@@ -1,7 +1,7 @@
 export type RuntimeEvent =
   | { type: 'text_delta'; delta: string }
-  | { type: 'tool_start'; toolName: string }
-  | { type: 'tool_end'; toolName: string; isError: boolean }
+  | { type: 'tool_start'; toolName: string; args?: unknown }
+  | { type: 'tool_end'; toolName: string; isError: boolean; result?: unknown }
   | { type: 'status'; message: string }
   | { type: 'done' }
   | { type: 'error'; message: string };

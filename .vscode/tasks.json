@@ -6,6 +6,10 @@
       "command": "npm run build",
       "group": "build",
       "problemMatcher": [],
+      "presentation": {
+        "reveal": "never",
+        "panel": "shared"
+      },
       "label": "ais: build"
     },
     {
@@ -13,6 +17,10 @@
       "command": "npm run watch",
       "group": "build",
       "isBackground": true,
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated"
+      },
       "problemMatcher": [
         {
           "owner": "esbuild",

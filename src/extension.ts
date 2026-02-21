@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'node:fs';
 import { type AgentTool } from '@mariozechner/pi-agent-core';
 import { TelegramChannel } from './channels/telegram';
 import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
@@ -20,6 +21,12 @@ let pendingSettingsSync = false;
 let pendingRuntimeRestart = false;
 let autoReloadTimer: NodeJS.Timeout | null = null;
 let isReloadInProgress = false;
+let devReloadArmedAt = 0;
+let progressTimer: NodeJS.Timeout | null = null;
+let statusStartedAt = 0;
+let activeStatus = 'Idle';
+let toolCountInRun = 0;
+let lastToolStatus = '';
 
 export function activate(context: vscode.ExtensionContext): void {
   chatProvider = new ChatViewProvider(context.extensionUri);
@@ -81,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   refreshTelegramChannel();
   syncSettingsToChatView();
+  syncBuildInfoToChatView();
   setStatus('Idle');
   setupDevAutoReload(context);
 }
@@ -98,6 +106,10 @@ export function deactivate(): void {
   if (telegramRefreshTimer) {
     clearTimeout(telegramRefreshTimer);
     telegramRefreshTimer = null;
+  }
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
   }
   telegramChannel?.stop();
   telegramChannel = null;
@@ -152,6 +164,15 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 
     sessionApiKey = enteredApiKey.trim();
     apiKey = sessionApiKey;
+
+    try {
+      await vscode.workspace
+        .getConfiguration('aisCode')
+        .update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendOutput(`\n[settings:warn] Failed to persist API key: ${message}\n`);
+    }
   }
 
   const config: RuntimeConfig = {
@@ -248,24 +269,41 @@ function refreshTelegramChannel(): void {
   const settings = readAISCodeSettings();
   const tools = resolveTools(settings.agent.allowedTools);
 
-  telegramChannel = new TelegramChannel(tools);
+  telegramChannel = new TelegramChannel(
+    tools,
+    (line) => {
+      appendOutput(`\n[telegram] ${line}\n`);
+    },
+    (status) => {
+      setStatus(status);
+    }
+  );
   void telegramChannel.start();
 }
 
 async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<void> {
   const config = vscode.workspace.getConfiguration('aisCode');
   const target = vscode.ConfigurationTarget.Global;
+  const apiKey = settings.apiKey.trim();
+  const telegramBotToken = settings.telegramBotToken.trim();
 
   try {
     await config.update('engine', settings.engine, target);
     await config.update('provider', settings.provider, target);
     await config.update('model', settings.model, target);
-    await config.update('apiKey', settings.apiKey, target);
+    if (apiKey.length > 0) {
+      await config.update('apiKey', apiKey, target);
+      sessionApiKey = apiKey;
+    }
     await config.update('baseUrl', settings.baseUrl, target);
     await config.update('maxSteps', settings.maxSteps, target);
     await config.update('telegram.enabled', settings.telegramEnabled, target);
-    await config.update('telegram.botToken', settings.telegramBotToken, target);
+    if (telegramBotToken.length > 0) {
+      await config.update('telegram.botToken', telegramBotToken, target);
+    }
     await config.update('telegram.chatId', settings.telegramChatId, target);
+    await config.update('telegram.apiRoot', settings.telegramApiRoot, target);
+    await config.update('telegram.forceIPv4', settings.telegramForceIPv4, target);
 
     syncSettingsToChatView();
     chatProvider?.notify('saved to user settings');
@@ -370,7 +408,9 @@ function appendOutput(text: string): void {
 }
 
 function setStatus(status: string): void {
+  activeStatus = status;
   chatProvider?.setStatus(status);
+  syncProgressState(status);
 }
 
 function getPrimaryWorkspaceRoot(): string {
@@ -391,6 +431,7 @@ function setupDevAutoReload(context: vscode.ExtensionContext): void {
 
   const watcher = vscode.workspace.createFileSystemWatcher('**/dist/extension.js');
   const onBundled = () => scheduleDevReload();
+  devReloadArmedAt = Date.now() + 4_000;
 
   watcher.onDidChange(onBundled);
   watcher.onDidCreate(onBundled);
@@ -398,6 +439,10 @@ function setupDevAutoReload(context: vscode.ExtensionContext): void {
 }
 
 function scheduleDevReload(): void {
+  if (Date.now() < devReloadArmedAt) {
+    return;
+  }
+
   if (isReloadInProgress) {
     return;
   }
@@ -425,5 +470,78 @@ function syncSettingsToChatView(): void {
     telegramEnabled: settings.telegram.enabled,
     telegramBotToken: settings.telegram.botToken,
     telegramChatId: settings.telegram.chatId || '',
+    telegramApiRoot: settings.telegram.apiRoot || 'https://api.telegram.org',
+    telegramForceIPv4: settings.telegram.forceIPv4,
   });
+}
+
+function syncBuildInfoToChatView(): void {
+  const loadedAt = new Date().toLocaleString();
+  let builtAt = 'unknown';
+
+  try {
+    const stat = fs.statSync(__filename);
+    builtAt = stat.mtime.toLocaleString();
+  } catch {
+    // keep unknown
+  }
+
+  chatProvider?.setBuildInfo(`Last update: build ${builtAt} | loaded ${loadedAt}`);
+}
+
+function isBusyStatus(status: string): boolean {
+  const lower = status.trim().toLowerCase();
+  return (
+    lower.includes('running') ||
+    lower.includes('thinking') ||
+    lower.includes('tool ') ||
+    lower.includes('connecting')
+  );
+}
+
+function syncProgressState(status: string): void {
+  const busy = isBusyStatus(status);
+  if (!busy) {
+    statusStartedAt = 0;
+    toolCountInRun = 0;
+    lastToolStatus = '';
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+    chatProvider?.setProgress(status, false);
+    return;
+  }
+
+  if (statusStartedAt === 0) {
+    statusStartedAt = Date.now();
+    toolCountInRun = 0;
+    lastToolStatus = '';
+  }
+
+  const lower = status.toLowerCase();
+  if (lower.includes('tool ') && status !== lastToolStatus) {
+    toolCountInRun += 1;
+    lastToolStatus = status;
+  }
+
+  publishProgress();
+
+  if (!progressTimer) {
+    progressTimer = setInterval(() => {
+      publishProgress();
+    }, 1000);
+  }
+}
+
+function publishProgress(): void {
+  if (statusStartedAt === 0) {
+    chatProvider?.setProgress(activeStatus, false);
+    return;
+  }
+
+  const elapsedSec = Math.max(0, Math.floor((Date.now() - statusStartedAt) / 1000));
+  const maxSteps = readAISCodeSettings().agent.maxSteps;
+  const toolsPart = toolCountInRun > 0 ? ` • tools ${toolCountInRun}/${maxSteps}` : '';
+  chatProvider?.setProgress(`${activeStatus} • ${elapsedSec}s${toolsPart}`, true);
 }

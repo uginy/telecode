@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import * as https from 'node:https';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { Bot, type Context } from 'grammy';
@@ -12,6 +13,7 @@ type EngineName = 'auto' | 'nanoclaw' | 'pi';
 
 const TELEGRAM_TEXT_LIMIT = 3900;
 const LOG_RING_LIMIT = 300;
+type NetworkMode = 'auto' | 'ipv4';
 
 export class TelegramChannel {
   private bot: Bot | null = null;
@@ -22,20 +24,25 @@ export class TelegramChannel {
   private lastResponse = '';
   private readonly logs: string[] = [];
 
-  constructor(private readonly tools: AgentTool[]) {}
+  constructor(
+    private readonly tools: AgentTool[],
+    private readonly onLog?: (line: string) => void,
+    private readonly onStatus?: (status: string) => void
+  ) {}
 
   public async start(): Promise<void> {
     this.stop();
 
     const settings = readAISCodeSettings();
-    const { enabled, botToken, chatId } = settings.telegram;
+    const { enabled, botToken, chatId, apiRoot, forceIPv4 } = settings.telegram;
 
     if (!enabled || !botToken) {
+      this.pushLog('[telegram] disabled or missing bot token');
+      this.setStatus('Idle');
       return;
     }
 
     try {
-      this.bot = new Bot(botToken);
       const allowedChatId = parseTelegramChatId(chatId);
       if (chatId && allowedChatId === null) {
         const message = `AIS Code Telegram: invalid chatId "${chatId}". Use numeric id like 123456789 or -1001234567890.`;
@@ -43,7 +50,36 @@ export class TelegramChannel {
         vscode.window.showWarningMessage(message);
       }
 
+      const preferredMode: NetworkMode = forceIPv4 ? 'ipv4' : 'auto';
+      const fallbackMode: NetworkMode = preferredMode === 'ipv4' ? 'auto' : 'ipv4';
+
+      this.bot = this.createBot(botToken, apiRoot, preferredMode);
+      this.setStatus('Connecting');
+      this.pushLog(
+        `[telegram] starting (chatId=${allowedChatId !== null ? String(allowedChatId) : 'not-set'}, apiRoot=${apiRoot || 'default'}, mode=${preferredMode})`
+      );
+
+      try {
+        await this.verifyBotConnectivity(this.bot);
+      } catch (error) {
+        const message = formatError(error);
+        this.pushLog(`[telegram:error] token/webhook check failed - ${message}`);
+
+        if (isLikelyNetworkError(error)) {
+          this.pushLog(`[telegram] retrying connectivity with mode=${fallbackMode}`);
+          this.bot = this.createBot(botToken, apiRoot, fallbackMode);
+          await this.verifyBotConnectivity(this.bot);
+          this.pushLog(`[telegram] connectivity recovered with mode=${fallbackMode}`);
+        } else {
+          throw error;
+        }
+      }
+
       this.bot.use(async (ctx, next) => {
+        const text = ctx.message && 'text' in ctx.message ? (ctx.message.text || '').trim() : '';
+        const incomingChatId = typeof ctx.chat?.id === 'number' ? String(ctx.chat.id) : '(unknown)';
+        this.pushLog(`[update] chat=${incomingChatId} text=${text || '(non-text)'}`);
+
         if (allowedChatId !== null && ctx.chat?.id !== allowedChatId) {
           const receivedChatId = typeof ctx.chat?.id === 'number' ? String(ctx.chat.id) : '(unknown)';
           this.pushLog(`[blocked] chat id ${receivedChatId}`);
@@ -173,24 +209,71 @@ export class TelegramChannel {
       });
 
       this.bot.catch((error) => {
+        this.pushLog(`[telegram:error] ${formatError(error)}`);
         console.error('AIS Code Telegram error:', error);
       });
 
       await this.bot.start({
         onStart: (botInfo) => {
+          this.setStatus('Idle');
+          this.pushLog(`[telegram] started as @${botInfo.username}`);
           console.log(`AIS Code Telegram started as @${botInfo.username}`);
           vscode.window.showInformationMessage(`AIS Code: Telegram bot started (@${botInfo.username})`);
+          if (allowedChatId !== null) {
+            void this.bot?.api
+              .sendMessage(allowedChatId, 'AIS Code connected. Send /status')
+              .catch((error) => this.pushLog(`[telegram:error] startup ping failed - ${formatError(error)}`));
+          }
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus('Error');
+      const message = formatError(error);
       if (isBenignPollingAbort(message)) {
+        this.pushLog('[telegram] polling aborted during restart');
         console.log('AIS Code Telegram: polling aborted during restart.');
         return;
       }
+      this.pushLog(`[telegram:error] failed to start - ${message}`);
       vscode.window.showErrorMessage(`AIS Code: failed to start Telegram bot - ${message}`);
       console.error(error);
     }
+  }
+
+  private createBot(botToken: string, apiRoot: string | undefined, mode: NetworkMode): Bot {
+    const nativeFetch = (globalThis as { fetch?: typeof fetch }).fetch;
+    if (typeof nativeFetch === 'function') {
+      if (mode === 'ipv4') {
+        this.pushLog('[telegram] using native fetch (forceIPv4 agent bypassed)');
+      }
+      return new Bot(botToken, {
+        client: {
+          ...(apiRoot ? { apiRoot } : {}),
+          fetch: ((...args: any[]) => nativeFetch(...(args as [any, any?]))) as any,
+        },
+      });
+    }
+
+    const httpsAgent = new https.Agent({
+      keepAlive: true,
+      ...(mode === 'ipv4' ? { family: 4 } : {}),
+    });
+
+    return new Bot(botToken, {
+      client: {
+        ...(apiRoot ? { apiRoot } : {}),
+        baseFetchConfig: {
+          agent: httpsAgent,
+        } as Record<string, unknown>,
+      },
+    });
+  }
+
+  private async verifyBotConnectivity(bot: Bot): Promise<void> {
+    const me = await bot.api.getMe();
+    this.pushLog(`[telegram] token ok for @${me.username}`);
+    await bot.api.deleteWebhook({ drop_pending_updates: false });
+    this.pushLog('[telegram] webhook cleared');
   }
 
   public stop(): void {
@@ -202,6 +285,8 @@ export class TelegramChannel {
 
     this.bot.stop();
     this.bot = null;
+    this.setStatus('Idle');
+    this.pushLog('[telegram] stopped');
     console.log('AIS Code Telegram stopped.');
   }
 
@@ -217,6 +302,7 @@ export class TelegramChannel {
     }
 
     this.isProcessing = true;
+    this.setStatus('Running');
     let responseBuffer = '';
     const statusMessage = await ctx.reply('Working on it...');
 
@@ -240,6 +326,7 @@ export class TelegramChannel {
     };
 
     let unsubscribe: (() => void) | null = null;
+    const toolStartedAt = new Map<string, number>();
     try {
       const runtime = this.ensureRuntime();
       responseBuffer = '';
@@ -247,16 +334,25 @@ export class TelegramChannel {
       unsubscribe = runtime.onEvent((event) => {
         if (event.type === 'text_delta') {
           responseBuffer += event.delta;
+          this.setStatus('Thinking');
         }
 
         if (event.type === 'tool_start') {
-          this.pushLog(`[tool:start] ${event.toolName}`);
-          void updateReply(`Running tool: ${event.toolName}`);
+          this.setStatus(`Tool ${event.toolName}`);
+          toolStartedAt.set(event.toolName, Date.now());
+          const argsSummary = summarizeToolArgs(event.args);
+          this.pushLog(`[tool:start] ${event.toolName}${argsSummary ? ` ${argsSummary}` : ''}`);
+          void updateReply(`Running tool: ${event.toolName}${argsSummary ? ` (${argsSummary})` : ''}`);
         }
 
         if (event.type === 'tool_end') {
           const suffix = event.isError ? 'error' : 'done';
-          this.pushLog(`[tool:${suffix}] ${event.toolName}`);
+          const startedAt = toolStartedAt.get(event.toolName);
+          const durationMs = startedAt ? Date.now() - startedAt : null;
+          const resultSummary = summarizeToolResult(event.result);
+          this.pushLog(
+            `[tool:${suffix}] ${event.toolName}${durationMs !== null ? ` ${durationMs}ms` : ''}${resultSummary ? ` ${resultSummary}` : ''}`
+          );
         }
 
         if (event.type === 'status') {
@@ -268,6 +364,7 @@ export class TelegramChannel {
         }
 
         if (event.type === 'done') {
+          this.setStatus('Idle');
           this.pushLog('[done]');
         }
       });
@@ -279,6 +376,7 @@ export class TelegramChannel {
       this.lastResponse = responseBuffer.trim().length > 0 ? responseBuffer : 'Done.';
       await updateReply(this.lastResponse);
     } catch (error) {
+      this.setStatus('Error');
       const message = error instanceof Error ? error.message : String(error);
       this.pushLog(`[error] ${message}`);
       await ctx.reply(limitText(`Agent failed: ${message}`));
@@ -286,6 +384,7 @@ export class TelegramChannel {
     } finally {
       unsubscribe?.();
       this.isProcessing = false;
+      this.setStatus('Idle');
     }
   }
 
@@ -365,6 +464,11 @@ export class TelegramChannel {
     if (this.logs.length > LOG_RING_LIMIT) {
       this.logs.splice(0, this.logs.length - LOG_RING_LIMIT);
     }
+    this.onLog?.(line);
+  }
+
+  private setStatus(status: string): void {
+    this.onStatus?.(`Telegram: ${status}`);
   }
 }
 
@@ -498,6 +602,137 @@ async function rollbackWorkingTree(): Promise<string> {
 function isBenignPollingAbort(message: string): boolean {
   const normalized = message.trim().toLowerCase();
   return normalized.includes('aborted delay') || normalized.includes('long polling aborted');
+}
+
+function summarizeToolArgs(args: unknown): string {
+  if (!args || typeof args !== 'object') {
+    return '';
+  }
+
+  const record = args as Record<string, unknown>;
+  const parts: string[] = [];
+  pushSummary(parts, 'path', record.path);
+  pushSummary(parts, 'cwd', record.cwd);
+  pushSummary(parts, 'query', record.query);
+  pushSummary(parts, 'pattern', record.pattern);
+  pushSummary(parts, 'glob', record.glob);
+  pushSummary(parts, 'command', record.command);
+  pushSummary(parts, 'startLine', record.startLine);
+  pushSummary(parts, 'endLine', record.endLine);
+  pushSummary(parts, 'maxResults', record.maxResults);
+  return parts.join(' ');
+}
+
+function summarizeToolResult(result: unknown): string {
+  if (!result || typeof result !== 'object') {
+    return '';
+  }
+
+  const details = (result as { details?: unknown }).details;
+  if (!details || typeof details !== 'object') {
+    return '';
+  }
+
+  const record = details as Record<string, unknown>;
+  const parts: string[] = [];
+  pushSummary(parts, 'path', record.path);
+  pushSummary(parts, 'cwd', record.cwd);
+  pushSummary(parts, 'count', record.count);
+  pushSummary(parts, 'replacements', record.replacements);
+  pushSummary(parts, 'bytes', record.bytes);
+  return parts.join(' ');
+}
+
+function pushSummary(parts: string[], key: string, value: unknown): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  const text = String(value).replace(/\s+/g, ' ').trim();
+  if (text.length === 0) {
+    return;
+  }
+
+  const compact = text.length > 70 ? `${text.slice(0, 67)}...` : text;
+  parts.push(`${key}=${compact}`);
+}
+
+function formatError(error: unknown): string {
+  const httpInner = extractHttpInnerDetail(error);
+  if (httpInner) {
+    return httpInner;
+  }
+
+  if (error instanceof Error) {
+    const detail = extractCauseDetail((error as { cause?: unknown }).cause);
+    return detail ? `${error.message} (cause: ${detail})` : error.message;
+  }
+  return String(error);
+}
+
+function extractHttpInnerDetail(error: unknown): string | null {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+
+  const record = error as Record<string, unknown>;
+  const message = typeof record.message === 'string' ? record.message : String(error);
+  const inner = record.error;
+  const innerDetail = extractCauseDetail(inner);
+  if (!innerDetail) {
+    return null;
+  }
+
+  return `${message} (inner: ${innerDetail})`;
+}
+
+function extractCauseDetail(cause: unknown): string | null {
+  if (!cause || typeof cause !== 'object') {
+    return null;
+  }
+
+  const record = cause as Record<string, unknown>;
+  const name = typeof record.name === 'string' ? record.name : '';
+  const code =
+    typeof record.code === 'string' ? record.code : typeof record.code === 'number' ? String(record.code) : '';
+  const errno =
+    typeof record.errno === 'string' ? record.errno : typeof record.errno === 'number' ? String(record.errno) : '';
+  const type = typeof record.type === 'string' ? record.type : '';
+  const message = typeof record.message === 'string' ? record.message : '';
+  const detail = [name, type, code, errno, message].filter((part) => part.length > 0).join(' ');
+  return detail.length > 0 ? detail : null;
+}
+
+function isLikelyNetworkError(error: unknown): boolean {
+  if (error instanceof Error && error.message.toLowerCase().includes('network request')) {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const record = error as Record<string, unknown>;
+  const inner = record.error;
+  if (!inner || typeof inner !== 'object') {
+    return false;
+  }
+
+  const innerRecord = inner as Record<string, unknown>;
+  const code = typeof innerRecord.code === 'string' ? innerRecord.code : '';
+  if (!code) {
+    return false;
+  }
+
+  return (
+    code.startsWith('EAI_') ||
+    code === 'ENOTFOUND' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNREFUSED' ||
+    code === 'EHOSTUNREACH' ||
+    code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'
+  );
 }
 
 function parseTelegramChatId(raw?: string): number | null {
