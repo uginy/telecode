@@ -1,5 +1,6 @@
 import { Agent, type AgentEvent, type AgentMessage, type AgentTool } from '@mariozechner/pi-agent-core';
 import { getModel, getModels, type Message, type Model } from '@mariozechner/pi-ai';
+import { buildComposedSystemPrompt } from '../prompts/promptStack';
 
 export interface AISCodeConfig {
   provider: string;
@@ -7,23 +8,61 @@ export interface AISCodeConfig {
   apiKey: string;
   baseUrl?: string;
   maxSteps: number;
+  cwd?: string;
+}
+
+export interface AgentPromptInfo {
+  source: 'stack' | 'fallback';
+  signature: string;
+  layerCount: number;
+  missing: string[];
 }
 
 const PROVIDER_ALIAS: Record<string, string> = {
-  moonshot: 'kimi-coding',
+  kimi: 'kimi-coding',
 };
 
-const FALLBACK_BASE_URL_BY_PROVIDER: Record<string, string> = {
+const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
+  openai: 'https://api.openai.com/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
+  moonshot: 'https://api.moonshot.ai/v1',
+  deepseek: 'https://api.deepseek.com/v1',
   ollama: 'http://localhost:11434/v1',
 };
+
+const NON_OPENAI_COMPAT_PROVIDERS = new Set([
+  'anthropic',
+  'amazon-bedrock',
+  'google',
+  'google-gemini-cli',
+  'google-vertex',
+  'openai-codex',
+  'azure-openai-responses',
+  'github-copilot',
+  'kimi-coding',
+]);
 
 function normalizeProvider(provider: string): string {
   const trimmed = provider.trim().toLowerCase();
   return PROVIDER_ALIAS[trimmed] ?? trimmed;
 }
 
+function isModelLike(value: unknown): value is Model<any> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const model = value as Record<string, unknown>;
+  return (
+    typeof model.id === 'string' &&
+    typeof model.api === 'string' &&
+    typeof model.provider === 'string' &&
+    typeof model.baseUrl === 'string'
+  );
+}
+
 function applyBaseUrl(model: Model<any>, baseUrl?: string): Model<any> {
-  const normalizedBaseUrl = baseUrl?.trim();
+  const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim() : '';
   if (!normalizedBaseUrl) {
     return model;
   }
@@ -34,44 +73,73 @@ function applyBaseUrl(model: Model<any>, baseUrl?: string): Model<any> {
   };
 }
 
-function resolveModel(config: AISCodeConfig): Model<any> {
-  const provider = normalizeProvider(config.provider);
-  const modelId = config.model.trim();
-
-  try {
-    const knownModel = getModel(provider as never, modelId as never) as Model<any>;
-    return applyBaseUrl(knownModel, config.baseUrl);
-  } catch {
-    // fallback to template cloning for custom model ids
+function shouldPreferOpenAiCompatibleModel(provider: string, baseUrl?: string): boolean {
+  if (NON_OPENAI_COMPAT_PROVIDERS.has(provider)) {
+    return false;
   }
 
-  try {
-    const providerModels = getModels(provider as never) as Model<any>[];
-    const template = providerModels[0];
-    if (template) {
-      return {
-        ...template,
-        id: modelId,
-        name: modelId,
-        baseUrl: config.baseUrl?.trim() || template.baseUrl,
-      };
-    }
-  } catch {
-    // provider might not exist in built-in list (e.g. ollama)
+  if ((baseUrl || '').trim().length > 0) {
+    return true;
   }
+
+  return provider in OPENAI_COMPAT_BASE_URL_BY_PROVIDER;
+}
+
+function buildOpenAiCompatibleModel(provider: string, modelId: string, baseUrl?: string): Model<'openai-completions'> {
+  const normalizedBaseUrl = (baseUrl || '').trim();
 
   return {
     id: modelId,
     name: modelId,
     api: 'openai-completions',
     provider,
-    baseUrl: config.baseUrl?.trim() || FALLBACK_BASE_URL_BY_PROVIDER[provider] || 'http://localhost:11434/v1',
+    baseUrl:
+      normalizedBaseUrl ||
+      OPENAI_COMPAT_BASE_URL_BY_PROVIDER[provider] ||
+      OPENAI_COMPAT_BASE_URL_BY_PROVIDER.openai,
     reasoning: false,
     input: ['text'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
     maxTokens: 16_384,
   } satisfies Model<'openai-completions'>;
+}
+
+function resolveModel(config: AISCodeConfig): Model<any> {
+  const provider = normalizeProvider(config.provider);
+  const modelId = config.model.trim() || 'gpt-4o-mini';
+  const baseUrl = (config.baseUrl || '').trim();
+
+  let knownModelCandidate: unknown;
+  try {
+    knownModelCandidate = getModel(provider as never, modelId as never) as unknown;
+  } catch {
+    knownModelCandidate = undefined;
+  }
+  if (isModelLike(knownModelCandidate)) {
+    return applyBaseUrl(knownModelCandidate, baseUrl);
+  }
+
+  if (shouldPreferOpenAiCompatibleModel(provider, baseUrl)) {
+    return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
+  }
+
+  try {
+    const providerModels = getModels(provider as never) as unknown[];
+    const template = providerModels.find((candidate) => isModelLike(candidate));
+    if (template) {
+      const resolved: Model<any> = {
+        ...template,
+        id: modelId,
+        name: modelId,
+      };
+      return applyBaseUrl(resolved, baseUrl);
+    }
+  } catch {
+    // provider might not exist in built-in list (e.g. ollama)
+  }
+
+  return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
 }
 
 function toLlmMessages(messages: AgentMessage[]): Message[] {
@@ -83,22 +151,26 @@ function isLlmMessage(message: AgentMessage): boolean {
   return role === 'user' || role === 'assistant' || role === 'toolResult';
 }
 
-function buildSystemPrompt(maxSteps: number): string {
-  return [
-    'You are AIS Code, an autonomous coding agent inside VS Code.',
-    'Prefer workspace tools over speculation. Keep changes minimal and high quality.',
-    'When editing files, avoid unnecessary rewrites and preserve existing style.',
-    `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
-  ].join(' ');
-}
-
 export class CodingAgent {
   private readonly agent: Agent;
+  private readonly promptInfo: AgentPromptInfo;
 
   constructor(config: AISCodeConfig, tools: AgentTool[] = []) {
+    const promptBuild = buildComposedSystemPrompt({
+      cwd: config.cwd,
+      maxSteps: config.maxSteps,
+      tools,
+    });
+    this.promptInfo = {
+      source: promptBuild.source,
+      signature: promptBuild.signature,
+      layerCount: promptBuild.layerCount,
+      missing: [...promptBuild.missing],
+    };
+
     this.agent = new Agent({
       initialState: {
-        systemPrompt: buildSystemPrompt(config.maxSteps),
+        systemPrompt: promptBuild.prompt,
         model: resolveModel(config),
         tools,
         messages: [],
@@ -138,6 +210,20 @@ export class CodingAgent {
 
   getAgent(): Agent {
     return this.agent;
+  }
+
+  getModelInfo(): { id: string; provider: string; api: string; baseUrl: string } {
+    const model = this.agent.state.model as Partial<Model<any>> | undefined;
+    return {
+      id: typeof model?.id === 'string' ? model.id : '(unknown)',
+      provider: typeof model?.provider === 'string' ? model.provider : '(unknown)',
+      api: typeof model?.api === 'string' ? model.api : '(unknown)',
+      baseUrl: typeof model?.baseUrl === 'string' ? model.baseUrl : '(none)',
+    };
+  }
+
+  getPromptInfo(): AgentPromptInfo {
+    return this.promptInfo;
   }
 }
 

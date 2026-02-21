@@ -4,6 +4,7 @@ export type ChatViewCommand =
   | { command: 'startAgent' }
   | { command: 'stopAgent' }
   | { command: 'runTask'; prompt: string }
+  | { command: 'openSettings' }
   | { command: 'requestSettings' }
   | { command: 'saveSettings'; settings: ChatViewSettings };
 
@@ -28,6 +29,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private progressText = 'Idle';
   private progressBusy = false;
   private output = 'Ready. Start the agent and run a task.';
+  private latestSettings?: ChatViewSettings;
 
   private readonly commandEmitter = new vscode.EventEmitter<ChatViewCommand>();
   public readonly onCommand = this.commandEmitter.event;
@@ -52,6 +54,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'buildInfo', text: this.buildInfo });
     this.post({ type: 'progress', text: this.progressText, busy: this.progressBusy });
     this.post({ type: 'replaceOutput', text: this.output });
+    if (this.latestSettings) {
+      this.post({ type: 'settings', settings: this.latestSettings });
+    }
 
     webviewView.webview.onDidReceiveMessage((message: unknown) => {
       if (!message || typeof message !== 'object') {
@@ -71,6 +76,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       if (command === 'runTask' && typeof payload.prompt === 'string') {
         this.commandEmitter.fire({ command: 'runTask', prompt: payload.prompt });
+      }
+
+      if (command === 'openSettings') {
+        this.commandEmitter.fire({ command: 'openSettings' });
       }
 
       if (command === 'requestSettings') {
@@ -109,6 +118,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return vscode.commands.executeCommand('aisCode.chatView.focus');
   }
 
+  openSettingsTab(): void {
+    this.post({ type: 'activateTab', tab: 'settings' });
+  }
+
   setStatus(status: string): void {
     this.status = status;
     this.post({ type: 'status', text: status });
@@ -141,11 +154,26 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   setSettings(settings: ChatViewSettings): void {
+    this.latestSettings = settings;
     this.post({ type: 'settings', settings });
   }
 
   notify(message: string): void {
     this.post({ type: 'notify', text: message });
+  }
+
+  refresh(): void {
+    if (!this.webview) {
+      return;
+    }
+    this.webview.html = this.renderHtml(this.webview);
+    this.post({ type: 'status', text: this.status });
+    this.post({ type: 'buildInfo', text: this.buildInfo });
+    this.post({ type: 'progress', text: this.progressText, busy: this.progressBusy });
+    this.post({ type: 'replaceOutput', text: this.output });
+    if (this.latestSettings) {
+      this.post({ type: 'settings', settings: this.latestSettings });
+    }
   }
 
   private post(message: Record<string, unknown>): void {
@@ -192,6 +220,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       margin-bottom: 12px;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
     .title {
       margin: 0;
       font-size: 14px;
@@ -206,8 +240,42 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       background: var(--panel);
     }
 
-    .meta {
+    .tabs {
+      display: flex;
+      gap: 6px;
       margin-bottom: 10px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 11px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .pane {
+      display: none;
+      min-height: 0;
+    }
+
+    .pane.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .meta {
+      margin-bottom: 8px;
       font-size: 11px;
       opacity: 0.8;
     }
@@ -307,11 +375,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     .settings {
-      border-top: 1px solid var(--border);
-      padding: 10px;
       display: grid;
       gap: 8px;
       grid-template-columns: 1fr 1fr;
+      overflow: auto;
+      padding-right: 2px;
     }
 
     .field {
@@ -347,17 +415,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       gap: 8px;
     }
 
-    .settings-actions {
-      grid-column: 1 / -1;
-      display: flex;
-      gap: 8px;
-    }
-
     pre {
       margin: 0;
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px;
+      padding: 8px;
       background: var(--panel);
       min-height: 200px;
       flex: 1 1 auto;
@@ -365,88 +427,65 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       white-space: pre-wrap;
       word-break: break-word;
       font-family: var(--vscode-editor-font-family, ui-monospace, monospace);
-      font-size: 12px;
-      line-height: 1.4;
+      font-size: 11px;
+      line-height: 1.22;
+    }
+
+    #settingsNote {
+      margin-top: 8px;
+      font-size: 11px;
+      opacity: 0.88;
+      min-height: 16px;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <h1 class="title">AIS Code</h1>
-    <span id="status" class="status">Idle</span>
-  </div>
-  <div id="buildInfo" class="meta">Last update: unknown</div>
-  <div class="progress">
-    <div id="progressText" class="progress-text">Idle</div>
-    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-  </div>
-
-  <div class="controls">
-    <button id="startBtn" type="button">Start Agent</button>
-    <button id="stopBtn" type="button" class="secondary">Stop</button>
-  </div>
-
-  <textarea id="prompt" placeholder="Describe the coding task..."></textarea>
-  <button id="runBtn" type="button" class="send">Run Task</button>
-
-  <details>
-    <summary>Settings</summary>
-    <div class="settings">
-      <div class="field">
-        <label for="engine">Engine</label>
-        <select id="engine">
-          <option value="auto">auto</option>
-          <option value="nanoclaw">nanoclaw</option>
-          <option value="pi">pi</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="provider">Provider</label>
-        <input id="provider" type="text" />
-      </div>
-      <div class="field">
-        <label for="model">Model</label>
-        <input id="model" type="text" />
-      </div>
-      <div class="field">
-        <label for="maxSteps">Max Steps</label>
-        <input id="maxSteps" type="number" min="1" max="1000" />
-      </div>
-      <div class="field full">
-        <label for="apiKey">API Key</label>
-        <input id="apiKey" type="password" />
-      </div>
-      <div class="field full">
-        <label for="baseUrl">Base URL</label>
-        <input id="baseUrl" type="text" />
-      </div>
-      <div class="field checkbox full">
-        <input id="telegramEnabled" type="checkbox" />
-        <label for="telegramEnabled">Enable Telegram Bot</label>
-      </div>
-      <div class="field full">
-        <label for="telegramBotToken">Telegram Bot Token</label>
-        <input id="telegramBotToken" type="password" />
-      </div>
-      <div class="field full">
-        <label for="telegramChatId">Telegram Chat ID</label>
-        <input id="telegramChatId" type="text" />
-      </div>
-      <div class="field full">
-        <label for="telegramApiRoot">Telegram API Root</label>
-        <input id="telegramApiRoot" type="text" />
-      </div>
-      <div class="field checkbox full">
-        <input id="telegramForceIPv4" type="checkbox" />
-        <label for="telegramForceIPv4">Force IPv4 (recommended)</label>
-      </div>
-      <div class="settings-actions">
-        <button id="saveSettingsBtn" type="button">Save Settings</button>
-      </div>
+    <div class="header-actions">
+      <span id="status" class="status">Idle</span>
     </div>
-  </details>
+  </div>
+  <div class="tabs">
+    <button id="tabLogs" class="tab-btn active" type="button">Logs</button>
+    <button id="tabSettings" class="tab-btn" type="button">Settings</button>
+  </div>
 
-  <pre id="output"></pre>
+  <section id="logsPane" class="pane active">
+    <div id="buildInfo" class="meta">Last update: unknown</div>
+    <div class="progress">
+      <div id="progressText" class="progress-text">Idle</div>
+      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn" type="button">Start Agent</button>
+      <button id="stopBtn" type="button" class="secondary">Stop</button>
+    </div>
+
+    <textarea id="prompt" placeholder="Describe the coding task..."></textarea>
+    <button id="runBtn" type="button" class="send">Run Task</button>
+
+    <pre id="output"></pre>
+  </section>
+
+  <section id="settingsPane" class="pane">
+    <div class="settings">
+      <div class="field"><label for="engine">Engine</label><select id="engine"><option value="auto">auto</option><option value="nanoclaw">nanoclaw</option><option value="pi">pi</option></select></div>
+      <div class="field"><label for="provider">Provider</label><input id="provider" type="text" /></div>
+      <div class="field"><label for="model">Model</label><input id="model" type="text" /></div>
+      <div class="field"><label for="maxSteps">Max Steps</label><input id="maxSteps" type="number" min="1" max="1000" /></div>
+      <div class="field full"><label for="apiKey">API Key</label><input id="apiKey" type="password" /></div>
+      <div class="field full"><label for="baseUrl">Base URL</label><input id="baseUrl" type="text" /></div>
+      <div class="field checkbox full"><input id="telegramEnabled" type="checkbox" /><label for="telegramEnabled">Enable Telegram Bot</label></div>
+      <div class="field full"><label for="telegramBotToken">Telegram Bot Token</label><input id="telegramBotToken" type="password" /></div>
+      <div class="field full"><label for="telegramChatId">Telegram Chat ID</label><input id="telegramChatId" type="text" /></div>
+      <div class="field full"><label for="telegramApiRoot">Telegram API Root</label><input id="telegramApiRoot" type="text" /></div>
+      <div class="field checkbox full"><input id="telegramForceIPv4" type="checkbox" /><label for="telegramForceIPv4">Force IPv4 (recommended)</label></div>
+      <div class="field full"><button id="saveSettingsBtn" type="button">Save Settings</button></div>
+    </div>
+    <div id="settingsNote"></div>
+  </section>
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
@@ -460,6 +499,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     const startBtnEl = document.getElementById('startBtn');
     const stopBtnEl = document.getElementById('stopBtn');
     const runBtnEl = document.getElementById('runBtn');
+    const tabLogsEl = document.getElementById('tabLogs');
+    const tabSettingsEl = document.getElementById('tabSettings');
+    const logsPaneEl = document.getElementById('logsPane');
+    const settingsPaneEl = document.getElementById('settingsPane');
+    const settingsNoteEl = document.getElementById('settingsNote');
+
     const engineEl = document.getElementById('engine');
     const providerEl = document.getElementById('provider');
     const modelEl = document.getElementById('model');
@@ -489,6 +534,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       vscode.setState({ output: outputEl.textContent, prompt: promptEl.value, status: statusEl.textContent });
     };
 
+    const setTab = (tab) => {
+      const isLogs = tab === 'logs';
+      tabLogsEl.classList.toggle('active', isLogs);
+      tabSettingsEl.classList.toggle('active', !isLogs);
+      logsPaneEl.classList.toggle('active', isLogs);
+      settingsPaneEl.classList.toggle('active', !isLogs);
+      const nextState = vscode.getState() || {};
+      vscode.setState({ ...nextState, tab });
+    };
+
+    tabLogsEl.addEventListener('click', () => setTab('logs'));
+    tabSettingsEl.addEventListener('click', () => setTab('settings'));
+
     document.getElementById('startBtn').addEventListener('click', () => {
       vscode.postMessage({ command: 'startAgent' });
     });
@@ -506,10 +564,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     };
 
     document.getElementById('runBtn').addEventListener('click', runTask);
+    promptEl.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        runTask();
+      }
+    });
+
     document.getElementById('saveSettingsBtn').addEventListener('click', () => {
       const maxStepsRaw = Number.parseInt(maxStepsEl.value || '100', 10);
       const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
-
       vscode.postMessage({
         command: 'saveSettings',
         settings: {
@@ -526,12 +589,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           telegramForceIPv4: telegramForceIPv4El.checked,
         },
       });
-    });
-
-    promptEl.addEventListener('keydown', (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        runTask();
-      }
     });
 
     window.addEventListener('message', (event) => {
@@ -568,6 +625,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         outputEl.textContent = '';
       }
 
+      if (message.type === 'notify' && typeof message.text === 'string') {
+        appendOutput('[settings] ' + message.text + '\\n');
+        settingsNoteEl.textContent = message.text;
+      }
+
       if (message.type === 'settings' && message.settings) {
         const s = message.settings;
         engineEl.value = s.engine || 'auto';
@@ -583,8 +645,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         telegramForceIPv4El.checked = s.telegramForceIPv4 !== false;
       }
 
-      if (message.type === 'notify' && typeof message.text === 'string') {
-        appendOutput('\\n[settings] ' + message.text + '\\n');
+      if (message.type === 'activateTab' && message.tab === 'settings') {
+        setTab('settings');
       }
 
       vscode.setState({ output: outputEl.textContent, prompt: promptEl.value, status: statusEl.textContent });
@@ -601,6 +663,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       if (typeof state.status === 'string') {
         statusEl.textContent = state.status;
       }
+      if (state.tab === 'settings') {
+        setTab('settings');
+      }
     }
 
     applyControlState();
@@ -609,6 +674,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 </body>
 </html>`;
   }
+
 }
 
 function createNonce(): string {

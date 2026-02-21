@@ -13,6 +13,8 @@ export interface AgentRuntime {
   prompt(message: string): Promise<void>;
   abort(): void;
   onEvent(listener: RuntimeListener): () => void;
+  getModelInfo?(): { id: string; provider: string; api: string; baseUrl: string };
+  getPromptInfo?(): { source: 'stack' | 'fallback'; signature: string; layerCount: number; missing: string[] };
 }
 
 export interface RuntimeConfig {

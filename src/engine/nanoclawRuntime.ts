@@ -1,4 +1,5 @@
 import type { AgentRuntime, RuntimeConfig, RuntimeEvent, RuntimeListener } from './types';
+import { buildComposedSystemPrompt } from '../prompts/promptStack';
 
 type QueryOptions = {
   model?: string;
@@ -80,13 +81,26 @@ export class NanoclawRuntime implements AgentRuntime {
   }
 
   async prompt(message: string): Promise<void> {
-    const prompt = message.trim();
-    if (prompt.length === 0) {
+    const userPrompt = message.trim();
+    if (userPrompt.length === 0) {
       return;
     }
 
     this.isAborted = false;
     this.activeTools.clear();
+    const promptBuild = buildComposedSystemPrompt({
+      cwd: this.config.cwd,
+      maxSteps: this.config.maxSteps,
+      tools: this.config.allowedTools.map((name) => ({ name })),
+    });
+    this.emit({
+      type: 'status',
+      message: `prompt_stack source=${promptBuild.source} layers=${promptBuild.layerCount} signature=${promptBuild.signature}`,
+    });
+    if (promptBuild.missing.length > 0) {
+      this.emit({ type: 'status', message: `prompt_stack_missing ${promptBuild.missing.join(',')}` });
+    }
+    const prompt = `${promptBuild.prompt}\n\n# User Task\n${userPrompt}`;
 
     const sdk = await import('@anthropic-ai/claude-agent-sdk');
     const { tools, disallowedTools } = splitClaudeTools(this.config.allowedTools);

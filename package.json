@@ -34,6 +34,11 @@
         "icon": "$(comment-discussion)"
       },
       {
+        "command": "aisCode.openSettings",
+        "title": "AIS Code: Open Settings",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "aisCode.startAgent",
         "title": "AIS Code: Start Agent",
         "icon": "$(play)"
@@ -222,9 +227,11 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.50",
     "@mariozechner/pi-agent-core": "^0.54.0",
     "@mariozechner/pi-ai": "^0.54.0",
-    "grammy": "^1.40.0"
+    "grammy": "^1.40.0",
+    "markdown-it": "^14.1.1"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.108.1",
     "@vscode/vsce": "^3.7.1",
