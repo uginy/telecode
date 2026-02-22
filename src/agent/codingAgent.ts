@@ -99,7 +99,7 @@ function buildOpenAiCompatibleModel(provider: string, modelId: string, baseUrl?:
       OPENAI_COMPAT_BASE_URL_BY_PROVIDER[provider] ||
       OPENAI_COMPAT_BASE_URL_BY_PROVIDER.openai,
     reasoning: false,
-    input: ['text'],
+    input: ['text', 'image'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
     maxTokens: 16_384,
@@ -129,10 +129,16 @@ function resolveModel(config: AISCodeConfig): Model<any> {
     const providerModels = getModels(provider as never) as unknown[];
     const template = providerModels.find((candidate) => isModelLike(candidate));
     if (template) {
+      const typedTemplate = template as Model<any>;
+      const resolvedInput = typedTemplate.input.includes('image')
+        ? typedTemplate.input
+        : [...typedTemplate.input, 'image'];
+      
       const resolved: Model<any> = {
-        ...(template as Model<any>),
+        ...typedTemplate,
         id: modelId,
         name: modelId,
+        input: resolvedInput as any,
       };
       return applyBaseUrl(resolved, baseUrl);
     }
