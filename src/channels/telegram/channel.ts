@@ -201,7 +201,7 @@ export class TelegramChannel implements IChannel {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         if (!args) {
-          await ctx.reply('Usage: /api <method> [json params]\nExample: /api getChat {"chat_id":128529419}');
+          await ctx.reply('Usage: /api <method> [json params]\nExample: /api getChat {"chat_id":123456789}');
           return;
         }
 
