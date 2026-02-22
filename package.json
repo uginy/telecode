@@ -284,7 +284,10 @@
     "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --keep-names",
     "watch": "node scripts/watch.mjs",
     "lint": "eslint src --ext ts",
-    "package": "vsce package"
+    "package": "vsce package",
+    "release:patch": "mkdir -p builds && vsce package patch --no-dependencies --allow-missing-repository -o builds/",
+    "release:minor": "mkdir -p builds && vsce package minor --no-dependencies --allow-missing-repository -o builds/",
+    "release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"
   },
   "devDependencies": {
     "@mariozechner/pi-agent-core": "^0.54.0",
