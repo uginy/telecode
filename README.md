@@ -1,13 +1,11 @@
 # TeleCode AI
 
-**TeleCode AI** is the first remote-controlled autonomous coding agent directly inside your IDE. By crossbreeding the concepts of `nanoclaw`/`picoclaw` with the deep integrations of VS Code, TeleCode AI offers a fully functional, autonomous AI agent that doesn't just chat, but takes action.
+**TeleCode AI** is the first remote-controlled autonomous coding agent directly inside your IDE. Powered by a pure agentic architecture with deep VS Code integrations, TeleCode AI offers a fully functional, autonomous AI agent that doesn't just chat, but takes action.
 
 ## 🚀 Features
 
 - **Autonomous Agent**: Powered by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, the agent runs a continuous loop to understand your requests, look at your workspace, and execute tasks.
-- **Dual Runtime**:
-  - `nanoclaw` runtime via `@anthropic-ai/claude-agent-sdk` for Claude-native execution
-  - `pi` runtime for multi-provider model routing (OpenAI/Anthropic/Gemini/OpenRouter/Ollama)
+- **Pure Agentic Runtime**: Driven by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, utilizing a continuous loop for planning and action.
 - **Native Coding Toolchain**:
   - `read_file` (line ranges), `write_file`, `edit_file` (exact replace)
   - `glob`, `grep` (ripgrep with fallback)
@@ -60,7 +58,6 @@ For hot reload during development:
 Configure via VS Code Settings (`Cmd/Ctrl + ,` -> TeleCode AI):
 
 - `telecode.provider`: Select your AI Provider (default: `openrouter`).
-- `telecode.engine`: Runtime engine (`auto` | `nanoclaw` | `pi`).
 - `telecode.model`: Select the model ID.
 - `telecode.apiKey`: API key for the selected provider.
 - `telecode.telegram.enabled`, `telecode.telegram.botToken`, `telecode.telegram.chatId`: Telegram bot settings.

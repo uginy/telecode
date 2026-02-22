@@ -17,12 +17,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRu.classList.toggle('active', lang === 'ru');
 
     // Update text
-    elements.forEach(el => {
+    for (const el of elements) {
       const key = el.getAttribute('data-i18n');
       if (translations[lang][key]) {
         el.textContent = translations[lang][key];
       }
-    });
+    }
     
     // Add a very subtle transition effect
     document.body.style.opacity = 0;
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Ensure the cursor stays at the end
-    typingElement.innerHTML = currentString.substring(0, charIndex) + '<span class="cursor"></span>';
+    typingElement.innerHTML = `${currentString.substring(0, charIndex)}<span class="cursor"></span>`;
     
     let speed = isDeleting ? 30 : 80;
     

@@ -1,6 +1,6 @@
 # TeleCode AI — Agent Guidelines
 
-TeleCode AI is an autonomous coding agent embedded inside VS Code. It is built as a crossbreed between `nanoclaw`/`picoclaw` (autonomous agent architectures) and the VS Code extension architecture.
+TeleCode AI is an autonomous coding agent embedded inside VS Code. It is built on a pure agentic architecture powered by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, seamlessly integrated with the VS Code extension API.
 
 ## 🎯 Architecture
 
