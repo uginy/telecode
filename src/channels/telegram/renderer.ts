@@ -218,6 +218,10 @@ function renderMarkdownTokens(tokens: MarkdownToken[], state: MarkdownRenderStat
       case 'hr':
         out += '--------\n';
         break;
+      case 'html_block':
+      case 'html_inline':
+        out += escapeTelegramHtml(token.content || '');
+        break;
       default:
         break;
     }
