@@ -18,8 +18,11 @@ type PersistedState = {
 };
 
 function saveState(): void {
+  const outputEl = el.output();
+  const lines = Array.from(outputEl.querySelectorAll('.log-line'));
+  const outputText = lines.map(l => l.textContent).join('\n');
   api.setState({
-    output: el.output().textContent,
+    output: outputText,
     prompt: el.prompt().value,
     status: el.status().textContent,
   });

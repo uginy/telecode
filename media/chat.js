@@ -227,8 +227,11 @@
 
   // src/webview/index.ts
   function saveState() {
+    const outputEl = el.output();
+    const lines = Array.from(outputEl.querySelectorAll(".log-line"));
+    const outputText = lines.map((l) => l.textContent).join("\n");
     vscode_api_default.setState({
-      output: el.output().textContent,
+      output: outputText,
       prompt: el.prompt().value,
       status: el.status().textContent
     });
