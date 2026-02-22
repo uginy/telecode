@@ -78,22 +78,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('telecode.setStyleShort', async () => {
       await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'concise', true);
-      vscode.window.showInformationMessage('TeleCode AI: Краткий стиль ответов установлен.');
+      vscode.window.showInformationMessage('TeleCode AI: Concise response style set.');
     }),
     vscode.commands.registerCommand('telecode.setStyleNormal', async () => {
       await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'normal', true);
-      vscode.window.showInformationMessage('TeleCode AI: Обычный стиль ответов установлен.');
+      vscode.window.showInformationMessage('TeleCode AI: Normal response style set.');
     }),
     vscode.commands.registerCommand('telecode.setStyleDetailed', async () => {
       await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'detailed', true);
-      vscode.window.showInformationMessage('TeleCode AI: Детальный стиль ответов установлен.');
+      vscode.window.showInformationMessage('TeleCode AI: Detailed response style set.');
     }),
     vscode.commands.registerCommand('telecode.setLanguageRu', async () => {
       await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('telecode').update('language', 'ru', true);
-      vscode.window.showInformationMessage('TeleCode AI: Язык общения установлен на русский.');
+      vscode.window.showInformationMessage('TeleCode AI: Agent language has been set to Russian.');
     }),
     vscode.commands.registerCommand('telecode.setLanguageEn', async () => {
       await saveOpenSettingsFiles();

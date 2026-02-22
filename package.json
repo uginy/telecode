@@ -3,7 +3,7 @@
   "displayName": "TeleCode AI",
   "description": "The first remote-controlled autonomous coding agent in your IDE.",
   "version": "0.1.0",
-  "publisher": "telecode-ai",
+  "publisher": "Uginy",
   "license": "MIT",
   "engines": {
     "vscode": "^1.108.0"
@@ -236,11 +236,11 @@
             "detailed"
           ],
           "enumDescriptions": [
-            "Краткие ответы - только самое важное",
-            "Обычные ответы - баланс деталей и краткости",
-            "Детальные ответы - максимальная подробность"
+            "Concise answers - only the most important parts",
+            "Normal answers - balance between details and brevity",
+            "Detailed answers - maximum details"
           ],
-          "description": "Стиль ответов AI агента"
+          "description": "Agent response style"
         },
         "telecode.language": {
           "type": "string",
@@ -251,11 +251,11 @@
             "en"
           ],
           "enumDescriptions": [
-            "Авто (определять по языку юзера)",
-            "Русский (RU)",
+            "Auto (detect from user language)",
+            "Russian (RU)",
             "English (EN)"
           ],
-          "description": "Язык общения агента / Agent's language"
+          "description": "Agent's communication language"
         },
         "telecode.uiLanguage": {
           "type": "string",
@@ -265,10 +265,10 @@
             "en"
           ],
           "enumDescriptions": [
-            "Русский (интерфейс)",
+            "Russian (interface)",
             "English (interface)"
           ],
-          "description": "Язык интерфейса расширения / Extension UI language"
+          "description": "Extension UI language"
         },
         "telecode.allowOutOfWorkspace": {
           "type": "boolean",
