@@ -229,7 +229,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_cmd_model: 'сменить модель',
     tg_cmd_help: 'это сообщение',
     tg_bot_online: 'Бот TeleCode AI онлайн. Используйте /help для просмотра команд.',
-    tg_denied: 'Доступ запрещен для чата {id}. Обновите telecode.telegram.chatId в настройках.',
+    tg_denied: 'Доступ запрещен для User ID {id}. Обновите telecode.telegram.chatId в настройках.',
     tg_connected: 'TeleCode AI подключен. Отправьте /status',
   },
   en: {
@@ -338,7 +338,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_cmd_model: 'switch model',
     tg_cmd_help: 'this message',
     tg_bot_online: 'TeleCode AI bot is online. Use /help to see commands.',
-    tg_denied: 'Access denied for chat {id}. Update telecode.telegram.chatId in settings.',
+    tg_denied: 'Access denied for User ID {id}. Update telecode.telegram.chatId in settings.',
     tg_connected: 'TeleCode AI connected. Send /status',
   }
 };
