@@ -15,6 +15,15 @@
 - **Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini, OpenRouter, MiniMax, Moonshot, and Ollama.
 - **Messenger Control**: Designed to control your VS Code agent seamlessly from Telegram and WhatsApp, enabling remote commands and background task execution without having the editor focused.
 
+## 💡 Why a VS Code Extension (and not Standalone)?
+
+You might wonder why we built AIS Code inside an IDE rather than as a separate CLI tool or a standalone desktop application. Here is why:
+
+1. **Zero Context Switching**: You spend your day in the IDE. Moving between a terminal, a browser, and your editor destroys flow. AIS Code lives directly in your sidebar.
+2. **Native IDE Context**: A standalone CLI is blind to your environment. Our VS Code extension instantly knows your _Current Workspace_, _Active File_, _Cursor Position_, and even _Selected Text_. The agent sees exactly what you see.
+3. **Instant Developer Feedback**: The agent modifies the exact files you have open. You see live changes in your editor, can instantly review diffs, and run tests in your integrated terminal without jumping between apps.
+4. **Your Laptop is the Server**: By coupling the agent with Telegram/WhatsApp bots and running it inside VS Code, your IDE becomes a secure sandbox. You can leave VS Code open, grab a coffee, and command the agent from your phone via Telegram to fix a bug while you are away.
+
 ## 🛠 Getting Started
 
 1. Install the extension using your preferred method (e.g. `npm run package` or download a VSIX).
@@ -37,6 +46,7 @@ npm run watch
 ```
 
 For hot reload during development:
+
 1. Open `Run and Debug` in VS Code.
 2. Start **Run Extension (Watch)**.
 3. Edit files in `src/**` and keep coding; esbuild rebuilds automatically.
