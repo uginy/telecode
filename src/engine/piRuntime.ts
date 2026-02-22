@@ -11,13 +11,8 @@ export class PiRuntime implements AgentRuntime {
 
   constructor(config: RuntimeConfig, tools: AgentTool[]) {
     const agentConfig: AISCodeConfig = {
-      provider: config.provider,
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      maxSteps: config.maxSteps,
-      cwd: config.cwd,
-      initialMessages: config.initialMessages,
+      ...config,
+      language: config.language as AISCodeConfig['language'],
     };
 
     this.toolNames = tools.map((tool) => tool.name);

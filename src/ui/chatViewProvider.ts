@@ -125,6 +125,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             responseStyle: typeof raw.responseStyle === 'string' ? raw.responseStyle : 'concise',
             language: typeof raw.language === 'string' ? raw.language : 'ru',
             uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'ru',
+            allowOutOfWorkspace: raw.allowOutOfWorkspace === true,
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',

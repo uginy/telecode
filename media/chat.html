@@ -102,6 +102,14 @@
                 <option value="en">English (en)</option>
               </select>
             </div>
+
+            <div class="field field-check">
+              <input id="allowOutOfWorkspace" type="checkbox" />
+              <div>
+                <label for="allowOutOfWorkspace" data-t="field_allow_out_workspace">Allow Out of Workspace</label>
+                <span class="field-hint" data-t="field_allow_out_workspace_hint">Allow agent to access files and run commands outside the current workspace folder. Disabled by default for security.</span>
+              </div>
+            </div>
           </div>
 
           <!-- Category: Inference -->
@@ -160,13 +168,6 @@
               <input id="maxSteps" type="number" min="1" max="1000" placeholder="100" style="width:80px" />
             </div>
 
-            <div class="field field-check">
-              <input id="allowOutOfWorkspace" type="checkbox" />
-              <div>
-                <label for="allowOutOfWorkspace" data-t="field_allow_out_workspace">Allow Out of Workspace</label>
-                <span class="field-hint" data-t="field_allow_out_workspace_hint">Allow agent to access files and run commands outside the current workspace folder. Disabled by default for security.</span>
-              </div>
-            </div>
           </div>
 
           <!-- Category: Telegram -->

@@ -87,9 +87,12 @@ function loadPromptLayers(cwd: string): { layers: LoadedLayer[]; missing: Prompt
   return { layers, missing };
 }
 
-function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cwd?: string, responseStyle?: string, language?: string): string {
+function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cwd?: string, responseStyle?: string, language?: string, allowOutOfWorkspace?: boolean): string {
   const workspaceHint = typeof cwd === 'string' && cwd.trim().length > 0 ? cwd.trim() : '(unknown)';
   const toolInventory = formatToolInventory(tools);
+  const outOfWorkspaceInstruction = allowOutOfWorkspace 
+    ? 'You ARE allowed to access files and run commands outside the workspace root.' 
+    : 'You are restricted to the workspace root. Enable "aisCode.allowOutOfWorkspace" to access files outside.';
 
   const styleInstruction = responseStyle === 'detailed' 
     ? 'Provide detailed, comprehensive answers with full explanations.' 
@@ -106,7 +109,8 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
     'Use available tools first; do not claim actions you did not execute.',
     `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
     `Response style: ${styleInstruction}`,
-    `Language: ${language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`}`
+    `Language: ${language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`}`,
+    outOfWorkspaceInstruction
   ].join(' ');
 }
 
@@ -136,6 +140,7 @@ export function buildComposedSystemPrompt(options: {
   tools: PromptToolDescriptor[];
   responseStyle?: 'concise' | 'normal' | 'detailed';
   language?: 'ru' | 'en' | 'auto';
+  allowOutOfWorkspace?: boolean;
 }): PromptStackBuildResult {
   const cwd = typeof options.cwd === 'string' && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
   const { layers, missing } = loadPromptLayers(cwd);
@@ -157,12 +162,13 @@ export function buildComposedSystemPrompt(options: {
     styleInstruction,
     `- Language: ${options.language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`}`,
     `- Tools available: ${toolInventory}`,
+    `- Out of Workspace allowed: ${options.allowOutOfWorkspace === true ? 'YES' : 'NO'}`,
     '- Always prefer actual tool execution over speculation.',
   ].join('\n');
 
   if (layers.length === 0) {
     return {
-      prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language),
+      prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language, options.allowOutOfWorkspace),
       signature,
       source: 'fallback',
       layerCount: 0,

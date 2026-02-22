@@ -15,6 +15,7 @@ import type { AgentRuntime, RuntimeConfig, ImageContentExt } from '../engine/typ
 import { getPromptStackSignature } from '../prompts/promptStack';
 import type { IChannel } from './types';
 import { TaskRunner } from '../agent/taskRunner';
+import { saveOpenSettingsFiles } from '../utils/vscodeUtils';
 
 
 
@@ -675,13 +676,9 @@ export class TelegramChannel implements IChannel {
   private ensureRuntime(): AgentRuntime {
     const settings = readAISCodeSettings();
     const config: RuntimeConfig = {
-      provider: settings.agent.provider,
-      model: settings.agent.model,
-      apiKey: settings.agent.apiKey,
-      baseUrl: settings.agent.baseUrl,
-      maxSteps: settings.agent.maxSteps,
-      allowedTools: settings.agent.allowedTools,
+      ...settings.agent,
       cwd: getWorkspaceRoot(),
+      language: settings.agent.language === 'auto' ? undefined : settings.agent.language,
     };
 
     const runtimeTools = [...this.tools, this.createTelegramSendFileTool(), this.createTelegramApiCallTool()];
@@ -1077,6 +1074,7 @@ export class TelegramChannel implements IChannel {
   }
 
   private async updateSetting(key: string, value: string | boolean): Promise<void> {
+    await saveOpenSettingsFiles();
     const config = vscode.workspace.getConfiguration('aisCode');
     await config.update(key, value, vscode.ConfigurationTarget.Global);
 

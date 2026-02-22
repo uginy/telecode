@@ -372,11 +372,17 @@ textarea:focus { border-color: var(--accent); }
 .settings-form {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 12px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
   padding-right: 2px;
+}
+
+.settings-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 /* Block = named section */
@@ -412,7 +418,7 @@ textarea:focus { border-color: var(--accent); }
 .field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 .field label {
   font-size: 12px;

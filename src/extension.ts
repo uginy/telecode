@@ -12,6 +12,7 @@ import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceToo
 import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
 import { CodingAgent } from './agent/codingAgent';
 import { i18n } from './services/i18n';
+import { saveOpenSettingsFiles } from './utils/vscodeUtils';
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -75,22 +76,27 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage('AIS Code: Session history cleared.');
     }),
     vscode.commands.registerCommand('aisCode.setStyleShort', async () => {
+      await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'concise', true);
       vscode.window.showInformationMessage('AIS Code: Краткий стиль ответов установлен.');
     }),
     vscode.commands.registerCommand('aisCode.setStyleNormal', async () => {
+      await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'normal', true);
       vscode.window.showInformationMessage('AIS Code: Обычный стиль ответов установлен.');
     }),
     vscode.commands.registerCommand('aisCode.setStyleDetailed', async () => {
+      await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'detailed', true);
       vscode.window.showInformationMessage('AIS Code: Детальный стиль ответов установлен.');
     }),
     vscode.commands.registerCommand('aisCode.setLanguageRu', async () => {
+      await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('aisCode').update('language', 'ru', true);
       vscode.window.showInformationMessage('AIS Code: Язык общения установлен на русский.');
     }),
     vscode.commands.registerCommand('aisCode.setLanguageEn', async () => {
+      await saveOpenSettingsFiles();
       await vscode.workspace.getConfiguration('aisCode').update('language', 'en', true);
       vscode.window.showInformationMessage('AIS Code: Agent language has been set to English.');
     })
@@ -226,6 +232,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     apiKey = sessionApiKey;
 
     try {
+      await saveOpenSettingsFiles();
       await vscode.workspace
         .getConfiguration('aisCode')
         .update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
@@ -236,15 +243,10 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   }
 
   const config: RuntimeConfig = {
-    provider: settings.agent.provider,
-    model: settings.agent.model,
+    ...settings.agent,
     apiKey,
-    baseUrl: settings.agent.baseUrl,
-    maxSteps: settings.agent.maxSteps,
-    allowedTools: settings.agent.allowedTools,
     cwd: getPrimaryWorkspaceRoot(),
-    responseStyle: settings.agent.responseStyle,
-    language: settings.agent.language,
+    language: settings.agent.language === 'auto' ? undefined : settings.agent.language,
   };
 
   const signature = createConfigSignature(config, tools);
@@ -389,6 +391,8 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
   const telegramBotToken = settings.telegramBotToken.trim();
 
   try {
+    await saveOpenSettingsFiles();
+
     await config.update('provider', settings.provider, target);
     await config.update('model', settings.model, target);
     if (apiKey.length > 0) {

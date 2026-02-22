@@ -12,6 +12,7 @@ export interface AISCodeConfig {
   initialMessages?: AgentMessage[];
   responseStyle?: 'concise' | 'normal' | 'detailed';
   language?: 'ru' | 'en' | 'auto';
+  allowOutOfWorkspace?: boolean;
 }
 
 export interface AgentPromptInfo {
@@ -245,6 +246,7 @@ export class CodingAgent {
       tools,
       responseStyle: config.responseStyle,
       language: config.language,
+      allowOutOfWorkspace: config.allowOutOfWorkspace,
     });
     this.promptInfo = {
       source: promptBuild.source,

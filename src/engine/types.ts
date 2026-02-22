@@ -37,4 +37,5 @@ export interface RuntimeConfig {
   initialMessages?: AgentMessage[];
   responseStyle?: 'concise' | 'normal' | 'detailed';
   language?: 'ru' | 'en';
+  allowOutOfWorkspace?: boolean;
 }
