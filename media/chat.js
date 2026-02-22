@@ -36,7 +36,10 @@
     modelPicker: /* @__PURE__ */ __name(() => document.getElementById("modelPicker"), "modelPicker"),
     settingsNav: /* @__PURE__ */ __name(() => document.getElementById("settingsNav"), "settingsNav"),
     settingsCats: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-cat"), "settingsCats"),
-    settingsNavItems: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-nav-item"), "settingsNavItems")
+    settingsNavItems: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-nav-item"), "settingsNavItems"),
+    viewGroupedBtn: /* @__PURE__ */ __name(() => document.getElementById("viewGroupedBtn"), "viewGroupedBtn"),
+    viewListBtn: /* @__PURE__ */ __name(() => document.getElementById("viewListBtn"), "viewListBtn"),
+    logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles")
   };
   function setStatus(text) {
     const s = el.status();
@@ -67,6 +70,7 @@
     el.settingsPane().classList.toggle("hidden", isLogs);
     el.saveSettingsBtn().classList.toggle("hidden", isLogs);
     el.settingsNote().classList.toggle("hidden", isLogs);
+    el.logViewToggles().classList.toggle("hidden", !isLogs);
   }
   __name(setTab, "setTab");
 
@@ -78,42 +82,143 @@
     if (line.startsWith("[phase]")) return "phase";
     if (line.startsWith("[status]") || line.startsWith("[heartbeat]")) return "status";
     if (line.startsWith("[llm:")) return "llm";
+    if (line.startsWith("[request]")) return "request";
+    if (line.startsWith("[user]")) return "user";
+    if (line.startsWith("[run]")) return "run";
+    if (line.startsWith("[agent]")) return "agent";
     return "text";
   }
   __name(classifyLine, "classifyLine");
   function makeLine(text) {
     const div = document.createElement("div");
     div.className = "log-line";
-    div.dataset["kind"] = classifyLine(text);
+    div.dataset.kind = classifyLine(text);
     div.textContent = text;
     return div;
   }
   __name(makeLine, "makeLine");
+  var currentTaskNode = null;
+  var currentToolNode = null;
+  function createGroupedNode(type, title, info, desc) {
+    const nodeEl = document.createElement("div");
+    nodeEl.className = "grouped-node expanded";
+    nodeEl.dataset.type = type;
+    const header = document.createElement("div");
+    header.className = "grouped-header";
+    const headerContent = document.createElement("div");
+    headerContent.className = "grouped-header-content";
+    const row1 = document.createElement("div");
+    row1.className = "grouped-header-row1";
+    const titleSpan = document.createElement("span");
+    titleSpan.className = `grouped-header-title ${type}`;
+    titleSpan.textContent = title;
+    const infoSpan = document.createElement("span");
+    infoSpan.className = "grouped-header-info grouped-badge";
+    infoSpan.textContent = info;
+    if (info === "Running...") infoSpan.classList.add("running");
+    row1.appendChild(titleSpan);
+    row1.appendChild(infoSpan);
+    const descSpan = document.createElement("div");
+    descSpan.className = "grouped-header-desc";
+    descSpan.textContent = desc;
+    headerContent.appendChild(row1);
+    headerContent.appendChild(descSpan);
+    header.appendChild(headerContent);
+    const body = document.createElement("div");
+    body.className = "grouped-body";
+    nodeEl.appendChild(header);
+    nodeEl.appendChild(body);
+    header.addEventListener("click", () => {
+      nodeEl.classList.toggle("expanded");
+    });
+    return { el: nodeEl, header, body, descSpan, infoSpan };
+  }
+  __name(createGroupedNode, "createGroupedNode");
   function appendLine(text) {
     const out = el.output();
-    const atBottom = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
-    out.appendChild(makeLine(text));
+    const atBottom = Math.abs(out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
+    const lineEl = makeLine(text);
+    out.appendChild(lineEl);
+    const kind = classifyLine(text);
+    if (kind === "request" || kind === "user") {
+      if (!currentTaskNode) {
+        currentTaskNode = createGroupedNode("task", "Task", "Active", text.replace("[request]", "").replace("[user]", "").trim());
+        out.appendChild(currentTaskNode.el);
+      } else {
+        currentTaskNode.descSpan.textContent = text.replace("[request]", "").replace("[user]", "").trim();
+      }
+      currentToolNode = null;
+    } else if (kind === "tool-start") {
+      const parts = text.replace("[tool:start]", "").trim().split(" ");
+      const name = parts[0];
+      const details = parts.slice(1).join(" ");
+      currentToolNode = createGroupedNode("tool", name, "Running...", details);
+      if (currentTaskNode) {
+        currentTaskNode.body.appendChild(currentToolNode.el);
+      } else {
+        out.appendChild(currentToolNode.el);
+      }
+    } else if (kind === "tool-done" || kind === "tool-error") {
+      if (currentToolNode) {
+        currentToolNode.infoSpan.classList.remove("running");
+        if (kind === "tool-error") {
+          currentToolNode.el.classList.add("error");
+          currentToolNode.infoSpan.classList.add("error");
+          currentToolNode.infoSpan.textContent = "Error";
+        } else {
+          currentToolNode.el.classList.add("done");
+          currentToolNode.infoSpan.classList.add("done");
+          currentToolNode.infoSpan.textContent = "Done";
+        }
+        currentToolNode.body.appendChild(lineEl.cloneNode(true));
+        currentToolNode.el.classList.remove("expanded");
+        currentToolNode = null;
+      } else if (currentTaskNode) {
+        currentTaskNode.body.appendChild(lineEl.cloneNode(true));
+      }
+    } else if (kind === "run" || kind === "agent") {
+      if (currentTaskNode) {
+        currentTaskNode.body.appendChild(lineEl.cloneNode(true));
+        currentTaskNode.el.classList.add("done");
+        currentTaskNode.infoSpan.classList.remove("running");
+        currentTaskNode.infoSpan.classList.add("done");
+        currentTaskNode.infoSpan.textContent = "Done";
+        currentTaskNode = null;
+        currentToolNode = null;
+      }
+    } else {
+      const clone = lineEl.cloneNode(true);
+      if (currentToolNode) {
+        currentToolNode.body.appendChild(clone);
+      } else if (currentTaskNode) {
+        currentTaskNode.body.appendChild(clone);
+      }
+    }
     if (atBottom) out.scrollTop = out.scrollHeight;
   }
   __name(appendLine, "appendLine");
   function replaceOutput(text) {
     const out = el.output();
     out.innerHTML = "";
+    currentTaskNode = null;
+    currentToolNode = null;
     if (!text) return;
     for (const line of text.split("\n")) {
-      out.appendChild(makeLine(line));
+      if (line.trim().length > 0) appendLine(line);
     }
     out.scrollTop = out.scrollHeight;
   }
   __name(replaceOutput, "replaceOutput");
   function appendOutput(text) {
     for (const line of text.split("\n")) {
-      appendLine(line);
+      if (line.trim().length > 0) appendLine(line);
     }
   }
   __name(appendOutput, "appendOutput");
   function clearOutput() {
     el.output().innerHTML = "";
+    currentTaskNode = null;
+    currentToolNode = null;
   }
   __name(clearOutput, "clearOutput");
 
@@ -230,13 +335,28 @@
     const outputEl = el.output();
     const lines = Array.from(outputEl.querySelectorAll(".log-line"));
     const outputText = lines.map((l) => l.textContent).join("\n");
+    const viewState = el.output().getAttribute("data-view") || "grouped";
     vscode_api_default.setState({
       output: outputText,
       prompt: el.prompt().value,
-      status: el.status().textContent
+      status: el.status().textContent,
+      view: viewState,
+      tab: el.tabLogs().classList.contains("active") ? "logs" : "settings"
     });
   }
   __name(saveState, "saveState");
+  el.viewGroupedBtn().addEventListener("click", () => {
+    el.viewGroupedBtn().classList.add("active");
+    el.viewListBtn().classList.remove("active");
+    el.output().setAttribute("data-view", "grouped");
+    saveState();
+  });
+  el.viewListBtn().addEventListener("click", () => {
+    el.viewListBtn().classList.add("active");
+    el.viewGroupedBtn().classList.remove("active");
+    el.output().setAttribute("data-view", "list");
+    saveState();
+  });
   el.tabLogs().addEventListener("click", () => {
     setTab("logs");
     vscode_api_default.setState({ ...vscode_api_default.getState(), tab: "logs" });
@@ -365,6 +485,15 @@
       setControlState(saved.status);
     }
     if (saved.tab === "settings") setTab("settings");
+    if (saved.view === "list") {
+      el.viewListBtn().classList.add("active");
+      el.viewGroupedBtn().classList.remove("active");
+      el.output().setAttribute("data-view", "list");
+    } else {
+      el.viewGroupedBtn().classList.add("active");
+      el.viewListBtn().classList.remove("active");
+      el.output().setAttribute("data-view", "grouped");
+    }
   }
   setControlState(el.status().textContent ?? "");
   cmd.requestSettings();

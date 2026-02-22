@@ -291,7 +291,9 @@ body {
 .log-line {
   padding: 0;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  width: 100%;
 }
 
 /* semantic colouring via data-kind */
@@ -302,6 +304,149 @@ body {
 .log-line[data-kind='status']     { color: var(--muted); opacity: .6; }
 .log-line[data-kind='llm']        { color: var(--vscode-symbolIcon-colorForeground, #c586c0); opacity: .75; }
 .log-line[data-kind='text']       { color: var(--vscode-foreground); }
+
+/* ── Grouped View ──────────────────────────────────────────────────────────────── */
+.view-toggles {
+  display: flex;
+  background: var(--surface);
+  border-radius: 4px;
+  padding: 2px;
+  margin-right: 12px;
+}
+.toggle-btn {
+  background: transparent;
+  border: none;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+.toggle-btn:hover {
+  color: var(--vscode-foreground);
+}
+.toggle-btn.active {
+  background: var(--vscode-dropdown-background, rgba(128,128,128,0.2));
+  color: var(--vscode-foreground);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.output[data-view="list"] > .grouped-node {
+  display: none !important;
+}
+.output[data-view="grouped"] > .log-line {
+  display: none !important;
+}
+
+.grouped-node {
+  margin-bottom: 4px;
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 30%, transparent);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.grouped-node.error {
+  border-color: color-mix(in srgb, var(--vscode-errorForeground, #f44747) 50%, transparent);
+}
+.grouped-node.done {
+  border-color: color-mix(in srgb, var(--vscode-terminal-ansiGreen, #4caf50) 40%, transparent);
+}
+.grouped-header {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--mono);
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  user-select: none;
+}
+.grouped-header:hover {
+  filter: brightness(1.2);
+}
+.grouped-header::before {
+  content: '▶';
+  font-size: 8px;
+  margin-top: 3px;
+  transition: transform 0.2s;
+  color: var(--muted);
+}
+.grouped-node.expanded > .grouped-header::before {
+  transform: rotate(90deg);
+}
+.grouped-body {
+  display: none;
+  padding: 6px 8px;
+  border-top: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.1));
+}
+.grouped-node.expanded > .grouped-body {
+  display: block;
+}
+.grouped-body > * {
+  margin-bottom: 2px;
+}
+.grouped-body > *:last-child {
+  margin-bottom: 0;
+}
+.grouped-header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.grouped-header-row1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.grouped-header-title {
+  color: var(--vscode-symbolIcon-propertyForeground, #d7ba7d);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.grouped-header-title.task {
+  color: var(--vscode-symbolIcon-classForeground, #4ec9b0);
+}
+.grouped-header-title.tool {
+  color: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+}
+.grouped-header-info {
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 10px;
+}
+.grouped-header-desc {
+  color: var(--vscode-descriptionForeground, #cccccc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
+}
+.grouped-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(128,128,128,0.2);
+  color: var(--muted);
+}
+.grouped-badge.running {
+  background: color-mix(in srgb, var(--vscode-symbolIcon-variableForeground, #9cdcfe) 20%, transparent);
+  color: var(--vscode-symbolIcon-variableForeground, #9cdcfe);
+}
+.grouped-badge.done {
+  background: color-mix(in srgb, var(--vscode-terminal-ansiGreen, #4caf50) 20%, transparent);
+  color: var(--vscode-terminal-ansiGreen, #4caf50);
+}
+.grouped-badge.error {
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f44747) 20%, transparent);
+  color: var(--vscode-errorForeground, #f44747);
+}
 
 /* ── Input area ──────────────────────────────────────────────────────────────── */
 .input-area {

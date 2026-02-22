@@ -23,6 +23,9 @@ export const el = {
   settingsNav:     () => document.getElementById('settingsNav')!,
   settingsCats:    () => document.querySelectorAll('.settings-cat'),
   settingsNavItems: () => document.querySelectorAll('.settings-nav-item'),
+  viewGroupedBtn:     () => document.getElementById('viewGroupedBtn')! as HTMLButtonElement,
+  viewListBtn:     () => document.getElementById('viewListBtn')! as HTMLButtonElement,
+  logViewToggles:  () => document.getElementById('logViewToggles')!,
 };
 
 export function setStatus(text: string): void {
@@ -62,4 +65,7 @@ export function setTab(tab: Tab): void {
   // Only show Save button and note on Settings tab
   el.saveSettingsBtn().classList.toggle('hidden', isLogs);
   el.settingsNote().classList.toggle('hidden', isLogs);
+  
+  // Hide view toggles when not in logs tab
+  el.logViewToggles().classList.toggle('hidden', !isLogs);
 }

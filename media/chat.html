@@ -20,7 +20,14 @@
   <nav class="tabs">
     <button id="tabLogs"     class="tab active" type="button" data-t="tab_logs">Logs</button>
     <button id="tabSettings" class="tab"        type="button" data-t="tab_settings">Settings</button>
+    
     <div class="tabs-spacer"></div>
+    
+    <div class="view-toggles" id="logViewToggles">
+      <button id="viewGroupedBtn" class="toggle-btn active" type="button" data-t="btn_view_grouped">Group</button>
+      <button id="viewListBtn" class="toggle-btn" type="button" data-t="btn_view_list">List</button>
+    </div>
+
     <span id="settingsNote" class="settings-note hidden"></span>
     <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings">Save Settings</button>
   </nav>
@@ -28,7 +35,7 @@
   <!-- ── Logs pane ──────────────────────────────────────── -->
   <section id="logsPane" class="pane">
     <div id="phase" class="phase" data-busy="0">Ready</div>
-    <div id="output" class="output"></div>
+    <div id="output" class="output" data-view="grouped"></div>
     <div class="input-area">
       <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="3"></textarea>
       <div class="actions">

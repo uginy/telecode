@@ -30,6 +30,8 @@ export interface Translations {
   btn_run: string;
   prompt_placeholder: string;
   option_auto: string;
+  btn_view_grouped: string;
+  btn_view_list: string;
 
   // UI - Settings General
   settings_general_title: string;
@@ -146,6 +148,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_run: 'Пуск ▶',
     prompt_placeholder: 'Опишите задачу...',
     option_auto: 'Авто',
+    btn_view_grouped: 'Группа',
+    btn_view_list: 'Список',
 
     settings_general_title: 'Общие',
     settings_general_desc: 'Глобальные настройки приложения.',
@@ -255,6 +259,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_run: 'Run ▶',
     prompt_placeholder: 'Describe the task...',
     option_auto: 'Auto',
+    btn_view_grouped: 'Group',
+    btn_view_list: 'List',
 
     settings_general_title: 'General',
     settings_general_desc: 'Global application preferences.',

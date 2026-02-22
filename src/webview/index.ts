@@ -15,18 +15,38 @@ type PersistedState = {
   prompt?: string;
   status?: string;
   tab?: 'logs' | 'settings';
+  view?: 'grouped' | 'list';
 };
 
 function saveState(): void {
   const outputEl = el.output();
   const lines = Array.from(outputEl.querySelectorAll('.log-line'));
-  const outputText = lines.map(l => l.textContent).join('\n');
-  api.setState({
+  const outputText = lines.map((l) => l.textContent).join('\n');
+  const viewState = el.output().getAttribute('data-view') || 'grouped';
+
+  api.setState({ 
     output: outputText,
     prompt: el.prompt().value,
     status: el.status().textContent,
+    view: viewState,
+    tab: el.tabLogs().classList.contains('active') ? 'logs' : 'settings',
   });
 }
+
+// Wire up view toggles
+el.viewGroupedBtn().addEventListener('click', () => {
+  el.viewGroupedBtn().classList.add('active');
+  el.viewListBtn().classList.remove('active');
+  el.output().setAttribute('data-view', 'grouped');
+  saveState();
+});
+
+el.viewListBtn().addEventListener('click', () => {
+  el.viewListBtn().classList.add('active');
+  el.viewGroupedBtn().classList.remove('active');
+  el.output().setAttribute('data-view', 'list');
+  saveState();
+});
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 el.tabLogs().addEventListener('click',     () => { setTab('logs');     api.setState({ ...(api.getState() as object), tab: 'logs' }); });
@@ -175,6 +195,15 @@ if (saved) {
   if (saved.prompt) el.prompt().value = saved.prompt;
   if (saved.status) { setStatus(saved.status); setControlState(saved.status); }
   if (saved.tab === 'settings') setTab('settings');
+  if (saved.view === 'list') {
+    el.viewListBtn().classList.add('active');
+    el.viewGroupedBtn().classList.remove('active');
+    el.output().setAttribute('data-view', 'list');
+  } else {
+    el.viewGroupedBtn().classList.add('active');
+    el.viewListBtn().classList.remove('active');
+    el.output().setAttribute('data-view', 'grouped');
+  }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
