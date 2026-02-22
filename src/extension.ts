@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { type AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
 import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
@@ -222,7 +222,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     runtimeEventSubscription = subscribeToRuntimeEvents(runtime);
     runningConfigSignature = signature;
 
-    appendLogLine(`[agent] Started (${created.engine}) with ${config.provider}/${config.model}`);
+    appendLogLine(`[agent] Started with ${config.provider}/${config.model}`);
     const resolvedModel = runtime.getModelInfo?.();
     if (resolvedModel) {
       appendLogLine(
