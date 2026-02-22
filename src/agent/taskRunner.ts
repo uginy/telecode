@@ -163,4 +163,15 @@ export class TaskRunner {
       // fail silently
     }
   }
+
+  public clearHistorySync(): void {
+    const file = this.historyFile;
+    if (!file) return;
+    try {
+      // @ts-ignore
+      require('node:fs').unlinkSync(file);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+  }
 }

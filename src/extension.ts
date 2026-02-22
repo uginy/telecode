@@ -67,6 +67,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('aisCode.stopAgent', () => {
       stopAgent(true);
+    }),
+    vscode.commands.registerCommand('aisCode.resetSession', () => {
+      taskRunner?.clearHistorySync();
+      vscode.window.showInformationMessage('AIS Code: Session history cleared.');
     })
   );
 

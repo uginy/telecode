@@ -194,6 +194,11 @@ export class TelegramChannel implements IChannel {
         await ctx.reply('Stopped current run.');
       });
 
+      this.bot.command('reset', async (ctx) => {
+        this.taskRunner.clearHistorySync();
+        await ctx.reply('Session history has been cleared.');
+      });
+
       this.bot.command('last', async (ctx) => {
         if (!this.lastResponse) {
           await ctx.reply('No completed runs yet.');
