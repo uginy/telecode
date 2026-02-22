@@ -121,7 +121,7 @@ export class TelegramChannel implements IChannel {
           console.warn(`TeleCode AI Telegram: blocked chat id ${receivedChatId}`);
           try {
             await ctx.reply(
-              `Access denied for chat ${receivedChatId}. Expected ${allowedChatId}. Update telecode.telegram.chatId in settings.`
+              `Access denied for chat ${receivedChatId}. Update telecode.telegram.chatId in settings.`
             );
           } catch {
             // ignore reply errors for blocked users
