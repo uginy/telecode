@@ -643,27 +643,47 @@ function installLlmFetchLogger(): void {
   globalThis.fetch = (async (input: unknown, init?: unknown) => {
     const { url, method } = extractRequestInfo(input, init);
     const shouldLog = shouldLogLlmRequest(url);
-    const startedAt = Date.now();
+    let attempt = 0;
+    const maxAttempts = shouldLog ? 4 : 1; 
 
-    if (shouldLog) {
-      appendLogLine(`[llm:req] ${method} ${safeUrlForLog(url)}`);
-    }
-
-    try {
-      const response = await originalFetch(input as never, init as never);
-      if (shouldLog) {
-        const elapsed = Date.now() - startedAt;
-        appendLogLine(`[llm:res] ${response.status} ${method} ${safeUrlForLog(url)} ${elapsed}ms`);
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      const startedAt = Date.now();
+      
+      try {
+        const response = await originalFetch(input as never, init as never);
+        if (shouldLog) {
+          const elapsed = Date.now() - startedAt;
+          
+          if (!response.ok && (response.status === 429 || response.status >= 500) && attempt < maxAttempts) {
+            const delayMs = attempt * 1500;
+            appendLogLine(`[llm:retry] ${response.status} on ${method} ${safeUrlForLog(url)}, retrying in ${delayMs}ms (attempt ${attempt}/${maxAttempts})`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+          }
+          
+          appendLogLine(`[llm:res] ${response.status} ${method} ${safeUrlForLog(url)} ${elapsed}ms`);
+        }
+        return response;
+      } catch (error) {
+        if (shouldLog) {
+          const elapsed = Date.now() - startedAt;
+          const message = error instanceof Error ? error.message : String(error);
+          
+          const isNetworkError = message.includes('fetch') || message.includes('network') || message.includes('ECONNREFUSED') || message.includes('TIMEOUT');
+          if (isNetworkError && attempt < maxAttempts) {
+            const delayMs = attempt * 1500;
+            appendLogLine(`[llm:retry] network error "${message}" on ${method} ${safeUrlForLog(url)}, retrying in ${delayMs}ms`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+          }
+          
+          appendLogLine(`[llm:error] ${method} ${safeUrlForLog(url)} ${elapsed}ms ${message}`);
+        }
+        throw error;
       }
-      return response;
-    } catch (error) {
-      if (shouldLog) {
-        const elapsed = Date.now() - startedAt;
-        const message = error instanceof Error ? error.message : String(error);
-        appendLogLine(`[llm:error] ${method} ${safeUrlForLog(url)} ${elapsed}ms ${message}`);
-      }
-      throw error;
     }
+    throw new Error('Unreachable reach limit in fetch retry loop');
   }) as typeof fetch;
 
   restoreFetchLogger = () => {
