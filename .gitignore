@@ -1,7 +1,2 @@
-tests/results/
-tests/fixtures/mega-landing/index.html
-tests/fixtures/mega-landing/styles.css
-tests/fixtures/mega-landing/app.js
-tests/fixtures/mega-landing/sections/
 node_modules
-.vscode-test
+dist

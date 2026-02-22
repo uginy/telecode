@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type AgentTool } from '@mariozechner/pi-agent-core';
+import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
 import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
 import { createRuntime } from './engine/createRuntime';
@@ -13,12 +14,12 @@ import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from '.
 let runtime: AgentRuntime | null = null;
 let runtimeEventSubscription: (() => void) | null = null;
 let chatProvider: ChatViewProvider | null = null;
-let telegramChannel: TelegramChannel | null = null;
+const channelRegistry = new ChannelRegistry();
 let sessionApiKey = '';
 let runningConfigSignature = '';
-let telegramRefreshTimer: NodeJS.Timeout | null = null;
+let channelsRefreshTimer: NodeJS.Timeout | null = null;
 let configApplyTimer: NodeJS.Timeout | null = null;
-let pendingTelegramRefresh = false;
+let pendingChannelsRefresh = false;
 let pendingSettingsSync = false;
 let pendingRuntimeRestart = false;
 let autoReloadTimer: NodeJS.Timeout | null = null;
@@ -76,13 +77,12 @@ export function activate(context: vscode.ExtensionContext): void {
         pendingSettingsSync = true;
 
         if (event.affectsConfiguration('aisCode.telegram')) {
-          pendingTelegramRefresh = true;
+          pendingChannelsRefresh = true;
         }
 
         if (
           runtime &&
-          (event.affectsConfiguration('aisCode.engine') ||
-            event.affectsConfiguration('aisCode.provider') ||
+          (event.affectsConfiguration('aisCode.provider') ||
             event.affectsConfiguration('aisCode.model') ||
             event.affectsConfiguration('aisCode.apiKey') ||
             event.affectsConfiguration('aisCode.baseUrl') ||
@@ -97,7 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  refreshTelegramChannel();
+  refreshChannels();
   setupPromptStackWatcher(context);
   syncSettingsToChatView();
   syncBuildInfoToChatView();
@@ -115,9 +115,9 @@ export function deactivate(): void {
     clearTimeout(configApplyTimer);
     configApplyTimer = null;
   }
-  if (telegramRefreshTimer) {
-    clearTimeout(telegramRefreshTimer);
-    telegramRefreshTimer = null;
+  if (channelsRefreshTimer) {
+    clearTimeout(channelsRefreshTimer);
+    channelsRefreshTimer = null;
   }
   if (progressTimer) {
     clearInterval(progressTimer);
@@ -129,8 +129,7 @@ export function deactivate(): void {
   }
   restoreFetchLogger?.();
   restoreFetchLogger = null;
-  telegramChannel?.stop();
-  telegramChannel = null;
+  channelRegistry.stopAll();
 }
 
 async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
@@ -218,7 +217,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   stopAgent(false);
 
   try {
-    const created = createRuntime(settings.agent.engine, config, tools);
+    const created = createRuntime(config, tools);
     runtime = created.runtime;
     runtimeEventSubscription = subscribeToRuntimeEvents(runtime);
     runningConfigSignature = signature;
@@ -229,9 +228,6 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
       appendLogLine(
         `[agent:model] api=${resolvedModel.api} provider=${resolvedModel.provider} model=${resolvedModel.id} baseUrl=${resolvedModel.baseUrl}`
       );
-    }
-    if (created.fallbackReason) {
-      appendLogLine(`[agent] ${created.fallbackReason}`);
     }
     const promptInfo = runtime.getPromptInfo?.();
     if (promptInfo) {
@@ -316,7 +312,7 @@ function stopAgent(logToOutput: boolean): void {
     stoppedSomething = true;
   }
 
-  telegramChannel?.stopCurrentTask();
+  channelRegistry.stopAllCurrentTasks();
   stoppedSomething = true;
 
   if (logToOutput && stoppedSomething) {
@@ -328,19 +324,18 @@ function stopAgent(logToOutput: boolean): void {
   }
 }
 
-function refreshTelegramChannel(): void {
-  if (telegramRefreshTimer) {
-    clearTimeout(telegramRefreshTimer);
-    telegramRefreshTimer = null;
+function refreshChannels(): void {
+  if (channelsRefreshTimer) {
+    clearTimeout(channelsRefreshTimer);
+    channelsRefreshTimer = null;
   }
 
-  telegramChannel?.stop();
-  telegramChannel = null;
+  channelRegistry.stopAll();
 
   const settings = readAISCodeSettings();
   const tools = resolveTools(settings.agent.allowedTools);
 
-  telegramChannel = new TelegramChannel(
+  const telegramChannel = new TelegramChannel(
     tools,
     (line) => {
       appendLogLine(line.startsWith('[telegram]') ? line : `[telegram] ${line}`);
@@ -349,7 +344,9 @@ function refreshTelegramChannel(): void {
       setStatus(status);
     }
   );
-  void telegramChannel.start();
+  
+  channelRegistry.register(telegramChannel);
+  void channelRegistry.startAll();
 }
 
 async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<void> {
@@ -359,7 +356,6 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
   const telegramBotToken = settings.telegramBotToken.trim();
 
   try {
-    await config.update('engine', settings.engine, target);
     await config.update('provider', settings.provider, target);
     await config.update('model', settings.model, target);
     if (apiKey.length > 0) {
@@ -386,14 +382,14 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
   }
 }
 
-function scheduleTelegramRefresh(): void {
-  if (telegramRefreshTimer) {
-    clearTimeout(telegramRefreshTimer);
+function scheduleChannelsRefresh(): void {
+  if (channelsRefreshTimer) {
+    clearTimeout(channelsRefreshTimer);
   }
 
-  telegramRefreshTimer = setTimeout(() => {
-    telegramRefreshTimer = null;
-    refreshTelegramChannel();
+  channelsRefreshTimer = setTimeout(() => {
+    channelsRefreshTimer = null;
+    refreshChannels();
   }, 250);
 }
 
@@ -410,9 +406,9 @@ function scheduleConfigApply(): void {
       syncSettingsToChatView();
     }
 
-    if (pendingTelegramRefresh) {
-      pendingTelegramRefresh = false;
-      scheduleTelegramRefresh();
+    if (pendingChannelsRefresh) {
+      pendingChannelsRefresh = false;
+      scheduleChannelsRefresh();
     }
 
     if (pendingRuntimeRestart) {
@@ -468,7 +464,6 @@ function subscribeToRuntimeEvents(activeRuntime: AgentRuntime): () => void {
 function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): string {
   const settings = readAISCodeSettings();
   return JSON.stringify({
-    engine: settings.agent.engine,
     provider: config.provider,
     model: config.model,
     baseUrl: config.baseUrl || '',
@@ -586,7 +581,6 @@ function scheduleUiRefresh(changedFile: string): void {
 function syncSettingsToChatView(): void {
   const settings = readAISCodeSettings();
   const payload: ChatViewSettings = {
-    engine: settings.agent.engine,
     provider: settings.agent.provider,
     model: settings.agent.model,
     apiKey: settings.agent.apiKey,

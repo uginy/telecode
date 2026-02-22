@@ -286,6 +286,7 @@ export class TelegramChannel implements IChannel {
 
       await this.bot.start({
         onStart: (botInfo) => {
+          this.active = true;
           this.lastActivityAt = Date.now();
           this.setStatus('Idle');
           this.pushLog(`[telegram] started as @${botInfo.username}`);
@@ -299,6 +300,7 @@ export class TelegramChannel implements IChannel {
         },
       });
     } catch (error) {
+      this.active = false;
       this.setStatus('Error');
       const message = formatError(error);
       if (isBenignPollingAbort(message)) {
@@ -353,6 +355,7 @@ export class TelegramChannel implements IChannel {
 
     this.bot.stop();
     this.bot = null;
+    this.active = false;
     this.lastActivityAt = Date.now();
     this.currentPhase = 'idle';
     this.setStatus('Idle');
