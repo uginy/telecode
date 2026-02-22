@@ -99,6 +99,30 @@ body {
   border-bottom-color: var(--fg2);
 }
 
+.nav-github {
+  display: flex;
+  align-items: center;
+  color: var(--fg2);
+  transition: color .2s, transform .2s;
+  padding: 4px;
+}
+.nav-github:hover {
+  color: var(--fg);
+  transform: scale(1.15);
+}
+
+.card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--fg2);
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: color .2s;
+}
+.card-link:hover { color: var(--cyan); }
+
 /* --- BUTTONS --- */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
