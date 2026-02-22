@@ -141,14 +141,34 @@ export function createWorkspaceManagementTools(
           `Platform: ${process.platform}`,
           `Architecture: ${process.arch}`,
           `Node Version: ${process.version}`,
-        ].join('\n');
+        ];
+
+        let activeEditorInfo = 'No active editor';
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+          const doc = activeEditor.document;
+          const selection = activeEditor.selection;
+          let selectionText = '';
+          if (!selection.isEmpty) {
+            selectionText = doc.getText(selection);
+          }
+          activeEditorInfo = [
+            `Active file: ${doc.uri.fsPath}`,
+            `Language: ${doc.languageId}`,
+            `Cursor line: ${selection.active.line + 1}`,
+            selectionText ? `Selected text:\n${selectionText}` : 'No text selected.',
+          ].join('\n');
+        }
+
+        context.push(`\n--- VS Code Active Context ---\n${activeEditorInfo}`);
 
         return {
-          content: [{ type: 'text', text: context }],
+          content: [{ type: 'text', text: context.join('\n') }],
           details: {
             workspaceRoot,
             workingDirectory,
             folders,
+            activeEditor: activeEditor?.document.uri.fsPath,
           },
         };
       },
