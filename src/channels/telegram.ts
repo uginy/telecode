@@ -10,12 +10,12 @@ import type { Static } from '@mariozechner/pi-ai';
 import { Type } from '@mariozechner/pi-ai';
 import MarkdownIt from 'markdown-it';
 import { readAISCodeSettings } from '../config/settings';
-import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig, ImageContentExt } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
 import type { IChannel } from './types';
 import { TaskRunner } from '../agent/taskRunner';
 import { saveOpenSettingsFiles } from '../utils/vscodeUtils';
+import { i18n } from '../services/i18n';
 
 
 
@@ -466,21 +466,24 @@ export class TelegramChannel implements IChannel {
       return;
     }
 
+    const settings = readAISCodeSettings();
+    i18n.setLanguage(settings.agent.language === 'auto' ? 'ru' : settings.agent.language);
+    const t = i18n.t;
+
     this.isProcessing = true;
     this.lastActivityAt = Date.now();
     this.currentChatId = typeof ctx.chat?.id === 'number' ? ctx.chat.id : null;
-    this.currentPhase = 'Обработка запроса';
     this.setStatus('Running');
     let responseBuffer = '';
-    const statusMessage = await ctx.reply('Working on it...');
+    const statusMessage = await ctx.reply(t.tg_studying_request);
     const startedAt = Date.now();
 
     // ── Throttled status updater ──────────────────────────────────────────────
     // Telegram limits message edits; we keep ONE status message and update it
     // at most once every STATUS_THROTTLE_MS. If a new phase arrives while we're
     // in the cooldown window, we schedule a deferred flush so nothing is lost.
-    const STATUS_THROTTLE_MS = 8_000;
-    let lastEditTime = 0;
+    const STATUS_THROTTLE_MS = 4_000;
+    let lastEditTime = Date.now();
     let pendingFlush: NodeJS.Timeout | null = null;
     let pendingText = '';
 
@@ -517,7 +520,7 @@ export class TelegramChannel implements IChannel {
 
     let unsubscribe: (() => void) | null = null;
     const toolStartedAt = new Map<string, number>();
-    let phaseLabel = 'Processing';
+    let phaseLabel = t.tg_phase_preparing;
 
     const formatProgress = (): string => phaseLabel;
 
@@ -596,7 +599,7 @@ export class TelegramChannel implements IChannel {
         }
 
         if (event.type === 'tool_start') {
-          const phase = describeToolPhase(event.toolName);
+          const phase = describeToolPhase(event.toolName, t);
           toolStartedAt.set(event.toolName, Date.now());
           const argsSummary = summarizeToolArgs(event.args);
           this.pushLog(`[tool:start] ${event.toolName}${argsSummary ? ` ${argsSummary}` : ''}`);
@@ -626,7 +629,7 @@ export class TelegramChannel implements IChannel {
           if (shouldLogTelegramStatus(event.message)) {
             this.pushLog(`[status] ${compactTelegramStatus(event.message)}`);
           }
-          const nextPhase = describeRuntimePhase(event.message);
+          const nextPhase = describeRuntimePhase(event.message, t);
           if (nextPhase) {
             setPhase(nextPhase);
           }
@@ -645,7 +648,7 @@ export class TelegramChannel implements IChannel {
       });
 
       // Initial status — send immediately (lastEditTime is 0 → gap >= throttle)
-      scheduleUpdate(`Starting\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
+      scheduleUpdate(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
 
       await this.taskRunner.runTask(normalizedTask, images);
 
@@ -1198,76 +1201,76 @@ function splitPlainText(text: string, limit = TELEGRAM_TEXT_LIMIT): string[] {
   return chunks.filter((chunk) => chunk.length > 0);
 }
 
-function describeRuntimePhase(message: string): string | null {
+function describeRuntimePhase(message: string, t: any): string | null {
   const normalized = message.trim().toLowerCase();
-
+ 
   if (normalized.startsWith('llm_config')) {
-    return 'Подключаю модель и готовлю запрос';
+    return t.tg_phase_preparing;
   }
   if (normalized.startsWith('agent_start')) {
-    return 'Запускаю агента';
+     return t.tg_phase_running_agent;
   }
   if (normalized.startsWith('turn_start')) {
-    return 'Анализирую задачу';
+     return t.tg_phase_analyzing;
   }
   if (normalized.startsWith('message_start')) {
-    return 'Планирую решение';
+     return t.tg_phase_planning;
   }
   if (normalized.startsWith('message_end')) {
-    return 'Проверяю промежуточный результат';
+     return t.tg_phase_reviewing;
   }
   if (normalized.startsWith('tool_execution_update:')) {
-    return 'Использую инструмент';
+     return t.tg_phase_using_tools;
   }
   if (normalized.startsWith('turn_end')) {
-    return 'Собираю итог ответа';
+     return t.tg_phase_finalizing;
   }
   if (normalized.startsWith('agent_end')) {
-    return 'Почти готово, отправляю результат';
+     return t.tg_phase_done;
   }
 
   return null;
 }
 
-function describeToolPhase(toolName: string): string {
+function describeToolPhase(toolName: string, t: any): string {
   const normalized = toolName.trim().toLowerCase();
-
+ 
   if (
     normalized.includes('read') ||
     normalized.includes('glob') ||
     normalized.includes('grep') ||
     normalized.includes('search')
   ) {
-    return 'Поиск и анализ кода';
+    return t.tg_tool_searching;
   }
-
+ 
   if (
     normalized.includes('edit') ||
     normalized.includes('write') ||
     normalized.includes('patch') ||
     normalized.includes('replace')
   ) {
-    return 'Фикшу баг и вношу правки';
+    return t.tg_tool_editing;
   }
-
+ 
   if (
     normalized.includes('bash') ||
     normalized.includes('terminal') ||
     normalized.includes('command') ||
     normalized.includes('exec')
   ) {
-    return 'Запускаю команды и проверяю проект';
+    return t.tg_tool_executing;
   }
-
+ 
   if (normalized.includes('test') || normalized.includes('lint')) {
-    return 'Проверяю качество: тесты и линт';
+    return t.tg_tool_testing;
   }
-
+ 
   if (normalized.includes('git') || normalized.includes('diff')) {
-    return 'Проверяю изменения в git';
+    return t.tg_tool_git;
   }
-
-  return `Использую tool: ${toolName}`;
+ 
+  return `${t.tg_phase_using_tools}: ${toolName}`;
 }
 
 type MarkdownToken = ReturnType<typeof TELEGRAM_MARKDOWN.parse>[number];

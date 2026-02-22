@@ -79,6 +79,22 @@ export interface Translations {
   field_telegram_api_root_hint: string;
   field_telegram_force_ipv4: string;
   field_telegram_force_ipv4_hint: string;
+  
+  // Telegram phases
+  tg_studying_request: string;
+  tg_phase_preparing: string;
+  tg_phase_running_agent: string;
+  tg_phase_analyzing: string;
+  tg_phase_planning: string;
+  tg_phase_reviewing: string;
+  tg_phase_using_tools: string;
+  tg_phase_finalizing: string;
+  tg_phase_done: string;
+  tg_tool_searching: string;
+  tg_tool_editing: string;
+  tg_tool_executing: string;
+  tg_tool_testing: string;
+  tg_tool_git: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -150,6 +166,21 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_telegram_api_root_hint: 'Адрес сервера Telegram (оставьте пустым для стандартного).',
     field_telegram_force_ipv4: 'Форсировать IPv4',
     field_telegram_force_ipv4_hint: 'Рекомендуется для macOS — решает проблемы с IPv6.',
+  
+    tg_studying_request: 'Изучаю ваш запрос...',
+    tg_phase_preparing: 'Готовлюсь к ответу...',
+    tg_phase_running_agent: 'Запускаю агента...',
+    tg_phase_analyzing: 'Разбираюсь в задаче...',
+    tg_phase_planning: 'Планирую решение...',
+    tg_phase_reviewing: 'Проверяю результат...',
+    tg_phase_using_tools: 'Использую инструменты...',
+    tg_phase_finalizing: 'Завершаю работу...',
+    tg_phase_done: 'Готово, отправляю!',
+    tg_tool_searching: 'Поиск и анализ кода',
+    tg_tool_editing: 'Фикшу баг и вношу правки',
+    tg_tool_executing: 'Запускаю команды и проверяю проект',
+    tg_tool_testing: 'Проверяю качество: тесты и линт',
+    tg_tool_git: 'Проверяю изменения в git',
   },
   en: {
     tools_available: 'Tools loaded',
@@ -219,6 +250,21 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_telegram_api_root_hint: 'Custom API server URL (leave blank for default).',
     field_telegram_force_ipv4: 'Force IPv4',
     field_telegram_force_ipv4_hint: 'Recommended for macOS — avoids IPv6 issues.',
+  
+    tg_studying_request: 'Studying your request...',
+    tg_phase_preparing: 'Preparing response...',
+    tg_phase_running_agent: 'Starting agent...',
+    tg_phase_analyzing: 'Analyzing the task...',
+    tg_phase_planning: 'Planning the solution...',
+    tg_phase_reviewing: 'Reviewing the result...',
+    tg_phase_using_tools: 'Using tools...',
+    tg_phase_finalizing: 'Finalizing...',
+    tg_phase_done: 'Done, sending!',
+    tg_tool_searching: 'Searching and analyzing code',
+    tg_tool_editing: 'Fixing bugs and making edits',
+    tg_tool_executing: 'Running commands and checking project',
+    tg_tool_testing: 'Quality check: tests and lint',
+    tg_tool_git: 'Checking git changes',
   }
 };
 
