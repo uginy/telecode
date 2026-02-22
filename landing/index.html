@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TeleCode AI: The first remote-controlled autonomous coding agent in your IDE.">
+  <title>TeleCode AI</title>
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="background-grid"></div>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <nav class="navbar">
+    <div class="container nav-content">
+      <div class="brand">
+        <img src="assets/icon.svg" alt="TeleCode AI Logo" class="brand-logo">
+        <span class="brand-name">TeleCode AI</span>
+      </div>
+      <div class="nav-controls">
+        <div class="lang-switcher">
+          <button id="lang-en" class="active">EN</button>
+          <button id="lang-ru">RU</button>
+        </div>
+        <a href="https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai" target="_blank" class="btn btn-primary" data-i18n="nav_install">Install Now</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-content">
+        <div class="hero-badge">
+          <span class="pulse"></span>
+          <span data-i18n="hero_badge">v0.1.1 is out now</span>
+        </div>
+        <h1 class="hero-title" data-i18n="hero_title">
+          The first remote-controlled autonomous agent in your IDE.
+        </h1>
+        <p class="hero-subtitle" data-i18n="hero_subtitle">
+          Control your code from anywhere via Telegram. Let TeleCode AI write, debug, and refactor while you rest. The future of development is fully automated.
+        </p>
+        <div class="hero-actions">
+          <a href="https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai" target="_blank" class="btn btn-primary btn-large">
+            <svg viewBox="0 0 24 24" fill="none" class="btn-icon"><path d="M4 3h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5c0-1.1.9-2 2-2zm0 2v14h16V5H4zm8 11V8m-3 3l3 3 3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span data-i18n="hero_cta">Get on VS Marketplace</span>
+          </a>
+        </div>
+        <div class="hero-preview">
+          <div class="glass-panel">
+            <div class="mac-controls">
+              <span></span><span></span><span></span>
+            </div>
+            <div class="terminal-body">
+              <p><span class="prompt">TeleCode AI:</span> Hello, Ugin. Your remote command is received.</p>
+              <p><span class="sys">Executing:</span> npm run release:patch</p>
+              <p><span class="success">✓ Version bumped to 0.1.1</span></p>
+              <p class="typing">Waiting for the next command<span class="cursor"></span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <h2 class="section-title" data-i18n="features_title">Why TeleCode AI?</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon glow-blue">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 data-i18n="feat_1_title">Remote Control via Messengers</h3>
+            <p data-i18n="feat_1_desc">Send a message on Telegram while you're away. The agent will open files, fix bugs, and commit changes straight to your repo.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon glow-purple">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 data-i18n="feat_2_title">Autonomous Execution</h3>
+            <p data-i18n="feat_2_desc">It doesn't just chat. It uses bash, reads your git tree, runs tests, and edits multiple files simultaneously.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon glow-cyan">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M2 12A10 10 0 0015 21l3 1-1-3a10 10 0 10-15-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 data-i18n="feat_3_title">Context-Aware</h3>
+            <p data-i18n="feat_3_desc">Built to understand your entire workspace. It uses cross-references and deep file scanning to never lose track of your architecture.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-content">
+      <div class="brand">
+        <img src="assets/icon.svg" alt="TeleCode AI Logo" class="brand-logo" style="width: 24px; height: 24px;">
+        <span class="brand-name" style="font-size: 1rem;">TeleCode AI</span>
+      </div>
+      <p class="copyright" data-i18n="footer_text">© 2026 TeleCode AI. Built for the modern developer.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
