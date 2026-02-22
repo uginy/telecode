@@ -286,18 +286,16 @@
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
-  "dependencies": {
+  "devDependencies": {
     "@mariozechner/pi-agent-core": "^0.54.0",
     "@mariozechner/pi-ai": "^0.54.0",
-    "grammy": "^1.40.0",
-    "markdown-it": "^14.1.1"
-  },
-  "devDependencies": {
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.108.1",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.24.0",
+    "grammy": "^1.40.0",
+    "markdown-it": "^14.1.1",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   },
