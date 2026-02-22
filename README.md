@@ -1,6 +1,6 @@
-# AIS Code
+# TeleCode AI
 
-**AIS Code** is a VS Code extension that brings the power of an autonomous coding agent directly into your IDE. By crossbreeding the concepts of `nanoclaw`/`picoclaw` with the deep integrations of VS Code, AIS Code offers a fully functional, autonomous AI agent that doesn't just chat, but takes action.
+**TeleCode AI** is the first remote-controlled autonomous coding agent directly inside your IDE. By crossbreeding the concepts of `nanoclaw`/`picoclaw` with the deep integrations of VS Code, TeleCode AI offers a fully functional, autonomous AI agent that doesn't just chat, but takes action.
 
 ## 🚀 Features
 
