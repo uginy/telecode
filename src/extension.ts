@@ -71,6 +71,26 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('aisCode.resetSession', () => {
       taskRunner?.clearHistorySync();
       vscode.window.showInformationMessage('AIS Code: Session history cleared.');
+    }),
+    vscode.commands.registerCommand('aisCode.setStyleShort', async () => {
+      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'concise', true);
+      vscode.window.showInformationMessage('AIS Code: Краткий стиль ответов установлен.');
+    }),
+    vscode.commands.registerCommand('aisCode.setStyleNormal', async () => {
+      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'normal', true);
+      vscode.window.showInformationMessage('AIS Code: Обычный стиль ответов установлен.');
+    }),
+    vscode.commands.registerCommand('aisCode.setStyleDetailed', async () => {
+      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'detailed', true);
+      vscode.window.showInformationMessage('AIS Code: Детальный стиль ответов установлен.');
+    }),
+    vscode.commands.registerCommand('aisCode.setLanguageRu', async () => {
+      await vscode.workspace.getConfiguration('aisCode').update('language', 'ru', true);
+      vscode.window.showInformationMessage('AIS Code: Язык общения установлен на русский.');
+    }),
+    vscode.commands.registerCommand('aisCode.setLanguageEn', async () => {
+      await vscode.workspace.getConfiguration('aisCode').update('language', 'en', true);
+      vscode.window.showInformationMessage('AIS Code: Agent language has been set to English.');
     })
   );
 
@@ -90,7 +110,9 @@ export function activate(context: vscode.ExtensionContext): void {
             event.affectsConfiguration('aisCode.apiKey') ||
             event.affectsConfiguration('aisCode.baseUrl') ||
             event.affectsConfiguration('aisCode.maxSteps') ||
-            event.affectsConfiguration('aisCode.allowedTools'))
+            event.affectsConfiguration('aisCode.allowedTools') ||
+            event.affectsConfiguration('aisCode.responseStyle') ||
+            event.affectsConfiguration('aisCode.language'))
         ) {
           pendingRuntimeRestart = true;
         }
@@ -209,6 +231,8 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     maxSteps: settings.agent.maxSteps,
     allowedTools: settings.agent.allowedTools,
     cwd: getPrimaryWorkspaceRoot(),
+    responseStyle: settings.agent.responseStyle,
+    language: settings.agent.language,
   };
 
   const signature = createConfigSignature(config, tools);
@@ -465,6 +489,8 @@ function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): strin
     maxSteps: config.maxSteps,
     apiKeySet: config.apiKey.length > 0,
     tools: tools.map((tool) => tool.name),
+    responseStyle: config.responseStyle,
+    language: config.language,
     promptSignature: getPromptStackSignature(config.cwd),
   });
 }

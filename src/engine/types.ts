@@ -35,4 +35,6 @@ export interface RuntimeConfig {
   allowedTools: string[];
   cwd: string;
   initialMessages?: AgentMessage[];
+  responseStyle?: 'concise' | 'normal' | 'detailed';
+  language?: 'ru' | 'en';
 }

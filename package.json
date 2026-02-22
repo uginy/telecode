@@ -57,6 +57,31 @@
         "command": "aisCode.resetSession",
         "title": "AIS Code: Reset Session History",
         "icon": "$(trash)"
+      },
+      {
+        "command": "aisCode.setStyleShort",
+        "title": "AIS Code: Set Response Style - Short",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "aisCode.setStyleNormal",
+        "title": "AIS Code: Set Response Style - Normal",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "aisCode.setStyleDetailed",
+        "title": "AIS Code: Set Response Style - Detailed",
+        "icon": "$(book)"
+      },
+      {
+        "command": "aisCode.setLanguageRu",
+        "title": "AIS Code: Set Language - Russian",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "aisCode.setLanguageEn",
+        "title": "AIS Code: Set Language - English",
+        "icon": "$(globe)"
       }
     ],
     "viewsContainers": {
@@ -201,6 +226,34 @@
           "type": "boolean",
           "default": true,
           "description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
+        },
+        "aisCode.responseStyle": {
+          "type": "string",
+          "default": "concise",
+          "enum": [
+            "concise",
+            "normal",
+            "detailed"
+          ],
+          "enumDescriptions": [
+            "Краткие ответы - только самое важное",
+            "Обычные ответы - баланс деталей и краткости",
+            "Детальные ответы - максимальная подробность"
+          ],
+          "description": "Стиль ответов AI агента"
+        },
+        "aisCode.language": {
+          "type": "string",
+          "default": "ru",
+          "enum": [
+            "ru",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Русский (по умолчанию)",
+            "English"
+          ],
+          "description": "Язык общения агента / Agent's language"
         }
       }
     }

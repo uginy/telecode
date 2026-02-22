@@ -10,6 +10,8 @@ export interface AISCodeConfig {
   maxSteps: number;
   cwd?: string;
   initialMessages?: AgentMessage[];
+  responseStyle?: 'concise' | 'normal' | 'detailed';
+  language?: 'ru' | 'en';
 }
 
 export interface AgentPromptInfo {
@@ -167,6 +169,8 @@ export class CodingAgent {
       cwd: config.cwd,
       maxSteps: config.maxSteps,
       tools,
+      responseStyle: config.responseStyle,
+      language: config.language,
     });
     this.promptInfo = {
       source: promptBuild.source,

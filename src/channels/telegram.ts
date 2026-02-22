@@ -280,6 +280,28 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(`Provider updated to ${args}`);
       });
 
+      this.bot.command('style', async (ctx) => {
+        const args = getCommandArgs(ctx).toLowerCase();
+        if (!args || !['concise', 'normal', 'detailed'].includes(args)) {
+          await ctx.reply('Usage: /style <concise|normal|detailed>');
+          return;
+        }
+
+        await this.updateSetting('responseStyle', args);
+        await ctx.reply(`Response style updated to ${args}`);
+      });
+
+      this.bot.command('language', async (ctx) => {
+        const args = getCommandArgs(ctx).toLowerCase();
+        if (!args || !['ru', 'en'].includes(args)) {
+          await ctx.reply('Usage: /language <ru|en>');
+          return;
+        }
+
+        await this.updateSetting('language', args);
+        await ctx.reply(`Language updated to ${args}`);
+      });
+
       this.bot.command('run', async (ctx) => {
         const task = getCommandArgs(ctx);
         if (!task) {
@@ -1069,13 +1091,16 @@ export class TelegramChannel implements IChannel {
     const lastActivity = this.lastActivityAt > 0 ? new Date(this.lastActivityAt).toLocaleString() : 'n/a';
     return [
       `status: ${executionState}`,
+      `phase: ${this.currentPhase}`,
       `connection: ${connectionState}`,
       `provider: ${settings.agent.provider}`,
       `model: ${settings.agent.model}`,
+      `style: ${settings.agent.responseStyle}`,
+      `language: ${settings.agent.language}`,
+      `max_steps: ${settings.agent.maxSteps}`,
+      `tools_count: ${settings.agent.allowedTools.length}`,
       `workspace: ${getWorkspaceRoot()}`,
-      `telegram: ${settings.telegram.enabled ? 'enabled' : 'disabled'}`,
       `last_activity: ${lastActivity}`,
-      `phase: ${this.currentPhase}`,
     ].join('\n');
   }
 
@@ -1087,6 +1112,8 @@ export class TelegramChannel implements IChannel {
       `model: ${settings.agent.model}`,
       `baseUrl: ${settings.agent.baseUrl || '(none)'}`,
       `maxSteps: ${settings.agent.maxSteps}`,
+      `responseStyle: ${settings.agent.responseStyle}`,
+      `language: ${settings.agent.language}`,
       `telegram.enabled: ${settings.telegram.enabled}`,
       `telegram.chatId: ${settings.telegram.chatId || '(none)'}`,
       `telegram.botToken: ${maskToken(settings.telegram.botToken)}`,
@@ -1121,6 +1148,8 @@ function renderHelp(): string {
     '/api <method> [json] - call raw Telegram Bot API method',
     '/provider <id> - switch provider',
     '/model <id> - switch model',
+    '/style <concise|normal|detailed> - switch response style',
+    '/language <ru|en> - switch agent language',
     '/help - this message',
   ].join('\n');
 }

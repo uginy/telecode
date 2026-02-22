@@ -7,6 +7,8 @@ export interface AgentSettings {
   baseUrl?: string;
   maxSteps: number;
   allowedTools: string[];
+  responseStyle: 'concise' | 'normal' | 'detailed';
+  language: 'ru' | 'en';
 }
 
 export interface TelegramSettings {
@@ -63,6 +65,15 @@ export function readAISCodeSettings(): AISCodeSettings {
 
   const maxSteps = readPositiveNumber(config.get<number>('maxSteps'), 100);
   const allowedTools = readStringArray(config.get<unknown>('allowedTools'), DEFAULT_ALLOWED_TOOLS);
+  
+  // Response style setting
+  const responseStyleRaw = config.get<string>('responseStyle') || 'concise';
+  const responseStyle = (responseStyleRaw === 'concise' || responseStyleRaw === 'normal' || responseStyleRaw === 'detailed') 
+    ? responseStyleRaw 
+    : 'concise';
+
+  const languageRaw = config.get<string>('language') || 'ru';
+  const language = (languageRaw === 'ru' || languageRaw === 'en') ? languageRaw : 'ru';
 
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
@@ -78,6 +89,8 @@ export function readAISCodeSettings(): AISCodeSettings {
       baseUrl: baseUrlRaw.length > 0 ? baseUrlRaw : undefined,
       maxSteps,
       allowedTools,
+      responseStyle,
+      language,
     },
     telegram: {
       enabled: telegramEnabled,

@@ -87,9 +87,15 @@ function loadPromptLayers(cwd: string): { layers: LoadedLayer[]; missing: Prompt
   return { layers, missing };
 }
 
-function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cwd?: string): string {
+function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cwd?: string, responseStyle?: string, language?: string): string {
   const workspaceHint = typeof cwd === 'string' && cwd.trim().length > 0 ? cwd.trim() : '(unknown)';
   const toolInventory = formatToolInventory(tools);
+
+  const styleInstruction = responseStyle === 'detailed' 
+    ? 'Provide detailed, comprehensive answers with full explanations.' 
+    : responseStyle === 'normal' 
+      ? 'Provide normal, balanced answers.'
+      : 'Provide extremely concise answers, only most critical info, no fluff.';
 
   return [
     'You are AIS Code, an autonomous coding agent inside VS Code.',
@@ -99,6 +105,8 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
     `Available tools: ${toolInventory}.`,
     'Use available tools first; do not claim actions you did not execute.',
     `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
+    `Response style: ${styleInstruction}`,
+    `Language: ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`
   ].join(' ');
 }
 
@@ -126,23 +134,35 @@ export function buildComposedSystemPrompt(options: {
   cwd?: string;
   maxSteps: number;
   tools: PromptToolDescriptor[];
+  responseStyle?: 'concise' | 'normal' | 'detailed';
+  language?: 'ru' | 'en';
 }): PromptStackBuildResult {
   const cwd = typeof options.cwd === 'string' && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
   const { layers, missing } = loadPromptLayers(cwd);
   const signature = getPromptStackSignature(cwd);
   const workspaceHint = cwd;
   const toolInventory = formatToolInventory(options.tools);
+
+  const styleInstruction = options.responseStyle === 'detailed' 
+    ? '- Provide detailed, comprehensive answers with full explanations.' 
+    : options.responseStyle === 'normal' 
+      ? '- Provide normal, balanced answers.'
+      : '- Provide extremely concise answers, only most critical info, no fluff.';
+
   const runtimeLayer = [
     '# Runtime Context',
     `- Workspace root: ${workspaceHint}`,
     `- Max steps: ${options.maxSteps}`,
+    `- Response style: ${options.responseStyle || 'concise'}`,
+    styleInstruction,
+    `- Language: ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`,
     `- Tools available: ${toolInventory}`,
     '- Always prefer actual tool execution over speculation.',
   ].join('\n');
 
   if (layers.length === 0) {
     return {
-      prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd),
+      prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language),
       signature,
       source: 'fallback',
       layerCount: 0,
