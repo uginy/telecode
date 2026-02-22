@@ -1,6 +1,8 @@
 import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig, RuntimeEvent } from '../engine/types';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentTool, AgentMessage } from '@mariozechner/pi-agent-core';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 export type TaskRunnerState = 'idle' | 'running' | 'error' | 'stopped';
 
@@ -20,7 +22,8 @@ export class TaskRunner {
     private readonly onEvent: (event: RuntimeEvent) => void,
     private readonly onStateChange: (state: TaskRunnerState) => void,
     /** Inactivity timeout in milliseconds (e.g. 180_000 for 3 minutes) */
-    private readonly watchdogTimeoutMs = 180_000
+    private readonly watchdogTimeoutMs = 180_000,
+    private readonly workspaceRoot?: string
   ) {}
 
   public get currentState(): TaskRunnerState {
@@ -37,6 +40,12 @@ export class TaskRunner {
   public initRuntime(config: RuntimeConfig, tools: AgentTool[]): AgentRuntime {
     this.abortCurrentRun();
     
+    // Attempt to load previous session history
+    const history = this.loadHistorySync();
+    if (history) {
+      config.initialMessages = history;
+    }
+
     const created = createRuntime(config, tools);
     this.runtime = created.runtime;
     this.unsubscribeEvents = this.runtime.onEvent((e) => {
@@ -44,6 +53,7 @@ export class TaskRunner {
       if (e.type === 'done' || e.type === 'error') {
         this.stopWatchdog();
         this.setState(e.type === 'error' ? 'error' : 'idle');
+        this.saveHistoryAsync();
       }
       this.onEvent(e);
     });
@@ -116,6 +126,41 @@ export class TaskRunner {
     if (this.watchdogTimer) {
       clearInterval(this.watchdogTimer);
       this.watchdogTimer = null;
+    }
+  }
+
+  // --- Persistent History ---
+  private get historyFile(): string | null {
+    if (!this.workspaceRoot) return null;
+    return path.join(this.workspaceRoot, '.aiscode', 'session.json');
+  }
+
+  private loadHistorySync(): AgentMessage[] | null {
+    const file = this.historyFile;
+    if (!file) return null;
+    
+    try {
+      // @ts-ignore (we use require for blocking sync read to block init)
+      const data = require('node:fs').readFileSync(file, 'utf-8');
+      return JSON.parse(data) as AgentMessage[];
+    } catch {
+      return null;
+    }
+  }
+
+  private async saveHistoryAsync(): Promise<void> {
+    const file = this.historyFile;
+    if (!file || !this.runtime?.getMessages) return;
+
+    try {
+      const msgs = this.runtime.getMessages();
+      if (!msgs || msgs.length === 0) return;
+      
+      const dir = path.dirname(file);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(file, JSON.stringify(msgs, null, 2), 'utf-8');
+    } catch {
+      // fail silently
     }
   }
 }

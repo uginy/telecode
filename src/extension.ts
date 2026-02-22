@@ -5,14 +5,13 @@ import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
 import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
-import { createRuntime } from './engine/createRuntime';
-import type { AgentRuntime, RuntimeConfig } from './engine/types';
+import { TaskRunner } from './agent/taskRunner';
+import type { RuntimeConfig, RuntimeEvent } from './engine/types';
 import { getPromptStackSignature } from './prompts/promptStack';
 import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceTools';
 import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
 
-let runtime: AgentRuntime | null = null;
-let runtimeEventSubscription: (() => void) | null = null;
+let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
 const channelRegistry = new ChannelRegistry();
 let sessionApiKey = '';
@@ -81,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
 
         if (
-          runtime &&
+          taskRunner?.getRuntime &&
           (event.affectsConfiguration('aisCode.provider') ||
             event.affectsConfiguration('aisCode.model') ||
             event.affectsConfiguration('aisCode.apiKey') ||
@@ -209,7 +208,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   };
 
   const signature = createConfigSignature(config, tools);
-  if (!forceRestart && runtime && runningConfigSignature === signature) {
+  if (!forceRestart && taskRunner?.getRuntime && runningConfigSignature === signature) {
     setStatus('Ready');
     return true;
   }
@@ -217,9 +216,17 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   stopAgent(false);
 
   try {
-    const created = createRuntime(config, tools);
-    runtime = created.runtime;
-    runtimeEventSubscription = subscribeToRuntimeEvents(runtime);
+    if (!taskRunner) {
+      taskRunner = new TaskRunner(handleRuntimeEvent, (state) => {
+        if (state === 'error' && !isBusyStatus(activeStatus)) {
+          setStatus('Error');
+        } else if (state === 'idle' || state === 'stopped') {
+          setStatus('Idle');
+        }
+      }, 180_000, getPrimaryWorkspaceRoot());
+    }
+
+    const runtime = taskRunner.initRuntime(config, tools);
     runningConfigSignature = signature;
 
     appendLogLine(`[agent] Started with ${config.provider}/${config.model}`);
@@ -256,6 +263,7 @@ async function runTask(task: string): Promise<void> {
   }
 
   const started = await startAgent(false);
+  const runtime = taskRunner?.getRuntime;
   if (!started || !runtime) {
     return;
   }
@@ -263,7 +271,7 @@ async function runTask(task: string): Promise<void> {
   const preview = prompt.length > 240 ? `${prompt.slice(0, 240)}...` : prompt;
 
   appendLogLine(
-    `[request] engine=${runtime.engine} provider=${settings.agent.provider} model=${settings.agent.model} baseUrl=${settings.agent.baseUrl || '(default)'}`
+    `[request] provider=${settings.agent.provider} model=${settings.agent.model} baseUrl=${settings.agent.baseUrl || '(default)'}`
   );
   appendLogLine(`[request] prompt="${preview}"`);
   const resolvedModel = runtime.getModelInfo?.();
@@ -277,38 +285,23 @@ async function runTask(task: string): Promise<void> {
   const startedAt = Date.now();
   lastRuntimeEventAt = startedAt;
   lastRuntimeEventLabel = 'task_started';
-  const heartbeat = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    const staleSec = Math.floor((Date.now() - lastRuntimeEventAt) / 1000);
-    appendLogLine(`[heartbeat] running ${elapsed}s • last_event=${lastRuntimeEventLabel} (${staleSec}s ago)`);
-    if (staleSec >= 180 && runtime) {
-      appendLogLine('[watchdog] no runtime events for 180s, aborting task');
-      runtime.abort();
-    }
-  }, 10_000);
 
   try {
-    await runtime.prompt(prompt);
+    await taskRunner?.runTask(prompt);
     setStatus('Ready');
     appendLogLine('[run] done');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendLogLine(`[run:error] ${message}`);
     setStatus('Error');
-  } finally {
-    clearInterval(heartbeat);
   }
 }
 
 function stopAgent(logToOutput: boolean): void {
   let stoppedSomething = false;
 
-  if (runtime) {
-    runtime.abort();
-    runtimeEventSubscription?.();
-    runtimeEventSubscription = null;
-    runtime = null;
-    runningConfigSignature = '';
+  if (taskRunner?.getRuntime) {
+    taskRunner.abortCurrentRun();
     stoppedSomething = true;
   }
 
@@ -423,42 +416,40 @@ function resolveTools(allowedTools: string[]): AgentTool[] {
   return filterToolsByAllowed(createWorkspaceTools(), allowedTools);
 }
 
-function subscribeToRuntimeEvents(activeRuntime: AgentRuntime): () => void {
-  return activeRuntime.onEvent((event) => {
-    lastRuntimeEventAt = Date.now();
-    lastRuntimeEventLabel = event.type === 'status' ? `status:${event.message}` : event.type;
-    if (event.type === 'text_delta') {
-      appendOutput(event.delta);
-      return;
-    }
+function handleRuntimeEvent(event: RuntimeEvent): void {
+  lastRuntimeEventAt = Date.now();
+  lastRuntimeEventLabel = event.type === 'status' ? `status:${event.message}` : event.type;
+  if (event.type === 'text_delta') {
+    appendOutput(event.delta);
+    return;
+  }
 
-    if (event.type === 'tool_start') {
-      const details = summarizeEventDetails(event.args);
-      appendLogLine(`[tool:start] ${event.toolName}${details ? ` ${details}` : ''}`);
-      return;
-    }
+  if (event.type === 'tool_start') {
+    const details = summarizeEventDetails(event.args);
+    appendLogLine(`[tool:start] ${event.toolName}${details ? ` ${details}` : ''}`);
+    return;
+  }
 
-    if (event.type === 'tool_end') {
-      const state = event.isError ? 'error' : 'done';
-      const details = summarizeEventDetails(event.result);
-      appendLogLine(`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ''}`);
-      return;
-    }
+  if (event.type === 'tool_end') {
+    const state = event.isError ? 'error' : 'done';
+    const details = summarizeEventDetails(event.result);
+    appendLogLine(`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ''}`);
+    return;
+  }
 
-    if (event.type === 'status') {
-      appendLogLine(`[status] ${formatRuntimeStatus(event.message)}`);
-      return;
-    }
+  if (event.type === 'status') {
+    appendLogLine(`[status] ${formatRuntimeStatus(event.message)}`);
+    return;
+  }
 
-    if (event.type === 'error') {
-      appendLogLine(`[error] ${event.message}`);
-      return;
-    }
+  if (event.type === 'error') {
+    appendLogLine(`[error] ${event.message}`);
+    return;
+  }
 
-    if (event.type === 'done') {
-      setStatus('Ready');
-    }
-  });
+  if (event.type === 'done') {
+    setStatus('Ready');
+  }
 }
 
 function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): string {
@@ -618,7 +609,8 @@ function setupPromptStackWatcher(context: vscode.ExtensionContext): void {
   const watcher = vscode.workspace.createFileSystemWatcher('**/prompts/*.md');
   const onPromptChanged = (uri: vscode.Uri) => {
     appendLogLine(`[prompt] changed: ${path.basename(uri.fsPath)}`);
-    if (runtime) {
+    const runtime = taskRunner?.getRuntime;
+  if (runtime) {
       pendingRuntimeRestart = true;
       scheduleConfigApply();
     }

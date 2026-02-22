@@ -14,6 +14,7 @@ import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
 import type { IChannel } from './types';
+import { TaskRunner } from '../agent/taskRunner';
 
 
 
@@ -68,7 +69,7 @@ export class TelegramChannel implements IChannel {
   public readonly name = 'Telegram';
 
   private bot: Bot | null = null;
-  private runtime: AgentRuntime | null = null;
+  private taskRunner: TaskRunner;
   private runtimeConfigSignature = '';
   private active = false;
 
@@ -86,7 +87,20 @@ export class TelegramChannel implements IChannel {
     private readonly tools: AgentTool[],
     private readonly onLog?: (line: string) => void,
     private readonly onStatus?: (status: string) => void
-  ) {}
+  ) {
+    this.taskRunner = new TaskRunner(
+      (event) => {
+        // Events will be forwarded in executeTask
+      },
+      (state) => {
+         if (state === 'error' || state === 'idle' || state === 'stopped') {
+             this.isProcessing = false;
+         }
+      },
+      180_000,
+      getWorkspaceRoot()
+    );
+  }
 
   public isActive(): boolean {
     return this.active;
@@ -348,7 +362,7 @@ export class TelegramChannel implements IChannel {
 
   public stop(): void {
     this.cleanupActiveTask();
-    this.abortRuntime();
+    this.taskRunner.abortCurrentRun();
 
     if (!this.bot) {
       return;
@@ -369,7 +383,7 @@ export class TelegramChannel implements IChannel {
       return;
     }
     this.cleanupActiveTask();
-    this.abortRuntime();
+    this.taskRunner.abortCurrentRun();
     this.isProcessing = false;
     this.currentPhase = 'idle';
     this.setStatus('Idle');
@@ -438,8 +452,6 @@ export class TelegramChannel implements IChannel {
 
     let unsubscribe: (() => void) | null = null;
     const toolStartedAt = new Map<string, number>();
-    let lastEventAt = Date.now();
-    let lastEventLabel = 'task_started';
     let phaseLabel = 'Processing';
 
     const formatProgress = (): string => phaseLabel;
@@ -479,24 +491,6 @@ export class TelegramChannel implements IChannel {
       void sendTyping();
     }, 4_500);
 
-    let heartbeat: NodeJS.Timeout | null = setInterval(() => {
-      if (!this.isProcessing) {
-        if (heartbeat) {
-          clearInterval(heartbeat);
-          heartbeat = null;
-        }
-        return;
-      }
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const staleSec = Math.floor((Date.now() - lastEventAt) / 1000);
-      this.pushLog(`[heartbeat] running ${elapsed}s • last_event=${lastEventLabel} (${staleSec}s ago)`);
-      // Heartbeat does NOT trigger extra Telegram edits — the throttled updater
-      // already handles periodic status. We only log here and check the watchdog.
-      if (staleSec >= 180) {
-        this.pushLog('[watchdog] no runtime events for 180s, aborting task');
-        this.abortRuntime();
-      }
-    }, 12_000);
     const cleanup = () => {
       if (pendingFlush) {
         clearTimeout(pendingFlush);
@@ -505,10 +499,6 @@ export class TelegramChannel implements IChannel {
       if (typingInterval) {
         clearInterval(typingInterval);
         typingInterval = null;
-      }
-      if (heartbeat) {
-        clearInterval(heartbeat);
-        heartbeat = null;
       }
       if (unsubscribe) {
         unsubscribe();
@@ -534,8 +524,6 @@ export class TelegramChannel implements IChannel {
       scheduleUpdate(formatProgress());
 
       unsubscribe = runtime.onEvent((event) => {
-        lastEventAt = Date.now();
-        lastEventLabel = event.type === 'status' ? `status:${event.message}` : event.type;
         if (event.type === 'text_delta') {
           responseBuffer += event.delta;
           setPhase('Writing response');
@@ -594,7 +582,7 @@ export class TelegramChannel implements IChannel {
       // Initial status — send immediately (lastEditTime is 0 → gap >= throttle)
       scheduleUpdate(`Starting\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
 
-      await runtime.prompt(normalizedTask);
+      await this.taskRunner.runTask(normalizedTask);
 
       this.lastResponse = responseBuffer.trim().length > 0 ? responseBuffer : 'Done.';
       this.lastActivityAt = Date.now();
@@ -634,28 +622,23 @@ export class TelegramChannel implements IChannel {
 
     const runtimeTools = [...this.tools, this.createTelegramSendFileTool(), this.createTelegramApiCallTool()];
     const signature = createRuntimeSignature(config, runtimeTools);
-    if (this.runtime && this.runtimeConfigSignature === signature) {
-      return this.runtime;
+    if (this.taskRunner.getRuntime && this.runtimeConfigSignature === signature) {
+      return this.taskRunner.getRuntime;
     }
 
-    if (this.runtime && this.runtimeConfigSignature !== signature) {
+    if (this.taskRunner.getRuntime && this.runtimeConfigSignature !== signature) {
       this.pushLog('[runtime] prompt/settings changed, recreating runtime');
       this.abortRuntime();
     }
 
-    const created = createRuntime(config, runtimeTools);
-    this.runtime = created.runtime;
+    const runtime = this.taskRunner.initRuntime(config, runtimeTools);
     this.runtimeConfigSignature = signature;
 
-    return this.runtime;
+    return runtime;
   }
 
   private abortRuntime(): void {
-    if (this.runtime) {
-      this.runtime.abort();
-    }
-
-    this.runtime = null;
+    this.taskRunner.abortCurrentRun();
     this.runtimeConfigSignature = '';
   }
 
@@ -1040,7 +1023,7 @@ export class TelegramChannel implements IChannel {
   private renderStatus(): string {
     const settings = readAISCodeSettings();
     const connectionState = this.bot ? (this.isProcessing ? 'running' : 'connected') : 'disconnected';
-    const executionState = this.isProcessing ? 'running' : this.runtime ? 'ready' : 'idle';
+    const executionState = this.isProcessing ? 'running' : this.taskRunner.getRuntime ? 'ready' : 'idle';
     const lastActivity = this.lastActivityAt > 0 ? new Date(this.lastActivityAt).toLocaleString() : 'n/a';
     return [
       `status: ${executionState}`,
@@ -1487,7 +1470,7 @@ function maskToken(token: string): string {
   return `${token.slice(0, 4)}...${token.slice(-4)}`;
 }
 
-function getWorkspaceRoot(): string {
+export function getWorkspaceRoot(): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return folder ? folder.uri.fsPath : process.cwd();
 }

@@ -99,7 +99,6 @@
           ],
           "description": "AI provider"
         },
-
         "aisCode.model": {
           "type": "string",
           "default": "arcee-ai/trinity-large-preview:free",
@@ -221,6 +220,7 @@
     "@types/vscode": "^1.108.1",
     "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.24.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   }
 }

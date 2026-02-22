@@ -1,3 +1,5 @@
+import type { AgentMessage } from '@mariozechner/pi-agent-core';
+
 export type RuntimeEvent =
   | { type: 'text_delta'; delta: string }
   | { type: 'tool_start'; toolName: string; args?: unknown }
@@ -15,6 +17,7 @@ export interface AgentRuntime {
   onEvent(listener: RuntimeListener): () => void;
   getModelInfo?(): { id: string; provider: string; api: string; baseUrl: string };
   getPromptInfo?(): { source: 'stack' | 'fallback'; signature: string; layerCount: number; missing: string[] };
+  getMessages?(): AgentMessage[];
 }
 
 export interface RuntimeConfig {
@@ -25,4 +28,5 @@ export interface RuntimeConfig {
   maxSteps: number;
   allowedTools: string[];
   cwd: string;
+  initialMessages?: AgentMessage[];
 }

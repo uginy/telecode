@@ -100,7 +100,7 @@ interface ProcessResult {
   timedOut: boolean;
 }
 
-function getWorkspaceRoot(): string {
+export function getWorkspaceRoot(): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return folder ? folder.uri.fsPath : process.cwd();
 }

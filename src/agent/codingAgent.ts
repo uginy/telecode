@@ -9,6 +9,7 @@ export interface AISCodeConfig {
   baseUrl?: string;
   maxSteps: number;
   cwd?: string;
+  initialMessages?: AgentMessage[];
 }
 
 export interface AgentPromptInfo {
@@ -173,7 +174,7 @@ export class CodingAgent {
         systemPrompt: promptBuild.prompt,
         model: resolveModel(config),
         tools,
-        messages: [],
+        messages: config.initialMessages || [],
       },
       convertToLlm: toLlmMessages,
       getApiKey: () => {

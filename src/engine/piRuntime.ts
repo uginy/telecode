@@ -17,6 +17,7 @@ export class PiRuntime implements AgentRuntime {
       baseUrl: config.baseUrl,
       maxSteps: config.maxSteps,
       cwd: config.cwd,
+      initialMessages: config.initialMessages,
     };
 
     this.toolNames = tools.map((tool) => tool.name);
@@ -69,6 +70,10 @@ export class PiRuntime implements AgentRuntime {
 
   getPromptInfo(): { source: 'stack' | 'fallback'; signature: string; layerCount: number; missing: string[] } {
     return this.agent.getPromptInfo();
+  }
+
+  getMessages() {
+    return this.agent.getMessages();
   }
 
   private emit(event: RuntimeEvent): void {
