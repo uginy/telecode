@@ -15,6 +15,12 @@ body {
   overflow: hidden;
 }
 
+.layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
 /* ── Layout tokens ──────────────────────────────────────────────────────────── */
 :root {
   --gap: 8px;
@@ -25,6 +31,49 @@ body {
   --accent-fg: var(--vscode-button-foreground, #fff);
   --surface: var(--vscode-input-background, rgba(128,128,128,.08));
   --mono: var(--vscode-editor-font-family, ui-monospace, Menlo, Consolas, monospace);
+}
+
+/* ── About ─────────────────────────────────────────────────────────────────── */
+.about-hero {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--vscode-sideBar-background, var(--surface));
+  border-radius: 8px;
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.1));
+}
+
+.about-version {
+  font-size: 11px;
+  color: var(--muted);
+}
+.about-version span {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin-right: 4px;
+}
+
+.about-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-features li {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+.about-features li .dot {
+  color: var(--accent);
+  font-size: 10px;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
@@ -89,12 +138,111 @@ body {
   font: inherit;
   font-size: 11px;
   font-weight: 500;
-  padding: 4px 8px 6px;
+  padding: 6px 10px 8px;
   cursor: pointer;
-  transition: color 150ms, border-color 150ms;
+  transition: all 150ms;
+  opacity: 0.7;
 }
-.tab:hover  { color: var(--vscode-foreground); }
-.tab.active { color: var(--vscode-foreground); border-bottom-color: var(--accent); }
+.tab:hover  { color: var(--vscode-foreground); opacity: 1; }
+.tab.active { 
+  color: var(--vscode-foreground); 
+  border-bottom-color: var(--accent); 
+  opacity: 1;
+}
+
+/* ── Settings Layout (Vertical sub-tabs) ────────────────────────────────────── */
+.settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 20px;
+  padding-top: 4px;
+}
+
+.settings-nav {
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--vscode-widget-border, rgba(128,128,128,.1));
+  padding-right: 8px;
+}
+
+.settings-nav-item {
+  position: relative;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.settings-nav-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128,128,128,0.1));
+  color: var(--vscode-foreground);
+}
+
+.settings-nav-item.active {
+  background: var(--vscode-list-activeSelectionBackground, var(--surface));
+  color: var(--vscode-list-activeSelectionForeground, var(--accent));
+  font-weight: 600;
+}
+
+/* Precise vertical indicator for active settings tab */
+.settings-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,.1));
+}
+
+.pane-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-note {
+  font-size: 11px;
+  color: var(--vscode-terminal-ansiGreen, #4caf50);
+  font-style: italic;
+  font-weight: 500;
+  opacity: 0.9;
+}
 
 /* ── Panes ──────────────────────────────────────────────────────────────────── */
 .pane {
@@ -102,8 +250,8 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: var(--gap) 14px 14px;
-  gap: var(--gap);
+  padding: 8px 14px 14px;
+  gap: 8px;
 }
 .pane.hidden,
 .hidden { display: none !important; }

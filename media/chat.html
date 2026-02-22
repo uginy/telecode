@@ -41,124 +41,171 @@
 
   <!-- ── Settings pane ──────────────────────────────────── -->
   <section id="settingsPane" class="pane hidden">
-    <form id="settingsForm" class="settings-form">
-      <div class="settings-block">
-        <div class="settings-block-header">
-          <span class="settings-block-title" data-t="settings_inference_title">Inference</span>
-          <span class="settings-block-desc" data-t="settings_inference_desc">Model and API configuration for the agent loop.</span>
-        </div>
+    <div class="settings-layout">
+      <!-- Vertical sub-tabs -->
+      <nav id="settingsNav" class="settings-nav">
+        <button class="settings-nav-item active" type="button" data-cat="general" data-t="settings_general_title">General</button>
+        <button class="settings-nav-item" type="button" data-cat="inference" data-t="settings_inference_title">Inference</button>
+        <button class="settings-nav-item" type="button" data-cat="telegram" data-t="settings_telegram_title">Telegram</button>
+        <button class="settings-nav-item" type="button" data-cat="about" data-t="settings_about_title">About</button>
+      </nav>
 
-        <div class="field">
-          <label for="provider" data-t="field_provider">Provider</label>
-          <span class="field-hint" data-t="field_provider_hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
-          <input id="provider" type="text" placeholder="openai" />
-        </div>
-
-        <div class="field">
-          <label for="baseUrl" data-t="field_base_url">Base URL</label>
-          <span class="field-hint" data-t="field_base_url_hint">Custom API endpoint. Leave blank to use the provider default.</span>
-          <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
-        </div>
-
-        <div class="field">
-          <label for="apiKey" data-t="field_api_key">API Key</label>
-          <span class="field-hint" data-t="field_api_key_hint">Secret key for the selected provider. Never shared.</span>
-          <input id="apiKey" type="password" placeholder="sk-…" />
-        </div>
-
-        <div class="field">
-          <label for="model" data-t="field_model">Model</label>
-          <span class="field-hint" data-t="field_model_hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
-          <div class="input-with-action">
-            <div class="field-rel">
-              <input id="model" type="text" placeholder="gpt-4o" autocomplete="off" />
-              <span id="modelChevron" class="chevron">▼</span>
-              <div id="modelPicker" class="picker hidden"></div>
+      <!-- Sub-tab content -->
+      <div class="settings-content">
+        <form id="settingsForm" class="settings-form">
+          
+          <!-- Category: About -->
+          <div id="catAbout" class="settings-cat hidden">
+            <div class="settings-block-header">
+              <span class="settings-block-title" data-t="settings_about_title">About AIS Code</span>
+              <span class="settings-block-desc" data-t="settings_about_desc">Capabilities of AIS Code.</span>
             </div>
-            <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
+
+            <div class="about-hero">
+              <div class="about-version">
+                <span data-t="about_version">Version</span> 0.1.0
+              </div>
+            </div>
+
+            <ul class="about-features">
+              <li><span class="dot">◆</span> <span data-t="about_feature_agent">Autonomous agent (pi-agent-core) for solving complex coding tasks.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_files">Direct file system access (read, search, smart editing).</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_terminal">Safe command execution in VS Code terminal.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_remote">Remote control via Telegram and WhatsApp.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_multimodal">Multimodal model support (vison/image analysis).</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_i18n">Full multi-language support (UI and responses).</span></li>
+            </ul>
           </div>
-        </div>
 
-        <div class="field">
-          <label for="responseStyle" data-t="field_response_style">Response Style</label>
-          <span class="field-hint" data-t="field_response_style_hint">Style of text responses from the agent.</span>
-          <select id="responseStyle">
-            <option value="concise">Concise (Short)</option>
-            <option value="normal">Normal</option>
-            <option value="detailed">Detailed</option>
-          </select>
-        </div>
+          <!-- Category: General -->
+          <div id="catGeneral" class="settings-cat">
+            <div class="settings-block-header">
+              <span class="settings-block-title" data-t="settings_general_title">General Settings</span>
+              <span class="settings-block-desc" data-t="settings_general_desc">Global application preferences.</span>
+            </div>
 
-        <div class="field">
-          <label for="language" data-t="field_language">Response Language</label>
-          <span class="field-hint" data-t="field_language_hint">Agent's response language.</span>
-          <select id="language">
-            <option value="ru">Russian (ru)</option>
-            <option value="en">English (en)</option>
-          </select>
-        </div>
+            <div class="field">
+              <label for="uiLanguage" data-t="field_ui_language">UI Language</label>
+              <span class="field-hint" data-t="field_ui_language_hint">Language for tabs, buttons and settings.</span>
+              <select id="uiLanguage">
+                <option value="ru">Russian (ru)</option>
+                <option value="en">English (en)</option>
+              </select>
+            </div>
 
-        <div class="field">
-          <label for="uiLanguage" data-t="field_ui_language">UI Language</label>
-          <span class="field-hint" data-t="field_ui_language_hint">Language for tabs, buttons and settings.</span>
-          <select id="uiLanguage">
-            <option value="ru">Russian (ru)</option>
-            <option value="en">English (en)</option>
-          </select>
-        </div>
-
-        <div class="field field-inline">
-          <div>
-            <label for="maxSteps" data-t="field_max_steps">Max Steps</label>
-            <span class="field-hint" data-t="field_max_steps_hint">Maximum tool calls allowed per task (1–1000).</span>
+            <div class="field">
+              <label for="language" data-t="field_language">Response Language</label>
+              <span class="field-hint" data-t="field_language_hint">Agent's response language.</span>
+              <select id="language">
+                <option value="auto">Auto</option>
+                <option value="ru">Russian (ru)</option>
+                <option value="en">English (en)</option>
+              </select>
+            </div>
           </div>
-          <input id="maxSteps" type="number" min="1" max="1000" placeholder="100" style="width:80px" />
-        </div>
+
+          <!-- Category: Inference -->
+          <div id="catInference" class="settings-cat hidden">
+            <div class="settings-block-header">
+              <span class="settings-block-title" data-t="settings_inference_title">Inference</span>
+              <span class="settings-block-desc" data-t="settings_inference_desc">Model and API configuration for the agent loop.</span>
+            </div>
+
+            <div class="field">
+              <label for="provider" data-t="field_provider">Provider</label>
+              <span class="field-hint" data-t="field_provider_hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
+              <input id="provider" type="text" placeholder="openai" />
+            </div>
+
+            <div class="field">
+              <label for="baseUrl" data-t="field_base_url">Base URL</label>
+              <span class="field-hint" data-t="field_base_url_hint">Custom API endpoint. Leave blank to use the provider default.</span>
+              <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
+            </div>
+
+            <div class="field">
+              <label for="apiKey" data-t="field_api_key">API Key</label>
+              <span class="field-hint" data-t="field_api_key_hint">Secret key for the selected provider. Never shared.</span>
+              <input id="apiKey" type="password" placeholder="sk-…" />
+            </div>
+
+            <div class="field">
+              <label for="model" data-t="field_model">Model</label>
+              <span class="field-hint" data-t="field_model_hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
+              <div class="input-with-action">
+                <div class="field-rel">
+                  <input id="model" type="text" placeholder="gpt-4o" autocomplete="off" />
+                  <span id="modelChevron" class="chevron">▼</span>
+                  <div id="modelPicker" class="picker hidden"></div>
+                </div>
+                <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="responseStyle" data-t="field_response_style">Response Style</label>
+              <span class="field-hint" data-t="field_response_style_hint">Style of text responses from the agent.</span>
+              <select id="responseStyle">
+                <option value="concise">Concise (Short)</option>
+                <option value="normal">Normal</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </div>
+
+            <div class="field field-inline">
+              <div>
+                <label for="maxSteps" data-t="field_max_steps">Max Steps</label>
+                <span class="field-hint" data-t="field_max_steps_hint">Maximum tool calls allowed per task (1–1000).</span>
+              </div>
+              <input id="maxSteps" type="number" min="1" max="1000" placeholder="100" style="width:80px" />
+            </div>
+          </div>
+
+          <!-- Category: Telegram -->
+          <div id="catTelegram" class="settings-cat hidden">
+            <div class="settings-block-header">
+              <span class="settings-block-title" data-t="settings_telegram_title">Telegram Bot</span>
+              <span class="settings-block-desc" data-t="settings_telegram_desc">Receive and respond to tasks via a Telegram bot.</span>
+            </div>
+
+            <div class="field field-check">
+              <input id="telegramEnabled" type="checkbox" />
+              <div>
+                <label for="telegramEnabled" data-t="field_telegram_enabled">Enable Telegram Bot</label>
+                <span class="field-hint" data-t="field_telegram_enabled_hint">Start the bot when the agent is running.</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="telegramBotToken" data-t="field_telegram_token">Bot Token</label>
+              <span class="field-hint" data-t="field_telegram_token_hint">Token from @BotFather. Keep secret.</span>
+              <input id="telegramBotToken" type="password" placeholder="1234567890:ABC…" />
+            </div>
+
+            <div class="field">
+              <label for="telegramChatId" data-t="field_telegram_chat_id">Chat ID</label>
+              <span class="field-hint" data-t="field_telegram_chat_id_hint">Your Telegram user ID or group ID allowed to send tasks.</span>
+              <input id="telegramChatId" type="text" placeholder="128529419" />
+            </div>
+
+            <div class="field">
+              <label for="telegramApiRoot" data-t="field_telegram_api_root">API Root</label>
+              <span class="field-hint" data-t="field_telegram_api_root_hint">Custom API server URL. Leave blank for api.telegram.org.</span>
+              <input id="telegramApiRoot" type="text" placeholder="https://api.telegram.org" />
+            </div>
+
+            <div class="field field-check">
+              <input id="telegramForceIPv4" type="checkbox" />
+              <div>
+                <label for="telegramForceIPv4" data-t="field_telegram_force_ipv4">Force IPv4</label>
+                <span class="field-hint" data-t="field_telegram_force_ipv4_hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
+              </div>
+            </div>
+          </div>
+
+        </form>
       </div>
-
-      <!-- ── Telegram Bot ─────────────────────────────────────── -->
-      <div class="settings-block">
-        <div class="settings-block-header">
-          <span class="settings-block-title" data-t="settings_telegram_title">Telegram Bot</span>
-          <span class="settings-block-desc" data-t="settings_telegram_desc">Receive and respond to tasks via a Telegram bot.</span>
-        </div>
-
-        <div class="field field-check">
-          <input id="telegramEnabled" type="checkbox" />
-          <div>
-            <label for="telegramEnabled" data-t="field_telegram_enabled">Enable Telegram Bot</label>
-            <span class="field-hint" data-t="field_telegram_enabled_hint">Start the bot when the agent is running.</span>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="telegramBotToken" data-t="field_telegram_token">Bot Token</label>
-          <span class="field-hint" data-t="field_telegram_token_hint">Token from @BotFather. Keep secret.</span>
-          <input id="telegramBotToken" type="password" placeholder="1234567890:ABC…" />
-        </div>
-
-        <div class="field">
-          <label for="telegramChatId" data-t="field_telegram_chat_id">Chat ID</label>
-          <span class="field-hint" data-t="field_telegram_chat_id_hint">Your Telegram user ID or group ID allowed to send tasks.</span>
-          <input id="telegramChatId" type="text" placeholder="128529419" />
-        </div>
-
-        <div class="field">
-          <label for="telegramApiRoot" data-t="field_telegram_api_root">API Root</label>
-          <span class="field-hint" data-t="field_telegram_api_root_hint">Custom API server URL. Leave blank for api.telegram.org.</span>
-          <input id="telegramApiRoot" type="text" placeholder="https://api.telegram.org" />
-        </div>
-
-        <div class="field field-check">
-          <input id="telegramForceIPv4" type="checkbox" />
-          <div>
-            <label for="telegramForceIPv4" data-t="field_telegram_force_ipv4">Force IPv4</label>
-            <span class="field-hint" data-t="field_telegram_force_ipv4_hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
-          </div>
-        </div>
-      </div>
-
-    </form>
+    </div>
   </section>
 
   <script nonce="{{NONCE}}">{{JS}}</script>

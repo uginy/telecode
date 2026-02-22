@@ -56,6 +56,26 @@ el.fetchModelsBtn().addEventListener('click', () => {
   el.settingsNote().textContent = 'Fetching models...';
 });
 
+// ── Settings Sub-tabs ─────────────────────────────────────────────────────────
+function updateSettingsCategory(catId: string): void {
+  const cats = Array.from(el.settingsCats());
+  const navs = Array.from(el.settingsNavItems());
+
+  for (const c of cats) {
+    c.classList.toggle('hidden', c.id !== `cat${catId.charAt(0).toUpperCase()}${catId.slice(1)}`);
+  }
+  for (const n of navs) {
+    n.classList.toggle('active', (n as HTMLElement).dataset.cat === catId);
+  }
+}
+
+for (const btn of Array.from(el.settingsNavItems())) {
+  btn.addEventListener('click', () => {
+    const cat = (btn as HTMLElement).dataset.cat;
+    if (cat) updateSettingsCategory(cat);
+  });
+}
+
 window.addEventListener('models-loaded', (e: Event) => {
   const models = (e as CustomEvent).detail as string[];
   updateModelSuggestions(models);

@@ -8,7 +8,7 @@ export interface AgentSettings {
   maxSteps: number;
   allowedTools: string[];
   responseStyle: 'concise' | 'normal' | 'detailed';
-  language: 'ru' | 'en';
+  language: 'ru' | 'en' | 'auto';
   uiLanguage: 'ru' | 'en';
 }
 
@@ -73,8 +73,8 @@ export function readAISCodeSettings(): AISCodeSettings {
     ? responseStyleRaw 
     : 'concise';
 
-  const languageRaw = config.get<string>('language') || 'ru';
-  const language = (languageRaw === 'ru' || languageRaw === 'en') ? languageRaw : 'ru';
+  const languageRaw = config.get<string>('language') || 'auto';
+  const language = (languageRaw === 'ru' || languageRaw === 'en' || languageRaw === 'auto') ? languageRaw : 'auto';
 
   const uiLanguageRaw = config.get<string>('uiLanguage') || 'ru';
   const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en') ? uiLanguageRaw : 'ru';

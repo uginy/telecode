@@ -106,7 +106,7 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
     'Use available tools first; do not claim actions you did not execute.',
     `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
     `Response style: ${styleInstruction}`,
-    `Language: ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`
+    `Language: ${language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`}`
   ].join(' ');
 }
 
@@ -135,7 +135,7 @@ export function buildComposedSystemPrompt(options: {
   maxSteps: number;
   tools: PromptToolDescriptor[];
   responseStyle?: 'concise' | 'normal' | 'detailed';
-  language?: 'ru' | 'en';
+  language?: 'ru' | 'en' | 'auto';
 }): PromptStackBuildResult {
   const cwd = typeof options.cwd === 'string' && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
   const { layers, missing } = loadPromptLayers(cwd);
@@ -155,7 +155,7 @@ export function buildComposedSystemPrompt(options: {
     `- Max steps: ${options.maxSteps}`,
     `- Response style: ${options.responseStyle || 'concise'}`,
     styleInstruction,
-    `- Language: ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`,
+    `- Language: ${options.language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`}`,
     `- Tools available: ${toolInventory}`,
     '- Always prefer actual tool execution over speculation.',
   ].join('\n');

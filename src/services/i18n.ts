@@ -29,6 +29,22 @@ export interface Translations {
   btn_stop: string;
   btn_run: string;
   prompt_placeholder: string;
+  option_auto: string;
+
+  // UI - Settings General
+  settings_general_title: string;
+  settings_general_desc: string;
+
+  // UI - Settings About
+  settings_about_title: string;
+  settings_about_desc: string;
+  about_version: string;
+  about_feature_agent: string;
+  about_feature_files: string;
+  about_feature_terminal: string;
+  about_feature_remote: string;
+  about_feature_multimodal: string;
+  about_feature_i18n: string;
 
   // UI - Settings Inference
   settings_inference_title: string;
@@ -88,6 +104,20 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_stop: 'Остановить',
     btn_run: 'Пуск ▶',
     prompt_placeholder: 'Опишите задачу...',
+    option_auto: 'Авто',
+
+    settings_general_title: 'Общие',
+    settings_general_desc: 'Глобальные настройки приложения.',
+
+    settings_about_title: 'О программе',
+    settings_about_desc: 'Информация о возможностях AIS Code.',
+    about_version: 'Версия',
+    about_feature_agent: 'Автономный агент (pi-agent-core) для решения сложных задач по кодингу.',
+    about_feature_files: 'Прямая работа с файловой системой (чтение, поиск, умное редактирование).',
+    about_feature_terminal: 'Исполнение команд в безопасном терминале VS Code.',
+    about_feature_remote: 'Дистанционное управление через Telegram и WhatsApp.',
+    about_feature_multimodal: 'Поддержка мультимодальных моделей (анализ изображений).',
+    about_feature_i18n: 'Полная многоязычность (интерфейс и ответы агента).',
 
     settings_inference_title: 'Инференс',
     settings_inference_desc: 'Настройка модели и API для работы агента.',
@@ -143,6 +173,20 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_stop: 'Stop',
     btn_run: 'Run ▶',
     prompt_placeholder: 'Describe the task...',
+    option_auto: 'Auto',
+
+    settings_general_title: 'General',
+    settings_general_desc: 'Global application preferences.',
+
+    settings_about_title: 'About',
+    settings_about_desc: 'Capabilities of AIS Code.',
+    about_version: 'Version',
+    about_feature_agent: 'Autonomous agent (pi-agent-core) for solving complex coding tasks.',
+    about_feature_files: 'Direct file system access (read, search, smart editing).',
+    about_feature_terminal: 'Safe command execution in VS Code terminal.',
+    about_feature_remote: 'Remote control via Telegram and WhatsApp.',
+    about_feature_multimodal: 'Multimodal model support (vison/image analysis).',
+    about_feature_i18n: 'Full multi-language support (UI and responses).',
 
     settings_inference_title: 'Inference',
     settings_inference_desc: 'Model and API configuration for the agent loop.',

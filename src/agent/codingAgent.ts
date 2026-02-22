@@ -11,7 +11,7 @@ export interface AISCodeConfig {
   cwd?: string;
   initialMessages?: AgentMessage[];
   responseStyle?: 'concise' | 'normal' | 'detailed';
-  language?: 'ru' | 'en';
+  language?: 'ru' | 'en' | 'auto';
 }
 
 export interface AgentPromptInfo {

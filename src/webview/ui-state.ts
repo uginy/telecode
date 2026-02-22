@@ -20,13 +20,16 @@ export const el = {
   saveSettingsBtn: () => document.getElementById('saveSettingsBtn')!,
   fetchModelsBtn:  () => document.getElementById('fetchModelsBtn')! as HTMLButtonElement,
   modelPicker:     () => document.getElementById('modelPicker')!,
+  settingsNav:     () => document.getElementById('settingsNav')!,
+  settingsCats:    () => document.querySelectorAll('.settings-cat'),
+  settingsNavItems: () => document.querySelectorAll('.settings-nav-item'),
 };
 
 export function setStatus(text: string): void {
   const s = el.status();
-  s.textContent = text;
+  s.title = text; // Show as tooltip
   const lower = text.toLowerCase();
-  s.dataset['state'] =
+  s.dataset.state =
     lower.includes('error') ? 'error' :
     lower.includes('idle')  ? 'idle'  :
     'running';

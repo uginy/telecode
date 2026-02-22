@@ -244,14 +244,16 @@
         },
         "aisCode.language": {
           "type": "string",
-          "default": "ru",
+          "default": "auto",
           "enum": [
+            "auto",
             "ru",
             "en"
           ],
           "enumDescriptions": [
-            "Русский (по умолчанию)",
-            "English"
+            "Авто (определять по языку юзера)",
+            "Русский (RU)",
+            "English (EN)"
           ],
           "description": "Язык общения агента / Agent's language"
         },

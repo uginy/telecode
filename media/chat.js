@@ -33,13 +33,16 @@
     settingsNote: /* @__PURE__ */ __name(() => document.getElementById("settingsNote"), "settingsNote"),
     saveSettingsBtn: /* @__PURE__ */ __name(() => document.getElementById("saveSettingsBtn"), "saveSettingsBtn"),
     fetchModelsBtn: /* @__PURE__ */ __name(() => document.getElementById("fetchModelsBtn"), "fetchModelsBtn"),
-    modelPicker: /* @__PURE__ */ __name(() => document.getElementById("modelPicker"), "modelPicker")
+    modelPicker: /* @__PURE__ */ __name(() => document.getElementById("modelPicker"), "modelPicker"),
+    settingsNav: /* @__PURE__ */ __name(() => document.getElementById("settingsNav"), "settingsNav"),
+    settingsCats: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-cat"), "settingsCats"),
+    settingsNavItems: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-nav-item"), "settingsNavItems")
   };
   function setStatus(text) {
     const s = el.status();
-    s.textContent = text;
+    s.title = text;
     const lower = text.toLowerCase();
-    s.dataset["state"] = lower.includes("error") ? "error" : lower.includes("idle") ? "idle" : "running";
+    s.dataset.state = lower.includes("error") ? "error" : lower.includes("idle") ? "idle" : "running";
   }
   __name(setStatus, "setStatus");
   function setPhaseText(text) {
@@ -257,6 +260,23 @@
     cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
     el.settingsNote().textContent = "Fetching models...";
   });
+  function updateSettingsCategory(catId) {
+    const cats = Array.from(el.settingsCats());
+    const navs = Array.from(el.settingsNavItems());
+    for (const c of cats) {
+      c.classList.toggle("hidden", c.id !== `cat${catId.charAt(0).toUpperCase()}${catId.slice(1)}`);
+    }
+    for (const n of navs) {
+      n.classList.toggle("active", n.dataset.cat === catId);
+    }
+  }
+  __name(updateSettingsCategory, "updateSettingsCategory");
+  for (const btn of Array.from(el.settingsNavItems())) {
+    btn.addEventListener("click", () => {
+      const cat = btn.dataset.cat;
+      if (cat) updateSettingsCategory(cat);
+    });
+  }
   window.addEventListener("models-loaded", (e) => {
     const models = e.detail;
     updateModelSuggestions(models);
