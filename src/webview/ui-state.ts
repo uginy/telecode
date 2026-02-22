@@ -18,6 +18,8 @@ export const el = {
   settingsPane:    () => document.getElementById('settingsPane')!,
   settingsNote:    () => document.getElementById('settingsNote')!,
   saveSettingsBtn: () => document.getElementById('saveSettingsBtn')!,
+  fetchModelsBtn:  () => document.getElementById('fetchModelsBtn')! as HTMLButtonElement,
+  modelSuggestions: () => document.getElementById('modelSuggestions')! as HTMLDataListElement,
 };
 
 export function setStatus(text: string): void {

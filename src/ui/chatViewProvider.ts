@@ -183,6 +183,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'notify', text: message });
   }
 
+  setModels(models: string[]): void {
+    this.post({ type: 'modelList', models });
+  }
+
   refresh(): void {
     if (!this.webview) {
       return;

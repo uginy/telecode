@@ -10,6 +10,7 @@ import type { RuntimeConfig, RuntimeEvent } from './engine/types';
 import { getPromptStackSignature } from './prompts/promptStack';
 import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceTools';
 import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
+import { CodingAgent } from './agent/codingAgent';
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -186,6 +187,15 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
 
   if (command.command === 'saveSettings') {
     await saveSettingsFromChatView(command.settings);
+    return;
+  }
+
+  if (command.command === 'fetchModels') {
+    const models = await CodingAgent.fetchModelsFromApi(command.provider, command.baseUrl, command.apiKey);
+    if (models.length > 0) {
+      chatProvider?.setModels(models);
+    }
+    return;
   }
 }
 

@@ -22,4 +22,6 @@ export const cmd = {
   runTask:         (prompt: string) => api.postMessage({ command: 'runTask', prompt }),
   requestSettings: () => api.postMessage({ command: 'requestSettings' }),
   saveSettings:    (settings: Settings) => api.postMessage({ command: 'saveSettings', settings }),
+  fetchModels:     (provider: string, baseUrl: string, apiKey: string) => 
+                   api.postMessage({ command: 'fetchModels', provider, baseUrl, apiKey }),
 };

@@ -13,7 +13,8 @@
     stopAgent: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "stopAgent" }), "stopAgent"),
     runTask: /* @__PURE__ */ __name((prompt) => vscode_api_default.postMessage({ command: "runTask", prompt }), "runTask"),
     requestSettings: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "requestSettings" }), "requestSettings"),
-    saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings")
+    saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings"),
+    fetchModels: /* @__PURE__ */ __name((provider, baseUrl, apiKey) => vscode_api_default.postMessage({ command: "fetchModels", provider, baseUrl, apiKey }), "fetchModels")
   };
 
   // src/webview/ui-state.ts
@@ -30,7 +31,9 @@
     logsPane: /* @__PURE__ */ __name(() => document.getElementById("logsPane"), "logsPane"),
     settingsPane: /* @__PURE__ */ __name(() => document.getElementById("settingsPane"), "settingsPane"),
     settingsNote: /* @__PURE__ */ __name(() => document.getElementById("settingsNote"), "settingsNote"),
-    saveSettingsBtn: /* @__PURE__ */ __name(() => document.getElementById("saveSettingsBtn"), "saveSettingsBtn")
+    saveSettingsBtn: /* @__PURE__ */ __name(() => document.getElementById("saveSettingsBtn"), "saveSettingsBtn"),
+    fetchModelsBtn: /* @__PURE__ */ __name(() => document.getElementById("fetchModelsBtn"), "fetchModelsBtn"),
+    modelSuggestions: /* @__PURE__ */ __name(() => document.getElementById("modelSuggestions"), "modelSuggestions")
   };
   function setStatus(text) {
     const s = el.status();
@@ -176,7 +179,7 @@
         break;
       case "progress":
         setPhaseText(msg.text ?? "");
-        el.phase().dataset["busy"] = msg.busy ? "1" : "0";
+        el.phase().dataset.busy = msg.busy ? "1" : "0";
         break;
       case "replaceOutput":
         replaceOutput(msg.text);
@@ -198,6 +201,11 @@
         break;
       case "activateTab":
         if (msg.tab === "settings") setTab("settings");
+        break;
+      case "modelList":
+        if (Array.isArray(msg.models)) {
+          window.dispatchEvent(new CustomEvent("models-loaded", { detail: msg.models }));
+        }
         break;
       case "buildInfo":
         break;
@@ -237,6 +245,26 @@
   el.saveSettingsBtn().addEventListener("click", () => {
     cmd.saveSettings(readForm());
   });
+  el.fetchModelsBtn().addEventListener("click", () => {
+    const settings = readForm();
+    cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
+    el.settingsNote().textContent = "Fetching models...";
+  });
+  window.addEventListener("models-loaded", (e) => {
+    const models = e.detail;
+    updateModelSuggestions(models);
+    el.settingsNote().textContent = `Loaded ${models.length} models`;
+  });
+  function updateModelSuggestions(models) {
+    const datalist = el.modelSuggestions();
+    datalist.innerHTML = "";
+    for (const m of models) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      datalist.appendChild(opt);
+    }
+  }
+  __name(updateModelSuggestions, "updateModelSuggestions");
   window.addEventListener("message", (e) => {
     handleMessage(e.data);
     saveState();

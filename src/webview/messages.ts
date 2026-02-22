@@ -17,6 +17,7 @@ type IncomingMessage =
   | { type: 'notify';   text: string }
   | { type: 'settings'; settings: Settings }
   | { type: 'activateTab'; tab: string }
+  | { type: 'modelList'; models: string[] }
   | { type: 'buildInfo'; text: string };
 
 export function handleMessage(raw: unknown): void {
@@ -30,7 +31,7 @@ export function handleMessage(raw: unknown): void {
 
     case 'progress':
       setPhaseText(msg.text ?? '');
-      el.phase().dataset['busy'] = msg.busy ? '1' : '0';
+      el.phase().dataset.busy = msg.busy ? '1' : '0';
       break;
 
     case 'replaceOutput':
@@ -58,6 +59,13 @@ export function handleMessage(raw: unknown): void {
 
     case 'activateTab':
       if (msg.tab === 'settings') setTab('settings');
+      break;
+
+    case 'modelList':
+      if (Array.isArray(msg.models)) {
+        // We'll dispatch this to a UI helper later
+        window.dispatchEvent(new CustomEvent('models-loaded', { detail: msg.models }));
+      }
       break;
 
     case 'buildInfo':

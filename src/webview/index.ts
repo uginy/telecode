@@ -50,6 +50,28 @@ el.saveSettingsBtn().addEventListener('click', () => {
   cmd.saveSettings(readForm());
 });
 
+el.fetchModelsBtn().addEventListener('click', () => {
+  const settings = readForm();
+  cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
+  el.settingsNote().textContent = 'Fetching models...';
+});
+
+window.addEventListener('models-loaded', (e: Event) => {
+  const models = (e as CustomEvent).detail as string[];
+  updateModelSuggestions(models);
+  el.settingsNote().textContent = `Loaded ${models.length} models`;
+});
+
+function updateModelSuggestions(models: string[]): void {
+  const datalist = el.modelSuggestions();
+  datalist.innerHTML = '';
+  for (const m of models) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    datalist.appendChild(opt);
+  }
+}
+
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
   handleMessage(e.data);

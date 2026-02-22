@@ -25,7 +25,7 @@ const PROVIDER_ALIAS: Record<string, string> = {
   kimi: 'kimi-coding',
 };
 
-const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
+export const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
   openai: 'https://api.openai.com/v1',
   openrouter: 'https://openrouter.ai/api/v1',
   moonshot: 'https://api.moonshot.ai/v1',
@@ -45,7 +45,7 @@ const NON_OPENAI_COMPAT_PROVIDERS = new Set([
   'kimi-coding',
 ]);
 
-function normalizeProvider(provider: string): string {
+export function normalizeProvider(provider: string): string {
   const trimmed = provider.trim().toLowerCase();
   return PROVIDER_ALIAS[trimmed] ?? trimmed;
 }
@@ -76,7 +76,7 @@ function applyBaseUrl(model: Model<any>, baseUrl?: string): Model<any> {
   };
 }
 
-function shouldPreferOpenAiCompatibleModel(provider: string, baseUrl?: string): boolean {
+export function shouldPreferOpenAiCompatibleModel(provider: string, baseUrl?: string): boolean {
   if (NON_OPENAI_COMPAT_PROVIDERS.has(provider)) {
     return false;
   }
@@ -316,6 +316,26 @@ export class CodingAgent {
 
   getPromptInfo(): AgentPromptInfo {
     return this.promptInfo;
+  }
+
+  static async fetchModelsFromApi(provider: string, baseUrl: string, apiKey: string): Promise<string[]> {
+    const normalizedProvider = normalizeProvider(provider);
+    const finalBaseUrl = baseUrl.trim() || OPENAI_COMPAT_BASE_URL_BY_PROVIDER[normalizedProvider] || '';
+    if (!finalBaseUrl) return [];
+
+    try {
+      const resp = await fetch(`${finalBaseUrl.replace(/\/+$/, '')}/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+      });
+      if (!resp.ok) return [];
+      const json = await resp.json() as { data?: { id: string }[] };
+      if (Array.isArray(json.data)) {
+        return json.data.map(m => m.id);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
   }
 }
 

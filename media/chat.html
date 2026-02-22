@@ -57,7 +57,11 @@
         <div class="field">
           <label for="model">Model</label>
           <span class="field-hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
-          <input id="model" type="text" placeholder="gpt-4o" />
+          <div class="input-with-action">
+            <input id="model" type="text" placeholder="gpt-4o" list="modelSuggestions" />
+            <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
+          </div>
+          <datalist id="modelSuggestions"></datalist>
         </div>
 
         <div class="field">
