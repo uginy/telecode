@@ -1,37 +1,40 @@
 # TeleCode AI
 
-**TeleCode AI** is the first remote-controlled autonomous coding agent directly inside your IDE. Powered by a pure agentic architecture with deep VS Code integrations, TeleCode AI offers a fully functional, autonomous AI agent that doesn't just chat, but takes action.
+**TeleCode AI** is the first remote-controlled autonomous coding agent directly inside your IDE. Powered by a pure agentic architecture built on `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, it doesn't just chat — it plans, executes, and edits code autonomously, all controllable from your Telegram messenger.
 
 ## 🚀 Features
 
-- **Autonomous Agent**: Powered by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, the agent runs a continuous loop to understand your requests, look at your workspace, and execute tasks.
-- **Pure Agentic Runtime**: Driven by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, utilizing a continuous loop for planning and action.
+- **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks using `pi-agent-core`. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.
+- **Telegram Remote Control**: Authenticate your bot with `@BotFather`, set your Chat ID, and control your coding session from anywhere in the world.
+- **Multi-Provider AI**: Works with OpenRouter, OpenAI, Anthropic Claude, Google Gemini, MiniMax, Moonshot (Kimi), and self-hosted Ollama models.
 - **Native Coding Toolchain**:
-  - `read_file` (line ranges), `write_file`, `edit_file` (exact replace)
-  - `glob`, `grep` (ripgrep with fallback)
-  - `bash` with captured stdout/stderr and timeouts
-- **Multi-Provider Support**: Supports OpenAI, Anthropic, Google Gemini, OpenRouter, MiniMax, Moonshot, and Ollama.
-- **Messenger Control**: Designed to control your VS Code agent seamlessly from Telegram and WhatsApp, enabling remote commands and background task execution without having the editor focused.
+  - `read_file` / `write_file` / `edit_file` (exact-line replace)
+  - `glob` for file discovery
+  - `grep` (ripgrep with Node.js fallback)
+  - `bash` with captured stdout/stderr, timeout, and streaming
+  - `workspace` context: active file, cursor, open documents
+- **Configurable Response Style**: Short, Normal, or Detailed agent responses.
+- **Session History**: Persistent session memory within a VS Code workspace.
 
 ## 💡 Why a VS Code Extension (and not Standalone)?
 
-You might wonder why we built TeleCode AI inside an IDE rather than as a separate CLI tool or a standalone desktop application. Here is why:
+You might wonder why we built TeleCode AI inside an IDE rather than a separate CLI tool or standalone app. Here is why:
 
-1. **Zero Context Switching**: You spend your day in the IDE. Moving between a terminal, a browser, and your editor destroys flow. TeleCode AI lives directly in your sidebar.
-2. **Native IDE Context**: A standalone CLI is blind to your environment. Our VS Code extension instantly knows your _Current Workspace_, _Active File_, _Cursor Position_, and even _Selected Text_. The agent sees exactly what you see.
-3. **Instant Developer Feedback**: The agent modifies the exact files you have open. You see live changes in your editor, can instantly review diffs, and run tests in your integrated terminal without jumping between apps.
-4. **Your Laptop is the Server (Remote Control)**: By coupling the agent with Telegram/WhatsApp bots and running it inside VS Code, your IDE becomes a secure sandbox. This unlocks incredible real-world mobility:
-   - **Emergency Bug Fixes on the Go**: You stepped away from your PC to grab lunch or drive somewhere. A critical bug is reported in your project. Instead of rushing back to the office, you open Telegram, send a message to TeleCode AI: _"Check the latest Sentry error, find the bug in `auth.ts`, and fix it"_, and review the diff right in the chat.
-   - **Working from Bed / Sick Leave**: You are sick and in bed, but all your dev environments, keys, and specific codebases are configured on your powerful office PC. You just leave VS Code open at work. From your phone at home, you can continue to instruct the agent to run scripts, fix code, or analyze files without needing remote desktop or a laptop.
-   - **Background Heavy Tasks**: Tell the agent: _"Build a new admin panel component for Users and write unit tests"_, then lock your phone and go for a walk. When you return, the code is waiting for your review in VS Code.
+1. **Zero Context Switching**: You spend your day in the IDE. TeleCode AI lives directly in your sidebar.
+2. **Native IDE Context**: The agent instantly knows your _Current Workspace_, _Active File_, _Cursor Position_, and _Selected Text_.
+3. **Instant Developer Feedback**: The agent modifies the exact files you have open. See live changes without jumping between apps.
+4. **Your Laptop is the Server (Remote Control)**: With Telegram integration and VS Code, your IDE becomes a secure remote sandbox:
+   - **Emergency Bug Fixes on the Go**: A critical bug is reported. Open Telegram, send a message to TeleCode AI, and review the diff in chat.
+   - **Working from Bed / Sick Leave**: Your dev environment is at the office PC. Leave VS Code open — instruct the agent from your phone at home.
+   - **Background Heavy Tasks**: Tell the agent to build a feature, lock your phone, go for a walk. Code is waiting when you return.
 
 ## 🛠 Getting Started
 
-1. Install the extension using your preferred method (e.g. `npm run package` or download a VSIX).
-2. Open the **TeleCode AI** panel from the VS Code Activity Bar.
-3. You will be prompted to enter your API key when you start the agent, or you can configure it via the settings.
+1. Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai) or via `.vsix`.
+2. Open the **TeleCode AI** panel from the Activity Bar.
+3. Configure your provider and API key in Settings (`Cmd/Ctrl + ,` → TeleCode AI).
 4. Click **Start Agent**.
-5. Click **Run Task** and give the agent an objective (e.g., "Find all TypeScript files and create a summary").
+5. Click **Run Task** and give the agent an objective.
 
 ## ⚙️ Development
 
@@ -46,19 +49,28 @@ npm run build
 npm run watch
 ```
 
-For hot reload during development:
+For hot reload:
 
 1. Open `Run and Debug` in VS Code.
 2. Start **Run Extension (Watch)**.
-3. Edit files in `src/**` and keep coding; esbuild rebuilds automatically.
-4. Extension Host reload is automatic by default (`telecode.dev.autoReloadWindow: true`).
+3. Edit files in `src/**`; esbuild rebuilds automatically.
+4. Set `telecode.dev.autoReloadWindow: true` to auto-reload the Extension Host.
 
 ## ⚙️ Settings
 
-Configure via VS Code Settings (`Cmd/Ctrl + ,` -> TeleCode AI):
+Configure via VS Code Settings (`Cmd/Ctrl + ,` → TeleCode AI):
 
-- `telecode.provider`: Select your AI Provider (default: `openrouter`).
-- `telecode.model`: Select the model ID.
-- `telecode.apiKey`: API key for the selected provider.
-- `telecode.telegram.enabled`, `telecode.telegram.botToken`, `telecode.telegram.chatId`: Telegram bot settings.
-- `telecode.whatsapp.enabled`, `telecode.whatsapp.sessionPath`: WhatsApp bot settings.
+| Setting                        | Description                                                                |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `telecode.provider`            | AI provider (`openrouter`, `openai`, `anthropic`, `google`, `ollama`, ...) |
+| `telecode.model`               | Model ID (e.g. `deepseek/deepseek-chat`, `openai/gpt-4o`)                  |
+| `telecode.apiKey`              | API key for the selected provider                                          |
+| `telecode.baseUrl`             | Custom base URL for OpenAI-compatible endpoints (e.g. Ollama)              |
+| `telecode.maxSteps`            | Max agent steps per task (default: `100`)                                  |
+| `telecode.autoApprove`         | Auto-approve tool actions without confirmation                             |
+| `telecode.responseStyle`       | Response verbosity (`concise`, `normal`, `detailed`)                       |
+| `telecode.language`            | Agent communication language (`auto`, `ru`, `en`)                          |
+| `telecode.telegram.enabled`    | Enable Telegram bot                                                        |
+| `telecode.telegram.botToken`   | Token from `@BotFather`                                                    |
+| `telecode.telegram.chatId`     | Your Telegram User ID (send `/start` to the bot to get it)                 |
+| `telecode.allowOutOfWorkspace` | Allow the agent to access files outside the workspace                      |
