@@ -2,7 +2,7 @@
   "name": "ais-code",
   "displayName": "AIS Code",
   "description": "AI coding agent - control via messengers (Telegram, WhatsApp)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ais-code",
   "license": "MIT",
   "engines": {
