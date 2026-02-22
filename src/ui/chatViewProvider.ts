@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CodingAgent } from '../agent/codingAgent';
+import { i18n } from '../services/i18n';
+import { readAISCodeSettings } from '../config/settings';
 
 export type ChatViewCommand =
   | { command: 'startAgent' }
@@ -19,6 +22,7 @@ export interface ChatViewSettings {
   maxSteps: number;
   responseStyle: string;
   language: string;
+  uiLanguage: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
@@ -119,6 +123,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             maxSteps,
             responseStyle: typeof raw.responseStyle === 'string' ? raw.responseStyle : 'concise',
             language: typeof raw.language === 'string' ? raw.language : 'ru',
+            uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'ru',
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',
@@ -177,6 +182,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   setSettings(settings: ChatViewSettings): void {
     this.latestSettings = settings;
     this.post({ type: 'settings', settings });
+    i18n.setLanguage(settings.uiLanguage);
+    this.post({ type: 'translate', translations: i18n.getTranslations() });
   }
 
   notify(message: string): void {
@@ -199,6 +206,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (this.latestSettings) {
       this.post({ type: 'settings', settings: this.latestSettings });
     }
+    const settings = readAISCodeSettings();
+    i18n.setLanguage(settings.agent.language);
+    this.post({ type: 'translate', translations: i18n.getTranslations() });
   }
 
   private post(message: Record<string, unknown>): void {

@@ -622,6 +622,7 @@ function syncSettingsToChatView(): void {
     maxSteps: settings.agent.maxSteps,
     responseStyle: settings.agent.responseStyle,
     language: settings.agent.language,
+    uiLanguage: settings.agent.uiLanguage,
     telegramEnabled: settings.telegram.enabled,
     telegramBotToken: settings.telegram.botToken,
     telegramChatId: settings.telegram.chatId || '',

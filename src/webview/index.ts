@@ -113,6 +113,32 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// ── i18n ──────────────────────────────────────────────────────────────────────
+window.addEventListener('translate', (e: Event) => {
+  const translations = (e as CustomEvent).detail as Record<string, string>;
+  applyTranslations(translations);
+});
+
+function applyTranslations(t: Record<string, string>): void {
+  // Translate text content
+  const textElements = Array.from(document.querySelectorAll('[data-t]'));
+  for (const element of textElements) {
+    const key = element.getAttribute('data-t');
+    if (key && t[key]) {
+      element.textContent = t[key];
+    }
+  }
+
+  // Translate placeholders
+  const placeholderElements = Array.from(document.querySelectorAll('[data-t-placeholder]'));
+  for (const element of placeholderElements) {
+    const key = element.getAttribute('data-t-placeholder');
+    if (key && t[key]) {
+      (element as HTMLInputElement | HTMLTextAreaElement).placeholder = t[key];
+    }
+  }
+}
+
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
   handleMessage(e.data);

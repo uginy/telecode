@@ -9,6 +9,7 @@ export type Settings = {
   maxSteps: number;
   responseStyle?: string;
   language?: string;
+  uiLanguage?: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;

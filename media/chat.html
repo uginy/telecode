@@ -18,11 +18,11 @@
 
   <!-- ── Tabs ───────────────────────────────────────────── -->
   <nav class="tabs">
-    <button id="tabLogs"     class="tab active" type="button">Logs</button>
-    <button id="tabSettings" class="tab"        type="button">Settings</button>
+    <button id="tabLogs"     class="tab active" type="button" data-t="tab_logs">Logs</button>
+    <button id="tabSettings" class="tab"        type="button" data-t="tab_settings">Settings</button>
     <div class="tabs-spacer"></div>
     <span id="settingsNote" class="settings-note hidden"></span>
-    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button">Save Settings</button>
+    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings">Save Settings</button>
   </nav>
 
   <!-- ── Logs pane ──────────────────────────────────────── -->
@@ -30,11 +30,11 @@
     <div id="phase" class="phase" data-busy="0">Ready</div>
     <div id="output" class="output"></div>
     <div class="input-area">
-      <textarea id="prompt" placeholder="Describe the task…" rows="3"></textarea>
+      <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="3"></textarea>
       <div class="actions">
-        <button id="startBtn" class="btn btn-ghost"    type="button">Start</button>
-        <button id="stopBtn"  class="btn btn-ghost"    type="button">Stop</button>
-        <button id="runBtn"   class="btn btn-primary"  type="button">Run ▶</button>
+        <button id="startBtn" class="btn btn-ghost"    type="button" data-t="btn_start">Start</button>
+        <button id="stopBtn"  class="btn btn-ghost"    type="button" data-t="btn_stop">Stop</button>
+        <button id="runBtn"   class="btn btn-primary"  type="button" data-t="btn_run">Run ▶</button>
       </div>
     </div>
   </section>
@@ -44,31 +44,31 @@
     <form id="settingsForm" class="settings-form">
       <div class="settings-block">
         <div class="settings-block-header">
-          <span class="settings-block-title">Inference</span>
-          <span class="settings-block-desc">Model and API configuration for the agent loop.</span>
+          <span class="settings-block-title" data-t="settings_inference_title">Inference</span>
+          <span class="settings-block-desc" data-t="settings_inference_desc">Model and API configuration for the agent loop.</span>
         </div>
 
         <div class="field">
-          <label for="provider">Provider</label>
-          <span class="field-hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
+          <label for="provider" data-t="field_provider">Provider</label>
+          <span class="field-hint" data-t="field_provider_hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
           <input id="provider" type="text" placeholder="openai" />
         </div>
 
         <div class="field">
-          <label for="baseUrl">Base URL</label>
-          <span class="field-hint">Custom API endpoint. Leave blank to use the provider default.</span>
+          <label for="baseUrl" data-t="field_base_url">Base URL</label>
+          <span class="field-hint" data-t="field_base_url_hint">Custom API endpoint. Leave blank to use the provider default.</span>
           <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
         </div>
 
         <div class="field">
-          <label for="apiKey">API Key</label>
-          <span class="field-hint">Secret key for the selected provider. Never shared.</span>
+          <label for="apiKey" data-t="field_api_key">API Key</label>
+          <span class="field-hint" data-t="field_api_key_hint">Secret key for the selected provider. Never shared.</span>
           <input id="apiKey" type="password" placeholder="sk-…" />
         </div>
 
         <div class="field">
-          <label for="model">Model</label>
-          <span class="field-hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
+          <label for="model" data-t="field_model">Model</label>
+          <span class="field-hint" data-t="field_model_hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
           <div class="input-with-action">
             <div class="field-rel">
               <input id="model" type="text" placeholder="gpt-4o" autocomplete="off" />
@@ -80,8 +80,8 @@
         </div>
 
         <div class="field">
-          <label for="responseStyle">Response Style</label>
-          <span class="field-hint">Style of text responses from the agent.</span>
+          <label for="responseStyle" data-t="field_response_style">Response Style</label>
+          <span class="field-hint" data-t="field_response_style_hint">Style of text responses from the agent.</span>
           <select id="responseStyle">
             <option value="concise">Concise (Short)</option>
             <option value="normal">Normal</option>
@@ -90,9 +90,18 @@
         </div>
 
         <div class="field">
-          <label for="language">Language</label>
-          <span class="field-hint">Agent's response language.</span>
+          <label for="language" data-t="field_language">Response Language</label>
+          <span class="field-hint" data-t="field_language_hint">Agent's response language.</span>
           <select id="language">
+            <option value="ru">Russian (ru)</option>
+            <option value="en">English (en)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="uiLanguage" data-t="field_ui_language">UI Language</label>
+          <span class="field-hint" data-t="field_ui_language_hint">Language for tabs, buttons and settings.</span>
+          <select id="uiLanguage">
             <option value="ru">Russian (ru)</option>
             <option value="en">English (en)</option>
           </select>
@@ -100,8 +109,8 @@
 
         <div class="field field-inline">
           <div>
-            <label for="maxSteps">Max Steps</label>
-            <span class="field-hint">Maximum tool calls allowed per task (1–1000).</span>
+            <label for="maxSteps" data-t="field_max_steps">Max Steps</label>
+            <span class="field-hint" data-t="field_max_steps_hint">Maximum tool calls allowed per task (1–1000).</span>
           </div>
           <input id="maxSteps" type="number" min="1" max="1000" placeholder="100" style="width:80px" />
         </div>
@@ -110,41 +119,41 @@
       <!-- ── Telegram Bot ─────────────────────────────────────── -->
       <div class="settings-block">
         <div class="settings-block-header">
-          <span class="settings-block-title">Telegram Bot</span>
-          <span class="settings-block-desc">Receive and respond to tasks via a Telegram bot.</span>
+          <span class="settings-block-title" data-t="settings_telegram_title">Telegram Bot</span>
+          <span class="settings-block-desc" data-t="settings_telegram_desc">Receive and respond to tasks via a Telegram bot.</span>
         </div>
 
         <div class="field field-check">
           <input id="telegramEnabled" type="checkbox" />
           <div>
-            <label for="telegramEnabled">Enable Telegram Bot</label>
-            <span class="field-hint">Start the bot when the agent is running.</span>
+            <label for="telegramEnabled" data-t="field_telegram_enabled">Enable Telegram Bot</label>
+            <span class="field-hint" data-t="field_telegram_enabled_hint">Start the bot when the agent is running.</span>
           </div>
         </div>
 
         <div class="field">
-          <label for="telegramBotToken">Bot Token</label>
-          <span class="field-hint">Token from @BotFather. Keep secret.</span>
+          <label for="telegramBotToken" data-t="field_telegram_token">Bot Token</label>
+          <span class="field-hint" data-t="field_telegram_token_hint">Token from @BotFather. Keep secret.</span>
           <input id="telegramBotToken" type="password" placeholder="1234567890:ABC…" />
         </div>
 
         <div class="field">
-          <label for="telegramChatId">Chat ID</label>
-          <span class="field-hint">Your Telegram user ID or group ID allowed to send tasks.</span>
+          <label for="telegramChatId" data-t="field_telegram_chat_id">Chat ID</label>
+          <span class="field-hint" data-t="field_telegram_chat_id_hint">Your Telegram user ID or group ID allowed to send tasks.</span>
           <input id="telegramChatId" type="text" placeholder="128529419" />
         </div>
 
         <div class="field">
-          <label for="telegramApiRoot">API Root</label>
-          <span class="field-hint">Custom API server URL. Leave blank for api.telegram.org.</span>
+          <label for="telegramApiRoot" data-t="field_telegram_api_root">API Root</label>
+          <span class="field-hint" data-t="field_telegram_api_root_hint">Custom API server URL. Leave blank for api.telegram.org.</span>
           <input id="telegramApiRoot" type="text" placeholder="https://api.telegram.org" />
         </div>
 
         <div class="field field-check">
           <input id="telegramForceIPv4" type="checkbox" />
           <div>
-            <label for="telegramForceIPv4">Force IPv4</label>
-            <span class="field-hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
+            <label for="telegramForceIPv4" data-t="field_telegram_force_ipv4">Force IPv4</label>
+            <span class="field-hint" data-t="field_telegram_force_ipv4_hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
           </div>
         </div>
       </div>

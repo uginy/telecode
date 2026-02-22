@@ -254,6 +254,19 @@
             "English"
           ],
           "description": "Язык общения агента / Agent's language"
+        },
+        "aisCode.uiLanguage": {
+          "type": "string",
+          "default": "ru",
+          "enum": [
+            "ru",
+            "en"
+          ],
+          "enumDescriptions": [
+            "Русский (интерфейс)",
+            "English (interface)"
+          ],
+          "description": "Язык интерфейса расширения / Extension UI language"
         }
       }
     }

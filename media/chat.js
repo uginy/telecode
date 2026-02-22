@@ -145,6 +145,7 @@
       maxSteps,
       responseStyle: strVal("responseStyle"),
       language: strVal("language"),
+      uiLanguage: strVal("uiLanguage"),
       telegramEnabled: boolVal("telegramEnabled"),
       telegramBotToken: strVal("telegramBotToken"),
       telegramChatId: strVal("telegramChatId"),
@@ -161,6 +162,7 @@
     setStr("maxSteps", String(s.maxSteps ?? 100));
     setStr("responseStyle", s.responseStyle ?? "concise");
     setStr("language", s.language ?? "ru");
+    setStr("uiLanguage", s.uiLanguage ?? "ru");
     setBool("telegramEnabled", s.telegramEnabled === true);
     setStr("telegramBotToken", s.telegramBotToken ?? "");
     setStr("telegramChatId", s.telegramChatId ?? "");
@@ -208,6 +210,11 @@
         }
         break;
       case "buildInfo":
+        break;
+      case "translate":
+        if (msg.translations) {
+          window.dispatchEvent(new CustomEvent("translate", { detail: msg.translations }));
+        }
         break;
     }
   }
@@ -299,6 +306,27 @@
       el.modelPicker().classList.add("hidden");
     }
   });
+  window.addEventListener("translate", (e) => {
+    const translations = e.detail;
+    applyTranslations(translations);
+  });
+  function applyTranslations(t) {
+    const textElements = Array.from(document.querySelectorAll("[data-t]"));
+    for (const element of textElements) {
+      const key = element.getAttribute("data-t");
+      if (key && t[key]) {
+        element.textContent = t[key];
+      }
+    }
+    const placeholderElements = Array.from(document.querySelectorAll("[data-t-placeholder]"));
+    for (const element of placeholderElements) {
+      const key = element.getAttribute("data-t-placeholder");
+      if (key && t[key]) {
+        element.placeholder = t[key];
+      }
+    }
+  }
+  __name(applyTranslations, "applyTranslations");
   window.addEventListener("message", (e) => {
     handleMessage(e.data);
     saveState();

@@ -18,7 +18,8 @@ type IncomingMessage =
   | { type: 'settings'; settings: Settings }
   | { type: 'activateTab'; tab: string }
   | { type: 'modelList'; models: string[] }
-  | { type: 'buildInfo'; text: string };
+  | { type: 'buildInfo'; text: string }
+  | { type: 'translate'; translations: Record<string, string> };
 
 export function handleMessage(raw: unknown): void {
   const msg = raw as IncomingMessage;
@@ -70,6 +71,12 @@ export function handleMessage(raw: unknown): void {
 
     case 'buildInfo':
       // no-op: buildInfo badge removed from new UI
+      break;
+
+    case 'translate':
+      if (msg.translations) {
+        window.dispatchEvent(new CustomEvent('translate', { detail: msg.translations }));
+      }
       break;
   }
 }

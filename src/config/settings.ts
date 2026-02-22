@@ -9,6 +9,7 @@ export interface AgentSettings {
   allowedTools: string[];
   responseStyle: 'concise' | 'normal' | 'detailed';
   language: 'ru' | 'en';
+  uiLanguage: 'ru' | 'en';
 }
 
 export interface TelegramSettings {
@@ -75,6 +76,9 @@ export function readAISCodeSettings(): AISCodeSettings {
   const languageRaw = config.get<string>('language') || 'ru';
   const language = (languageRaw === 'ru' || languageRaw === 'en') ? languageRaw : 'ru';
 
+  const uiLanguageRaw = config.get<string>('uiLanguage') || 'ru';
+  const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en') ? uiLanguageRaw : 'ru';
+
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
   const telegramChatIdRaw = (config.get<string>('telegram.chatId') || '').trim();
@@ -91,6 +95,7 @@ export function readAISCodeSettings(): AISCodeSettings {
       allowedTools,
       responseStyle,
       language,
+      uiLanguage,
     },
     telegram: {
       enabled: telegramEnabled,
