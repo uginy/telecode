@@ -1,4 +1,4 @@
-# AIS Code System Prompt Template
+# TeleCode AI System Prompt Template
 
 Concatenate files in this exact order:
 

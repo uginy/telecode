@@ -1,6 +1,6 @@
 # Change Log
 
-All notable changes to the "ais-code" extension will be documented in this file.
+All notable changes to the "telecode-ai" extension will be documented in this file.
 
 ## [0.1.0]
 

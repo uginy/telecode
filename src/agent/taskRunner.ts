@@ -132,7 +132,7 @@ export class TaskRunner {
   // --- Persistent History ---
   private get historyFile(): string | null {
     if (!this.workspaceRoot) return null;
-    return path.join(this.workspaceRoot, '.aiscode', 'session.json');
+    return path.join(this.workspaceRoot, '.telecode', 'session.json');
   }
 
   private loadHistorySync(): AgentMessage[] | null {

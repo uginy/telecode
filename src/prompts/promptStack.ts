@@ -92,7 +92,7 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
   const toolInventory = formatToolInventory(tools);
   const outOfWorkspaceInstruction = allowOutOfWorkspace 
     ? 'You ARE allowed to access files and run commands outside the workspace root.' 
-    : 'You are restricted to the workspace root. Enable "aisCode.allowOutOfWorkspace" to access files outside.';
+    : 'You are restricted to the workspace root. Enable "telecode.allowOutOfWorkspace" to access files outside.';
 
   const styleInstruction = responseStyle === 'detailed' 
     ? 'Provide detailed, comprehensive answers with full explanations.' 
@@ -101,7 +101,7 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
       : 'Provide extremely concise answers, only most critical info, no fluff.';
 
   return [
-    'You are AIS Code, an autonomous coding agent inside VS Code.',
+    'You are TeleCode AI, an autonomous coding agent inside VS Code.',
     'Prefer workspace tools over speculation. Keep changes minimal and high quality.',
     'When editing files, avoid unnecessary rewrites and preserve existing style.',
     `Workspace root: ${workspaceHint}.`,

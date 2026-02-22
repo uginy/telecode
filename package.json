@@ -29,84 +29,84 @@
   "contributes": {
     "commands": [
       {
-        "command": "aisCode.openChat",
-        "title": "AIS Code: Open Chat",
+        "command": "telecode.openChat",
+        "title": "TeleCode AI: Open Chat",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "aisCode.openSettings",
-        "title": "AIS Code: Open Settings",
+        "command": "telecode.openSettings",
+        "title": "TeleCode AI: Open Settings",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "aisCode.startAgent",
-        "title": "AIS Code: Start Agent",
+        "command": "telecode.startAgent",
+        "title": "TeleCode AI: Start Agent",
         "icon": "$(play)"
       },
       {
-        "command": "aisCode.runTask",
-        "title": "AIS Code: Run Task",
+        "command": "telecode.runTask",
+        "title": "TeleCode AI: Run Task",
         "icon": "$(rocket)"
       },
       {
-        "command": "aisCode.stopAgent",
-        "title": "AIS Code: Stop Agent",
+        "command": "telecode.stopAgent",
+        "title": "TeleCode AI: Stop Agent",
         "icon": "$(debug-stop)"
       },
       {
-        "command": "aisCode.resetSession",
-        "title": "AIS Code: Reset Session History",
+        "command": "telecode.resetSession",
+        "title": "TeleCode AI: Reset Session History",
         "icon": "$(trash)"
       },
       {
-        "command": "aisCode.setStyleShort",
-        "title": "AIS Code: Set Response Style - Short",
+        "command": "telecode.setStyleShort",
+        "title": "TeleCode AI: Set Response Style - Short",
         "icon": "$(comment)"
       },
       {
-        "command": "aisCode.setStyleNormal",
-        "title": "AIS Code: Set Response Style - Normal",
+        "command": "telecode.setStyleNormal",
+        "title": "TeleCode AI: Set Response Style - Normal",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "aisCode.setStyleDetailed",
-        "title": "AIS Code: Set Response Style - Detailed",
+        "command": "telecode.setStyleDetailed",
+        "title": "TeleCode AI: Set Response Style - Detailed",
         "icon": "$(book)"
       },
       {
-        "command": "aisCode.setLanguageRu",
-        "title": "AIS Code: Set Language - Russian",
+        "command": "telecode.setLanguageRu",
+        "title": "TeleCode AI: Set Language - Russian",
         "icon": "$(globe)"
       },
       {
-        "command": "aisCode.setLanguageEn",
-        "title": "AIS Code: Set Language - English",
+        "command": "telecode.setLanguageEn",
+        "title": "TeleCode AI: Set Language - English",
         "icon": "$(globe)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "ais-code",
-          "title": "AIS Code",
+          "id": "telecode-ai",
+          "title": "TeleCode AI",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "ais-code": [
+      "telecode-ai": [
         {
           "type": "webview",
-          "id": "aisCode.chatView",
+          "id": "telecode.chatView",
           "name": "Chat",
           "icon": "media/icon.png"
         }
       ]
     },
     "configuration": {
-      "title": "AIS Code",
+      "title": "TeleCode AI",
       "properties": {
-        "aisCode.provider": {
+        "telecode.provider": {
           "type": "string",
           "default": "openrouter",
           "enum": [
@@ -129,7 +129,7 @@
           ],
           "description": "AI provider"
         },
-        "aisCode.model": {
+        "telecode.model": {
           "type": "string",
           "default": "arcee-ai/trinity-large-preview:free",
           "enum": [
@@ -152,62 +152,62 @@
           ],
           "description": "Model ID (e.g., arcee-ai/trinity-large-preview:free). You can type any custom model ID manually in settings.json"
         },
-        "aisCode.apiKey": {
+        "telecode.apiKey": {
           "type": "string",
           "default": "",
           "description": "API key for the selected provider"
         },
-        "aisCode.baseUrl": {
+        "telecode.baseUrl": {
           "type": "string",
           "default": "",
           "description": "Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1)"
         },
-        "aisCode.telegram.enabled": {
+        "telecode.telegram.enabled": {
           "type": "boolean",
           "default": false,
           "description": "Enable Telegram bot"
         },
-        "aisCode.telegram.botToken": {
+        "telecode.telegram.botToken": {
           "type": "string",
           "default": "",
           "description": "Telegram bot token from @BotFather"
         },
-        "aisCode.telegram.chatId": {
+        "telecode.telegram.chatId": {
           "type": "string",
           "default": "",
           "description": "Your Telegram chat ID"
         },
-        "aisCode.telegram.apiRoot": {
+        "telecode.telegram.apiRoot": {
           "type": "string",
           "default": "https://api.telegram.org",
           "description": "Telegram Bot API root URL (advanced networking)"
         },
-        "aisCode.telegram.forceIPv4": {
+        "telecode.telegram.forceIPv4": {
           "type": "boolean",
           "default": true,
           "description": "Force IPv4 for Telegram API requests (helps on broken IPv6 networks)"
         },
-        "aisCode.whatsapp.enabled": {
+        "telecode.whatsapp.enabled": {
           "type": "boolean",
           "default": false,
           "description": "Enable WhatsApp bot"
         },
-        "aisCode.whatsapp.sessionPath": {
+        "telecode.whatsapp.sessionPath": {
           "type": "string",
-          "default": "~/.ais-code/whatsapp-session.json",
+          "default": "~/.telecode-ai/whatsapp-session.json",
           "description": "Path to WhatsApp session file"
         },
-        "aisCode.autoApprove": {
+        "telecode.autoApprove": {
           "type": "boolean",
           "default": true,
           "description": "Auto-approve tool actions"
         },
-        "aisCode.maxSteps": {
+        "telecode.maxSteps": {
           "type": "number",
           "default": 100,
           "description": "Max agent steps per task"
         },
-        "aisCode.allowedTools": {
+        "telecode.allowedTools": {
           "type": "array",
           "default": [
             "Read",
@@ -222,12 +222,12 @@
           ],
           "description": "Tools the agent can use"
         },
-        "aisCode.dev.autoReloadWindow": {
+        "telecode.dev.autoReloadWindow": {
           "type": "boolean",
           "default": true,
           "description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
         },
-        "aisCode.responseStyle": {
+        "telecode.responseStyle": {
           "type": "string",
           "default": "concise",
           "enum": [
@@ -242,7 +242,7 @@
           ],
           "description": "Стиль ответов AI агента"
         },
-        "aisCode.language": {
+        "telecode.language": {
           "type": "string",
           "default": "auto",
           "enum": [
@@ -257,7 +257,7 @@
           ],
           "description": "Язык общения агента / Agent's language"
         },
-        "aisCode.uiLanguage": {
+        "telecode.uiLanguage": {
           "type": "string",
           "default": "ru",
           "enum": [
@@ -270,7 +270,7 @@
           ],
           "description": "Язык интерфейса расширения / Extension UI language"
         },
-        "aisCode.allowOutOfWorkspace": {
+        "telecode.allowOutOfWorkspace": {
           "type": "boolean",
           "default": false,
           "description": "Allow agent to access files and run commands outside the current workspace folder"

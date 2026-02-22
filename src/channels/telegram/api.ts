@@ -1,6 +1,6 @@
 import { Bot, InputFile } from 'grammy';
 import * as path from 'node:path';
-import { readAISCodeSettings } from '../../config/settings';
+import { readTelecodeSettings } from '../../config/settings';
 import { isRecord, resolveExistingPath, buildMissingPathError, formatError } from './utils';
 
 export const TELEGRAM_MAX_DOCUMENT_BYTES = 49 * 1024 * 1024;
@@ -43,7 +43,7 @@ export class TelegramApiService {
   }
 
   private async callApiOverHttp(method: string, payload: Record<string, unknown>): Promise<unknown> {
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     const token = settings.telegram.botToken.trim();
     if (!token) {
       throw new Error('telegram.botToken is empty');

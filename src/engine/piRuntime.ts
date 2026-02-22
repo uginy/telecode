@@ -1,5 +1,5 @@
 import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
-import { type AISCodeConfig, CodingAgent, createAgent } from '../agent/codingAgent';
+import { type TelecodeConfig, CodingAgent, createAgent } from '../agent/codingAgent';
 import type { AgentRuntime, RuntimeConfig, RuntimeEvent, RuntimeListener, ImageContentExt } from './types';
 
 export class PiRuntime implements AgentRuntime {
@@ -10,9 +10,9 @@ export class PiRuntime implements AgentRuntime {
   private readonly toolNames: string[];
 
   constructor(config: RuntimeConfig, tools: AgentTool[]) {
-    const agentConfig: AISCodeConfig = {
+    const agentConfig: TelecodeConfig = {
       ...config,
-      language: config.language as AISCodeConfig['language'],
+      language: config.language as TelecodeConfig['language'],
     };
 
     this.toolNames = tools.map((tool) => tool.name);

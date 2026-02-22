@@ -2,7 +2,7 @@ import { Agent, type AgentEvent, type AgentMessage, type AgentTool } from '@mari
 import { getModel, getModels, type Message, type Model, type ImageContent, type ToolCall, type ToolResultMessage } from '@mariozechner/pi-ai';
 import { buildComposedSystemPrompt } from '../prompts/promptStack';
 
-export interface AISCodeConfig {
+export interface TelecodeConfig {
   provider: string;
   model: string;
   apiKey: string;
@@ -117,7 +117,7 @@ function buildOpenAiCompatibleModel(provider: string, modelId: string, baseUrl?:
   } satisfies Model<'openai-completions'>;
 }
 
-function resolveModel(config: AISCodeConfig): Model<any> {
+function resolveModel(config: TelecodeConfig): Model<any> {
   const provider = normalizeProvider(config.provider);
   const modelId = config.model.trim() || 'gpt-4o-mini';
   const baseUrl = (config.baseUrl || '').trim();
@@ -239,7 +239,7 @@ export class CodingAgent {
   private readonly agent: Agent;
   private readonly promptInfo: AgentPromptInfo;
 
-  constructor(config: AISCodeConfig, tools: AgentTool[] = []) {
+  constructor(config: TelecodeConfig, tools: AgentTool[] = []) {
     const promptBuild = buildComposedSystemPrompt({
       cwd: config.cwd,
       maxSteps: config.maxSteps,
@@ -341,7 +341,7 @@ export class CodingAgent {
   }
 }
 
-export function createAgent(config: AISCodeConfig, tools: AgentTool[] = []): CodingAgent {
+export function createAgent(config: TelecodeConfig, tools: AgentTool[] = []): CodingAgent {
   return new CodingAgent(config, tools);
 }
 

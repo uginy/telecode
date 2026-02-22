@@ -1,6 +1,6 @@
 /**
  * i18n.ts
- * Centralized internationalization service for AIS Code.
+ * Centralized internationalization service for TeleCode AI.
  */
 
 export type Language = 'ru' | 'en';
@@ -151,7 +151,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_general_desc: 'Глобальные настройки приложения.',
 
     settings_about_title: 'О программе',
-    settings_about_desc: 'Информация о возможностях AIS Code.',
+    settings_about_desc: 'Информация о возможностях TeleCode AI.',
     about_version: 'Версия',
     about_feature_agent: 'Автономный агент (pi-agent-core) для решения сложных задач по кодингу.',
     about_feature_files: 'Прямая работа с файловой системой (чтение, поиск, умное редактирование).',
@@ -215,7 +215,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_label_model: 'модель',
     tg_label_style: 'стиль',
     tg_label_language: 'язык',
-    tg_help_title: 'Команды AIS Code Telegram:',
+    tg_help_title: 'Команды TeleCode AI Telegram:',
     tg_cmd_status: 'статус выполнения и модели',
     tg_cmd_settings: 'снимок текущих настроек',
     tg_cmd_run: 'запустить задачу',
@@ -228,9 +228,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_cmd_provider: 'сменить провайдера',
     tg_cmd_model: 'сменить модель',
     tg_cmd_help: 'это сообщение',
-    tg_bot_online: 'Бот AIS Code онлайн. Используйте /help для просмотра команд.',
-    tg_denied: 'Доступ запрещен для чата {id}. Ожидаемый: {expected}. Обновите aisCode.telegram.chatId в настройках.',
-    tg_connected: 'AIS Code подключен. Отправьте /status',
+    tg_bot_online: 'Бот TeleCode AI онлайн. Используйте /help для просмотра команд.',
+    tg_denied: 'Доступ запрещен для чата {id}. Ожидаемый: {expected}. Обновите telecode.telegram.chatId в настройках.',
+    tg_connected: 'TeleCode AI подключен. Отправьте /status',
   },
   en: {
     tools_available: 'Tools loaded',
@@ -260,7 +260,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_general_desc: 'Global application preferences.',
 
     settings_about_title: 'About',
-    settings_about_desc: 'Capabilities of AIS Code.',
+    settings_about_desc: 'Capabilities of TeleCode AI.',
     about_version: 'Version',
     about_feature_agent: 'Autonomous agent (pi-agent-core) for solving complex coding tasks.',
     about_feature_files: 'Direct file system access (read, search, smart editing).',
@@ -324,7 +324,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_label_model: 'model',
     tg_label_style: 'style',
     tg_label_language: 'language',
-    tg_help_title: 'AIS Code Telegram commands:',
+    tg_help_title: 'TeleCode AI Telegram commands:',
     tg_cmd_status: 'runtime and model status',
     tg_cmd_settings: 'current config snapshot',
     tg_cmd_run: 'run task',
@@ -337,9 +337,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_cmd_provider: 'switch provider',
     tg_cmd_model: 'switch model',
     tg_cmd_help: 'this message',
-    tg_bot_online: 'AIS Code bot is online. Use /help to see commands.',
-    tg_denied: 'Access denied for chat {id}. Expected {expected}. Update aisCode.telegram.chatId in settings.',
-    tg_connected: 'AIS Code connected. Send /status',
+    tg_bot_online: 'TeleCode AI bot is online. Use /help to see commands.',
+    tg_denied: 'Access denied for chat {id}. Expected {expected}. Update telecode.telegram.chatId in settings.',
+    tg_connected: 'TeleCode AI connected. Send /status',
   }
 };
 

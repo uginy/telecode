@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CodingAgent, createAgent, getLastAssistantText, type AISCodeConfig } from '../src/agent/codingAgent';
+import { CodingAgent, createAgent, getLastAssistantText, type TelecodeConfig } from '../src/agent/codingAgent';
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 
 // Mock the promptStack to avoid file system reads during tests
@@ -14,7 +14,7 @@ vi.mock('../src/prompts/promptStack', () => ({
 }));
 
 describe('CodingAgent', () => {
-  const baseConfig: AISCodeConfig = {
+  const baseConfig: TelecodeConfig = {
     provider: 'openai',
     model: 'gpt-4o',
     apiKey: 'test-key',

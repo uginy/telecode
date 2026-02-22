@@ -1,6 +1,6 @@
-# AIS Code Prompt Stack
+# TeleCode AI Prompt Stack
 
-This folder contains composable prompt layers for AIS Code.
+This folder contains composable prompt layers for TeleCode AI.
 Each file has one responsibility and can be concatenated into a single system prompt.
 
 ## Files

@@ -21,7 +21,7 @@ export interface TelegramSettings {
   forceIPv4: boolean;
 }
 
-export interface AISCodeSettings {
+export interface TelecodeSettings {
   agent: AgentSettings;
   telegram: TelegramSettings;
 }
@@ -57,8 +57,8 @@ export function providerRequiresApiKey(provider: string): boolean {
   return normalized !== 'ollama';
 }
 
-export function readAISCodeSettings(): AISCodeSettings {
-  const config = vscode.workspace.getConfiguration('aisCode');
+export function readTelecodeSettings(): TelecodeSettings {
+  const config = vscode.workspace.getConfiguration('telecode');
 
   const provider = (config.get<string>('provider') || 'openrouter').trim();
   const model = (config.get<string>('model') || 'arcee-ai/trinity-large-preview:free').trim();

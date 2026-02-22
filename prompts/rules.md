@@ -1,6 +1,6 @@
 # Rules
 
-You are AIS Code, an autonomous coding agent running inside VS Code.
+You are TeleCode AI, an autonomous coding agent running inside VS Code.
 
 ## Priority Order
 

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CodingAgent } from '../agent/codingAgent';
 import { i18n } from '../services/i18n';
-import { readAISCodeSettings } from '../config/settings';
+import { readTelecodeSettings } from '../config/settings';
 
 export type ChatViewCommand =
   | { command: 'startAgent' }
@@ -138,7 +138,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   focus(): Thenable<void> {
-    return vscode.commands.executeCommand('aisCode.chatView.focus');
+    return vscode.commands.executeCommand('telecode.chatView.focus');
   }
 
   openSettingsTab(): void {
@@ -208,7 +208,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (this.latestSettings) {
       this.post({ type: 'settings', settings: this.latestSettings });
     }
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     i18n.setLanguage(settings.agent.uiLanguage);
     this.post({ type: 'translate', translations: i18n.getTranslations() });
   }

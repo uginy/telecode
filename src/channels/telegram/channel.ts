@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as https from 'node:https';
 import { Bot, type Context } from 'grammy';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
-import { readAISCodeSettings } from '../../config/settings';
+import { readTelecodeSettings } from '../../config/settings';
 import type { AgentRuntime, RuntimeConfig, ImageContentExt } from '../../engine/types';
 import { getPromptStackSignature } from '../../prompts/promptStack';
 import type { IChannel } from '../types';
@@ -67,7 +67,7 @@ export class TelegramChannel implements IChannel {
   public async start(): Promise<void> {
     this.stop();
 
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     const { enabled, botToken, chatId, apiRoot, forceIPv4 } = settings.telegram;
 
     if (!enabled || !botToken) {
@@ -79,7 +79,7 @@ export class TelegramChannel implements IChannel {
     try {
       const allowedChatId = parseTelegramChatId(chatId);
       if (chatId && allowedChatId === null) {
-        const message = `AIS Code Telegram: invalid chatId "${chatId}". Use numeric id like 123456789 or -1001234567890.`;
+        const message = `TeleCode AI Telegram: invalid chatId "${chatId}". Use numeric id like 123456789 or -1001234567890.`;
         this.pushLog(`[error] ${message}`);
         vscode.window.showWarningMessage(message);
       }
@@ -118,10 +118,10 @@ export class TelegramChannel implements IChannel {
         if (allowedChatId !== null && ctx.chat?.id !== allowedChatId) {
           const receivedChatId = typeof ctx.chat?.id === 'number' ? String(ctx.chat.id) : '(unknown)';
           this.pushLog(`[blocked] chat id ${receivedChatId}`);
-          console.warn(`AIS Code Telegram: blocked chat id ${receivedChatId}`);
+          console.warn(`TeleCode AI Telegram: blocked chat id ${receivedChatId}`);
           try {
             await ctx.reply(
-              `Access denied for chat ${receivedChatId}. Expected ${allowedChatId}. Update aisCode.telegram.chatId in settings.`
+              `Access denied for chat ${receivedChatId}. Expected ${allowedChatId}. Update telecode.telegram.chatId in settings.`
             );
           } catch {
             // ignore reply errors for blocked users
@@ -132,7 +132,7 @@ export class TelegramChannel implements IChannel {
       });
 
       this.bot.command('start', async (ctx) => {
-        await ctx.reply('AIS Code bot is online. Use /help to see commands.');
+        await ctx.reply('TeleCode AI bot is online. Use /help to see commands.');
       });
 
       this.bot.command('help', async (ctx) => {
@@ -326,7 +326,7 @@ export class TelegramChannel implements IChannel {
 
       this.bot.catch((error) => {
         this.pushLog(`[telegram:error] ${formatError(error)}`);
-        console.error('AIS Code Telegram error:', error);
+        console.error('TeleCode AI Telegram error:', error);
       });
 
       await this.bot.start({
@@ -335,11 +335,11 @@ export class TelegramChannel implements IChannel {
           this.lastActivityAt = Date.now();
           this.setStatus('Idle');
           this.pushLog(`[telegram] started as @${botInfo.username}`);
-          console.log(`AIS Code Telegram started as @${botInfo.username}`);
-          vscode.window.showInformationMessage(`AIS Code: Telegram bot started (@${botInfo.username})`);
+          console.log(`TeleCode AI Telegram started as @${botInfo.username}`);
+          vscode.window.showInformationMessage(`TeleCode AI: Telegram bot started (@${botInfo.username})`);
           if (allowedChatId !== null) {
             void this.bot?.api
-              .sendMessage(allowedChatId, 'AIS Code connected. Send /status')
+              .sendMessage(allowedChatId, 'TeleCode AI connected. Send /status')
               .catch((error) => this.pushLog(`[telegram:error] startup ping failed - ${formatError(error)}`));
           }
         },
@@ -349,7 +349,7 @@ export class TelegramChannel implements IChannel {
       this.setStatus('Error');
       const message = formatError(error);
       this.pushLog(`[telegram:error] failed to start - ${message}`);
-      vscode.window.showErrorMessage(`AIS Code: failed to start Telegram bot - ${message}`);
+      vscode.window.showErrorMessage(`TeleCode AI: failed to start Telegram bot - ${message}`);
       console.error(error);
     }
   }
@@ -417,7 +417,7 @@ export class TelegramChannel implements IChannel {
       return;
     }
 
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     i18n.setLanguage(settings.agent.language === 'auto' ? 'ru' : settings.agent.language);
     const t = i18n.t;
 
@@ -594,7 +594,7 @@ export class TelegramChannel implements IChannel {
   }
 
   private ensureRuntime(): AgentRuntime {
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     const currentTools = this.tools;
     
     const apiService = new TelegramApiService(this.bot, (l) => this.pushLog(l));
@@ -689,20 +689,20 @@ export class TelegramChannel implements IChannel {
 
   private async updateSetting(key: string, value: string | boolean): Promise<void> {
     await saveOpenSettingsFiles();
-    const config = vscode.workspace.getConfiguration('aisCode');
+    const config = vscode.workspace.getConfiguration('telecode');
     await config.update(key, value, vscode.ConfigurationTarget.Global);
     this.abortRuntime();
   }
 
   private getT(): Translations {
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     const lang = settings.agent.language === 'auto' ? 'ru' : settings.agent.language;
     i18n.setLanguage(lang);
     return i18n.t;
   }
 
   private renderStatus(t: Translations): string {
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     const statusText = this.isProcessing 
       ? t.tg_status_running 
       : (this.currentPhase === 'Error' ? t.tg_status_error : t.tg_status_idle);
@@ -718,7 +718,7 @@ export class TelegramChannel implements IChannel {
   }
 
   private renderSettings(t: Translations): string {
-    const settings = readAISCodeSettings();
+    const settings = readTelecodeSettings();
     return [
       `${t.tab_settings}:`,
       `- ${t.field_provider}: ${settings.agent.provider}`,

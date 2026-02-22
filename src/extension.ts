@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
-import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
+import { providerRequiresApiKey, readTelecodeSettings } from './config/settings';
 import { TaskRunner } from './agent/taskRunner';
 import type { RuntimeConfig, RuntimeEvent } from './engine/types';
 import { getPromptStackSignature } from './prompts/promptStack';
@@ -42,24 +42,24 @@ export function activate(context: vscode.ExtensionContext): void {
   chatProvider = new ChatViewProvider(context.extensionUri);
 
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('aisCode.chatView', chatProvider),
+    vscode.window.registerWebviewViewProvider('telecode.chatView', chatProvider),
     chatProvider.onCommand((command) => {
       void handleChatViewCommand(command);
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('aisCode.openChat', () => chatProvider?.focus()),
-    vscode.commands.registerCommand('aisCode.openSettings', () => {
+    vscode.commands.registerCommand('telecode.openChat', () => chatProvider?.focus()),
+    vscode.commands.registerCommand('telecode.openSettings', () => {
       void chatProvider?.focus();
       chatProvider?.openSettingsTab();
     }),
-    vscode.commands.registerCommand('aisCode.startAgent', async () => {
+    vscode.commands.registerCommand('telecode.startAgent', async () => {
       await startAgent(false);
     }),
-    vscode.commands.registerCommand('aisCode.runTask', async () => {
+    vscode.commands.registerCommand('telecode.runTask', async () => {
       const task = await vscode.window.showInputBox({
-        prompt: 'What should AIS Code do?',
+        prompt: 'What should TeleCode AI do?',
         placeHolder: 'e.g. refactor src/extension.ts and add tests',
         ignoreFocusOut: true,
       });
@@ -68,60 +68,60 @@ export function activate(context: vscode.ExtensionContext): void {
         await runTask(task);
       }
     }),
-    vscode.commands.registerCommand('aisCode.stopAgent', () => {
+    vscode.commands.registerCommand('telecode.stopAgent', () => {
       stopAgent(true);
     }),
-    vscode.commands.registerCommand('aisCode.resetSession', () => {
+    vscode.commands.registerCommand('telecode.resetSession', () => {
       taskRunner?.clearHistorySync();
-      vscode.window.showInformationMessage('AIS Code: Session history cleared.');
+      vscode.window.showInformationMessage('TeleCode AI: Session history cleared.');
     }),
-    vscode.commands.registerCommand('aisCode.setStyleShort', async () => {
+    vscode.commands.registerCommand('telecode.setStyleShort', async () => {
       await saveOpenSettingsFiles();
-      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'concise', true);
-      vscode.window.showInformationMessage('AIS Code: Краткий стиль ответов установлен.');
+      await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'concise', true);
+      vscode.window.showInformationMessage('TeleCode AI: Краткий стиль ответов установлен.');
     }),
-    vscode.commands.registerCommand('aisCode.setStyleNormal', async () => {
+    vscode.commands.registerCommand('telecode.setStyleNormal', async () => {
       await saveOpenSettingsFiles();
-      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'normal', true);
-      vscode.window.showInformationMessage('AIS Code: Обычный стиль ответов установлен.');
+      await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'normal', true);
+      vscode.window.showInformationMessage('TeleCode AI: Обычный стиль ответов установлен.');
     }),
-    vscode.commands.registerCommand('aisCode.setStyleDetailed', async () => {
+    vscode.commands.registerCommand('telecode.setStyleDetailed', async () => {
       await saveOpenSettingsFiles();
-      await vscode.workspace.getConfiguration('aisCode').update('responseStyle', 'detailed', true);
-      vscode.window.showInformationMessage('AIS Code: Детальный стиль ответов установлен.');
+      await vscode.workspace.getConfiguration('telecode').update('responseStyle', 'detailed', true);
+      vscode.window.showInformationMessage('TeleCode AI: Детальный стиль ответов установлен.');
     }),
-    vscode.commands.registerCommand('aisCode.setLanguageRu', async () => {
+    vscode.commands.registerCommand('telecode.setLanguageRu', async () => {
       await saveOpenSettingsFiles();
-      await vscode.workspace.getConfiguration('aisCode').update('language', 'ru', true);
-      vscode.window.showInformationMessage('AIS Code: Язык общения установлен на русский.');
+      await vscode.workspace.getConfiguration('telecode').update('language', 'ru', true);
+      vscode.window.showInformationMessage('TeleCode AI: Язык общения установлен на русский.');
     }),
-    vscode.commands.registerCommand('aisCode.setLanguageEn', async () => {
+    vscode.commands.registerCommand('telecode.setLanguageEn', async () => {
       await saveOpenSettingsFiles();
-      await vscode.workspace.getConfiguration('aisCode').update('language', 'en', true);
-      vscode.window.showInformationMessage('AIS Code: Agent language has been set to English.');
+      await vscode.workspace.getConfiguration('telecode').update('language', 'en', true);
+      vscode.window.showInformationMessage('TeleCode AI: Agent language has been set to English.');
     })
   );
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('aisCode')) {
+      if (event.affectsConfiguration('telecode')) {
         pendingSettingsSync = true;
 
-        if (event.affectsConfiguration('aisCode.telegram')) {
+        if (event.affectsConfiguration('telecode.telegram')) {
           pendingChannelsRefresh = true;
         }
 
         if (
           taskRunner?.getRuntime &&
-          (event.affectsConfiguration('aisCode.provider') ||
-            event.affectsConfiguration('aisCode.model') ||
-            event.affectsConfiguration('aisCode.apiKey') ||
-            event.affectsConfiguration('aisCode.baseUrl') ||
-            event.affectsConfiguration('aisCode.maxSteps') ||
-            event.affectsConfiguration('aisCode.allowedTools') ||
-            event.affectsConfiguration('aisCode.responseStyle') ||
-            event.affectsConfiguration('aisCode.language') ||
-            event.affectsConfiguration('aisCode.allowOutOfWorkspace'))
+          (event.affectsConfiguration('telecode.provider') ||
+            event.affectsConfiguration('telecode.model') ||
+            event.affectsConfiguration('telecode.apiKey') ||
+            event.affectsConfiguration('telecode.baseUrl') ||
+            event.affectsConfiguration('telecode.maxSteps') ||
+            event.affectsConfiguration('telecode.allowedTools') ||
+            event.affectsConfiguration('telecode.responseStyle') ||
+            event.affectsConfiguration('telecode.language') ||
+            event.affectsConfiguration('telecode.allowOutOfWorkspace'))
         ) {
           pendingRuntimeRestart = true;
         }
@@ -208,7 +208,7 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
 }
 
 async function startAgent(forceRestart: boolean): Promise<boolean> {
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   const tools = resolveTools(settings.agent.allowedTools);
 
   let apiKey = settings.agent.apiKey;
@@ -224,7 +224,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     });
 
     if (!enteredApiKey) {
-      vscode.window.showErrorMessage('AIS Code: API key is required to start the agent.');
+      vscode.window.showErrorMessage('TeleCode AI: API key is required to start the agent.');
       return false;
     }
 
@@ -234,7 +234,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     try {
       await saveOpenSettingsFiles();
       await vscode.workspace
-        .getConfiguration('aisCode')
+        .getConfiguration('telecode')
         .update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -291,7 +291,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    vscode.window.showErrorMessage(`AIS Code: failed to start agent - ${message}`);
+    vscode.window.showErrorMessage(`TeleCode AI: failed to start agent - ${message}`);
     appendLogLine(`[agent:error] ${message}`);
     setStatus('Error');
     return false;
@@ -309,7 +309,7 @@ async function runTask(task: string): Promise<void> {
   if (!started || !runtime) {
     return;
   }
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   const preview = prompt.length > 240 ? `${prompt.slice(0, 240)}...` : prompt;
 
   appendLogLine(
@@ -367,7 +367,7 @@ function refreshChannels(): void {
 
   channelRegistry.stopAll();
 
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   const tools = resolveTools(settings.agent.allowedTools);
 
   const telegramChannel = new TelegramChannel(
@@ -385,7 +385,7 @@ function refreshChannels(): void {
 }
 
 async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<void> {
-  const config = vscode.workspace.getConfiguration('aisCode');
+  const config = vscode.workspace.getConfiguration('telecode');
   const target = vscode.ConfigurationTarget.Global;
   const apiKey = settings.apiKey.trim();
   const telegramBotToken = settings.telegramBotToken.trim();
@@ -418,7 +418,7 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     notifySettingsViews(`save failed: ${message}`);
-    vscode.window.showErrorMessage(`AIS Code: failed to save settings - ${message}`);
+    vscode.window.showErrorMessage(`TeleCode AI: failed to save settings - ${message}`);
     return;
   }
 }
@@ -501,7 +501,7 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
 }
 
 function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): string {
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   return JSON.stringify({
     provider: config.provider,
     model: config.model,
@@ -539,7 +539,7 @@ function setupDevAutoReload(context: vscode.ExtensionContext): void {
     return;
   }
 
-  const config = vscode.workspace.getConfiguration('aisCode');
+  const config = vscode.workspace.getConfiguration('telecode');
   const enabled = config.get<boolean>('dev.autoReloadWindow', true);
   if (!enabled) {
     return;
@@ -620,7 +620,7 @@ function scheduleUiRefresh(changedFile: string): void {
 }
 
 function syncSettingsToChatView(): void {
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   const payload: ChatViewSettings = {
     provider: settings.agent.provider,
     model: settings.agent.model,
@@ -853,13 +853,13 @@ function publishProgress(): void {
   }
 
   const elapsedSec = Math.max(0, Math.floor((Date.now() - statusStartedAt) / 1000));
-  const maxSteps = readAISCodeSettings().agent.maxSteps;
+  const maxSteps = readTelecodeSettings().agent.maxSteps;
   const toolsPart = toolCountInRun > 0 ? ` • tools ${toolCountInRun}/${maxSteps}` : '';
   chatProvider?.setProgress(`${activeStatus} • ${elapsedSec}s${toolsPart}`, true);
 }
 
 function formatRuntimeStatus(message: string): string {
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   i18n.setLanguage(settings.agent.language);
   return i18n.formatStatus(message);
 }

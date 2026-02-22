@@ -135,7 +135,7 @@ function resolveTelegramSendMethod(filePath: string): 'sendVoice' | 'sendAudio' 
 }
 
 async function createZipArchive(targetPath: string, archiveName?: string): Promise<{ archivePath: string; tempDir: string }> {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ais-code-tg-'));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'telecode-ai-tg-'));
   const sourceName = path.basename(targetPath);
   const normalizedName = (archiveName || sourceName || 'artifact').trim().replace(/[\\/]/g, '_');
   const fileName = normalizedName.toLowerCase().endsWith('.zip') ? normalizedName : `${normalizedName}.zip`;

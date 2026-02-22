@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { spawn } from 'node:child_process';
-import { readAISCodeSettings } from '../../config/settings';
+import { readTelecodeSettings } from '../../config/settings';
 
 export const DEFAULT_EXCLUDE = '**/{.git,node_modules,dist,.next,.turbo,coverage}/**';
 export const MAX_TEXT_OUTPUT_CHARS = 120_000;
@@ -43,7 +43,7 @@ export function renderPath(fsPath: string, cwd: string): string {
 }
 
 export function isWithinWorkspace(targetPath: string): boolean {
-  const settings = readAISCodeSettings();
+  const settings = readTelecodeSettings();
   if (settings.agent.allowOutOfWorkspace) {
     return true;
   }
@@ -58,7 +58,7 @@ export function checkPathAllowed(targetPath: string, operation: string): void {
     throw new Error(
       `Operation "${operation}" is restricted to workspace folder "${workspaceRoot}". ` +
       `Target path "${targetPath}" is outside the workspace. ` +
-      `Enable "aisCode.allowOutOfWorkspace" in settings to allow access outside the workspace.`
+      `Enable "telecode.allowOutOfWorkspace" in settings to allow access outside the workspace.`
     );
   }
 }

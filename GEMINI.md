@@ -1,10 +1,10 @@
-# AIS Code — Agent Guidelines
+# TeleCode AI — Agent Guidelines
 
-AIS Code is an autonomous coding agent embedded inside VS Code. It is built as a crossbreed between `nanoclaw`/`picoclaw` (autonomous agent architectures) and the VS Code extension architecture.
+TeleCode AI is an autonomous coding agent embedded inside VS Code. It is built as a crossbreed between `nanoclaw`/`picoclaw` (autonomous agent architectures) and the VS Code extension architecture.
 
 ## 🎯 Architecture
 
-Unlike typical chat-based extensions (like Cline, Roo, Kilo), AIS Code is built around a persistent autonomous agent loop.
+Unlike typical chat-based extensions (like Cline, Roo, Kilo), TeleCode AI is built around a persistent autonomous agent loop.
 
 ```text
 User Request → VS Code Command → CodingAgent (pi-agent-core) → LLM Provider → Tool Execution → Loop Back
