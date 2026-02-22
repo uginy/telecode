@@ -33,7 +33,7 @@
     settingsNote: /* @__PURE__ */ __name(() => document.getElementById("settingsNote"), "settingsNote"),
     saveSettingsBtn: /* @__PURE__ */ __name(() => document.getElementById("saveSettingsBtn"), "saveSettingsBtn"),
     fetchModelsBtn: /* @__PURE__ */ __name(() => document.getElementById("fetchModelsBtn"), "fetchModelsBtn"),
-    modelSuggestions: /* @__PURE__ */ __name(() => document.getElementById("modelSuggestions"), "modelSuggestions")
+    modelPicker: /* @__PURE__ */ __name(() => document.getElementById("modelPicker"), "modelPicker")
   };
   function setStatus(text) {
     const s = el.status();
@@ -256,15 +256,49 @@
     el.settingsNote().textContent = `Loaded ${models.length} models`;
   });
   function updateModelSuggestions(models) {
-    const datalist = el.modelSuggestions();
-    datalist.innerHTML = "";
-    for (const m of models) {
-      const opt = document.createElement("option");
-      opt.value = m;
-      datalist.appendChild(opt);
+    const picker = el.modelPicker();
+    picker.innerHTML = "";
+    if (models.length === 0) {
+      picker.classList.add("hidden");
+      return;
     }
+    for (const m of models) {
+      const div = document.createElement("div");
+      div.className = "picker-item";
+      div.textContent = m;
+      div.addEventListener("click", () => {
+        document.getElementById("model").value = m;
+        picker.classList.add("hidden");
+      });
+      picker.appendChild(div);
+    }
+    picker.classList.remove("hidden");
   }
   __name(updateModelSuggestions, "updateModelSuggestions");
+  var modelInput = document.getElementById("model");
+  modelInput?.addEventListener("focus", () => {
+    const picker = el.modelPicker();
+    if (picker.children.length > 0) {
+      picker.classList.remove("hidden");
+    }
+  });
+  document.getElementById("modelChevron")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    modelInput.focus();
+    const picker = el.modelPicker();
+    if (picker.children.length > 0) {
+      picker.classList.toggle("hidden");
+    }
+  });
+  document.addEventListener("click", (e) => {
+    const target = e.target;
+    const isModelInput = target.id === "model";
+    const isPicker = target.closest(".picker");
+    const isFetchBtn = target.id === "fetchModelsBtn";
+    if (!isModelInput && !isPicker && !isFetchBtn) {
+      el.modelPicker().classList.add("hidden");
+    }
+  });
   window.addEventListener("message", (e) => {
     handleMessage(e.data);
     saveState();

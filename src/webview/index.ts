@@ -63,14 +63,55 @@ window.addEventListener('models-loaded', (e: Event) => {
 });
 
 function updateModelSuggestions(models: string[]): void {
-  const datalist = el.modelSuggestions();
-  datalist.innerHTML = '';
-  for (const m of models) {
-    const opt = document.createElement('option');
-    opt.value = m;
-    datalist.appendChild(opt);
+  const picker = el.modelPicker();
+  picker.innerHTML = '';
+  if (models.length === 0) {
+    picker.classList.add('hidden');
+    return;
   }
+
+  for (const m of models) {
+    const div = document.createElement('div');
+    div.className = 'picker-item';
+    div.textContent = m;
+    div.addEventListener('click', () => {
+      (document.getElementById('model') as HTMLInputElement).value = m;
+      picker.classList.add('hidden');
+    });
+    picker.appendChild(div);
+  }
+  picker.classList.remove('hidden');
 }
+
+// Show picker on focus if it has items
+const modelInput = document.getElementById('model') as HTMLInputElement;
+modelInput?.addEventListener('focus', () => {
+  const picker = el.modelPicker();
+  if (picker.children.length > 0) {
+    picker.classList.remove('hidden');
+  }
+});
+
+document.getElementById('modelChevron')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  modelInput.focus();
+  const picker = el.modelPicker();
+  if (picker.children.length > 0) {
+    picker.classList.toggle('hidden');
+  }
+});
+
+// Close picker when clicking outside
+document.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  const isModelInput = target.id === 'model';
+  const isPicker = target.closest('.picker');
+  const isFetchBtn = target.id === 'fetchModelsBtn';
+  
+  if (!isModelInput && !isPicker && !isFetchBtn) {
+    el.modelPicker().classList.add('hidden');
+  }
+});
 
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {

@@ -55,13 +55,9 @@
         </div>
 
         <div class="field">
-          <label for="model">Model</label>
-          <span class="field-hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
-          <div class="input-with-action">
-            <input id="model" type="text" placeholder="gpt-4o" list="modelSuggestions" />
-            <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
-          </div>
-          <datalist id="modelSuggestions"></datalist>
+          <label for="baseUrl">Base URL</label>
+          <span class="field-hint">Custom API endpoint. Leave blank to use the provider default.</span>
+          <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
         </div>
 
         <div class="field">
@@ -71,9 +67,16 @@
         </div>
 
         <div class="field">
-          <label for="baseUrl">Base URL</label>
-          <span class="field-hint">Custom API endpoint. Leave blank to use the provider default.</span>
-          <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
+          <label for="model">Model</label>
+          <span class="field-hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
+          <div class="input-with-action">
+            <div class="field-rel">
+              <input id="model" type="text" placeholder="gpt-4o" autocomplete="off" />
+              <span id="modelChevron" class="chevron">▼</span>
+              <div id="modelPicker" class="picker hidden"></div>
+            </div>
+            <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
+          </div>
         </div>
 
         <div class="field">

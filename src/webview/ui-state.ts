@@ -19,7 +19,7 @@ export const el = {
   settingsNote:    () => document.getElementById('settingsNote')!,
   saveSettingsBtn: () => document.getElementById('saveSettingsBtn')!,
   fetchModelsBtn:  () => document.getElementById('fetchModelsBtn')! as HTMLButtonElement,
-  modelSuggestions: () => document.getElementById('modelSuggestions')! as HTMLDataListElement,
+  modelPicker:     () => document.getElementById('modelPicker')!,
 };
 
 export function setStatus(text: string): void {
