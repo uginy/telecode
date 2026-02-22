@@ -209,7 +209,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.post({ type: 'settings', settings: this.latestSettings });
     }
     const settings = readAISCodeSettings();
-    i18n.setLanguage(settings.agent.language);
+    i18n.setLanguage(settings.agent.uiLanguage);
     this.post({ type: 'translate', translations: i18n.getTranslations() });
   }
 

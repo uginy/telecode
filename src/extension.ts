@@ -8,7 +8,7 @@ import { providerRequiresApiKey, readAISCodeSettings } from './config/settings';
 import { TaskRunner } from './agent/taskRunner';
 import type { RuntimeConfig, RuntimeEvent } from './engine/types';
 import { getPromptStackSignature } from './prompts/promptStack';
-import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceTools';
+import { createWorkspaceTools, filterToolsByAllowed } from './tools';
 import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
 import { CodingAgent } from './agent/codingAgent';
 import { i18n } from './services/i18n';
@@ -403,6 +403,7 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     await config.update('maxSteps', settings.maxSteps, target);
     await config.update('responseStyle', settings.responseStyle, target);
     await config.update('language', settings.language, target);
+    await config.update('uiLanguage', settings.uiLanguage, target);
     await config.update('allowOutOfWorkspace', settings.allowOutOfWorkspace === true, target);
     await config.update('telegram.enabled', settings.telegramEnabled, target);
     if (telegramBotToken.length > 0) {

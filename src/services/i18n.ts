@@ -95,6 +95,31 @@ export interface Translations {
   tg_tool_executing: string;
   tg_tool_testing: string;
   tg_tool_git: string;
+  tg_status_running: string;
+  tg_status_idle: string;
+  tg_status_error: string;
+  tg_label_status: string;
+  tg_label_phase: string;
+  tg_label_provider: string;
+  tg_label_model: string;
+  tg_label_style: string;
+  tg_label_language: string;
+  tg_help_title: string;
+  tg_cmd_status: string;
+  tg_cmd_settings: string;
+  tg_cmd_run: string;
+  tg_cmd_stop: string;
+  tg_cmd_last: string;
+  tg_cmd_logs: string;
+  tg_cmd_changes: string;
+  tg_cmd_diff: string;
+  tg_cmd_rollback: string;
+  tg_cmd_provider: string;
+  tg_cmd_model: string;
+  tg_cmd_help: string;
+  tg_bot_online: string;
+  tg_denied: string;
+  tg_connected: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -181,6 +206,31 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_tool_executing: 'Запускаю команды и проверяю проект',
     tg_tool_testing: 'Проверяю качество: тесты и линт',
     tg_tool_git: 'Проверяю изменения в git',
+    tg_status_running: 'выполняется',
+    tg_status_idle: 'ожидание',
+    tg_status_error: 'ошибка',
+    tg_label_status: 'статус',
+    tg_label_phase: 'фаза',
+    tg_label_provider: 'провайдер',
+    tg_label_model: 'модель',
+    tg_label_style: 'стиль',
+    tg_label_language: 'язык',
+    tg_help_title: 'Команды AIS Code Telegram:',
+    tg_cmd_status: 'статус выполнения и модели',
+    tg_cmd_settings: 'снимок текущих настроек',
+    tg_cmd_run: 'запустить задачу',
+    tg_cmd_stop: 'остановить активный запуск',
+    tg_cmd_last: 'показать последний ответ',
+    tg_cmd_logs: 'недавние логи (по умолчанию 20)',
+    tg_cmd_changes: 'состояние git-репозитория',
+    tg_cmd_diff: 'git diff для файла',
+    tg_cmd_rollback: 'откатить изменения до HEAD',
+    tg_cmd_provider: 'сменить провайдера',
+    tg_cmd_model: 'сменить модель',
+    tg_cmd_help: 'это сообщение',
+    tg_bot_online: 'Бот AIS Code онлайн. Используйте /help для просмотра команд.',
+    tg_denied: 'Доступ запрещен для чата {id}. Ожидаемый: {expected}. Обновите aisCode.telegram.chatId в настройках.',
+    tg_connected: 'AIS Code подключен. Отправьте /status',
   },
   en: {
     tools_available: 'Tools loaded',
@@ -265,6 +315,31 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_tool_executing: 'Running commands and checking project',
     tg_tool_testing: 'Quality check: tests and lint',
     tg_tool_git: 'Checking git changes',
+    tg_status_running: 'running',
+    tg_status_idle: 'idle',
+    tg_status_error: 'error',
+    tg_label_status: 'status',
+    tg_label_phase: 'phase',
+    tg_label_provider: 'provider',
+    tg_label_model: 'model',
+    tg_label_style: 'style',
+    tg_label_language: 'language',
+    tg_help_title: 'AIS Code Telegram commands:',
+    tg_cmd_status: 'runtime and model status',
+    tg_cmd_settings: 'current config snapshot',
+    tg_cmd_run: 'run task',
+    tg_cmd_stop: 'stop active run',
+    tg_cmd_last: 'show last answer',
+    tg_cmd_logs: 'recent logs (default 20)',
+    tg_cmd_changes: 'git working tree summary',
+    tg_cmd_diff: 'git diff for file',
+    tg_cmd_rollback: 'restore changed files to HEAD',
+    tg_cmd_provider: 'switch provider',
+    tg_cmd_model: 'switch model',
+    tg_cmd_help: 'this message',
+    tg_bot_online: 'AIS Code bot is online. Use /help to see commands.',
+    tg_denied: 'Access denied for chat {id}. Expected {expected}. Update aisCode.telegram.chatId in settings.',
+    tg_connected: 'AIS Code connected. Send /status',
   }
 };
 
