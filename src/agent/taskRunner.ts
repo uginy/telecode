@@ -153,8 +153,16 @@ export class TaskRunner {
     if (!file || !this.runtime?.getMessages) return;
 
     try {
-      const msgs = this.runtime.getMessages();
+      let msgs = this.runtime.getMessages();
       if (!msgs || msgs.length === 0) return;
+      
+      // Auto-compress history by keeping only the last N messages
+      // to avoid context window limits (e.g. 40 turns should be enough context)
+      const MAX_HISTORY_MESSAGES = 40;
+      if (msgs.length > MAX_HISTORY_MESSAGES) {
+        // We slice from the end to keep the most recent messages
+        msgs = msgs.slice(-MAX_HISTORY_MESSAGES);
+      }
       
       const dir = path.dirname(file);
       await fs.mkdir(dir, { recursive: true });
