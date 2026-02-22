@@ -601,6 +601,27 @@ export function createWorkspaceTools(): AgentTool[] {
       parameters: Type.Object({}),
       execute: async () => {
         const workspaceFolders = (vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath);
+        
+        let activeEditorInfo = 'No active editor';
+        const activeEditor = vscode.window.activeTextEditor;
+        
+        if (activeEditor) {
+          const doc = activeEditor.document;
+          const selection = activeEditor.selection;
+          
+          let selectionText = '';
+          if (!selection.isEmpty) {
+            selectionText = doc.getText(selection);
+          }
+          
+          activeEditorInfo = [
+            `Active file: ${doc.uri.fsPath}`,
+            `Language: ${doc.languageId}`,
+            `Cursor line: ${selection.active.line + 1}`,
+            selectionText ? `Selected text:\n${selectionText}` : 'No text selected.',
+          ].join('\n');
+        }
+
         return {
           content: [
             {
@@ -608,10 +629,11 @@ export function createWorkspaceTools(): AgentTool[] {
               text: [
                 `workingDirectory: ${workingDirectory}`,
                 `workspaceFolders: ${workspaceFolders.length > 0 ? workspaceFolders.join(', ') : '(none)'}`,
+                `\n--- VS Code Active Context ---\n${activeEditorInfo}`,
               ].join('\n'),
             },
           ],
-          details: { workingDirectory, workspaceFolders },
+          details: { workingDirectory, workspaceFolders, activeEditor: activeEditor?.document.uri.fsPath },
         };
       },
     },
