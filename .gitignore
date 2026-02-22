@@ -4,4 +4,4 @@ dist
 *.vsix
 builds/
 test_keys.txt
-.env*
+.env*landing/
