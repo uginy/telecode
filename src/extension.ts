@@ -11,6 +11,7 @@ import { getPromptStackSignature } from './prompts/promptStack';
 import { createWorkspaceTools, filterToolsByAllowed } from './tools/workspaceTools';
 import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from './ui/chatViewProvider';
 import { CodingAgent } from './agent/codingAgent';
+import { i18n } from './services/i18n';
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -849,51 +850,9 @@ function publishProgress(): void {
 }
 
 function formatRuntimeStatus(message: string): string {
-  if (message.startsWith('tools_available ')) {
-    return `Инструменты загружены: ${message.replace('tools_available ', '')}`;
-  }
-  if (message.startsWith('prompt_stack ')) {
-    return `Prompt stack: ${message.replace('prompt_stack ', '')}`;
-  }
-  if (message.startsWith('prompt_stack_missing ')) {
-    const raw = message.replace('prompt_stack_missing ', '').trim();
-    const items = raw.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
-    if (items.length <= 4) {
-      return `Prompt stack missing: ${items.join(', ')}`;
-    }
-    return `Prompt stack missing: ${items.slice(0, 3).join(', ')} (+${items.length - 3} more)`;
-  }
-  if (message.startsWith('llm_config ')) {
-    return `LLM config: ${message.replace('llm_config ', '')}`;
-  }
-  if (message.startsWith('tool_execution_start:')) {
-    return `Начинаю инструмент: ${message.replace('tool_execution_start:', '')}`;
-  }
-  if (message.startsWith('tool_execution_update:')) {
-    return `Выполняю инструмент: ${message.replace('tool_execution_update:', '')}`;
-  }
-  if (message.startsWith('tool_execution_end:')) {
-    return `Завершил инструмент: ${message.replace('tool_execution_end:', '')}`;
-  }
-  if (message === 'agent_start') {
-    return 'Агент запущен';
-  }
-  if (message === 'turn_start') {
-    return 'Новый шаг рассуждения';
-  }
-  if (message === 'message_start') {
-    return 'Формирую ответ';
-  }
-  if (message === 'message_end') {
-    return 'Ответ сформирован';
-  }
-  if (message === 'turn_end') {
-    return 'Шаг завершен';
-  }
-  if (message === 'agent_end') {
-    return 'Выполнение завершено';
-  }
-  return message;
+  const settings = readAISCodeSettings();
+  i18n.setLanguage(settings.agent.language);
+  return i18n.formatStatus(message);
 }
 
 function summarizeEventDetails(value: unknown): string {
