@@ -312,7 +312,7 @@ export class TelegramChannel implements IChannel {
           // Telegram sends an array of sizes, the last one is the largest
           const largestPhoto = photos[photos.length - 1];
           const file = await ctx.api.getFile(largestPhoto.file_id);
-          const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+          const url = `https://api.telegram.org/file/bot${this.bot!.token}/${file.file_path}`;
           
           const response = await fetch(url);
           if (!response.ok) {
