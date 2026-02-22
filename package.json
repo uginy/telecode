@@ -298,6 +298,5 @@
     "markdown-it": "^14.1.1",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
-  },
-  "repository": "https://github.com/ai/aisCode"
+  }
 }
