@@ -46,7 +46,7 @@ el.prompt().addEventListener('keydown', (e: KeyboardEvent) => {
 });
 
 // ── Settings form ─────────────────────────────────────────────────────────────
-document.getElementById('saveSettingsBtn')!.addEventListener('click', () => {
+el.saveSettingsBtn().addEventListener('click', () => {
   cmd.saveSettings(readForm());
 });
 

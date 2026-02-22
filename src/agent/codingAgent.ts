@@ -1,5 +1,5 @@
 import { Agent, type AgentEvent, type AgentMessage, type AgentTool } from '@mariozechner/pi-agent-core';
-import { getModel, getModels, type Message, type Model, type ImageContent } from '@mariozechner/pi-ai';
+import { getModel, getModels, type Message, type Model, type ImageContent, type ToolCall, type ToolResultMessage } from '@mariozechner/pi-ai';
 import { buildComposedSystemPrompt } from '../prompts/promptStack';
 
 export interface AISCodeConfig {
@@ -105,6 +105,14 @@ function buildOpenAiCompatibleModel(provider: string, modelId: string, baseUrl?:
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 128_000,
     maxTokens: 16_384,
+    compat: {
+      requiresToolResultName: provider === 'moonshot' || provider === 'mistral' || provider === 'deepseek',
+      supportsStrictMode: false,
+      supportsStore: false,
+      supportsDeveloperRole: false,
+      requiresAssistantAfterToolResult: true, // Some proxies need a placeholder assistant message after tool results
+      supportsUsageInStreaming: false, // Some OpenAI-compatible wrappers fail on stream_options
+    },
   } satisfies Model<'openai-completions'>;
 }
 
@@ -151,6 +159,72 @@ function resolveModel(config: AISCodeConfig): Model<any> {
   return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
 }
 
+function isToolCall(block: any): block is ToolCall {
+  return block && block.type === 'toolCall';
+}
+
+function toMoonshotLlmMessages(messages: AgentMessage[]): Message[] {
+  const filtered = messages.filter(isLlmMessage) as Message[];
+  const result: Message[] = [];
+  const assistantTurnIds = new Map<number, string[]>();
+
+  for (let i = 0; i < filtered.length; i++) {
+    const msg = filtered[i];
+
+    if (msg.role === 'assistant') {
+      const toolCallBlocks = msg.content.filter(isToolCall);
+      const turnIds: string[] = [];
+      let turnChanged = false;
+
+      const newContent = msg.content.map(block => {
+        if (isToolCall(block)) {
+          if (!block.id || block.id.trim() === '') {
+            // Generate a strictly alphanumeric ID (9 chars), similar to Mistral constraints
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let fallbackId = '';
+            for (let k = 0; k < 9; k++) {
+              fallbackId += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            turnIds.push(fallbackId);
+            turnChanged = true;
+            return { ...block, id: fallbackId };
+          }
+          turnIds.push(block.id);
+          return block;
+        }
+        return block;
+      });
+
+      assistantTurnIds.set(i, turnIds);
+      result.push(turnChanged ? { ...msg, content: newContent as any } : msg);
+    } else if (msg.role === 'toolResult') {
+      const tr = msg as ToolResultMessage;
+      if (!tr.toolCallId || tr.toolCallId.trim() === '') {
+        let matchedId = '';
+        for (let j = i - 1; j >= 0; j--) {
+          const ids = assistantTurnIds.get(j);
+          if (ids && ids.length > 0) {
+            let resultsCountSinceAssistant = 0;
+            for (let k = j + 1; k < i; k++) {
+              if (filtered[k].role === 'toolResult') resultsCountSinceAssistant++;
+            }
+            if (resultsCountSinceAssistant < ids.length) {
+              matchedId = ids[resultsCountSinceAssistant];
+            }
+            break;
+          }
+        }
+        result.push({ ...tr, toolCallId: matchedId || `call_orphan_${Date.now()}` });
+      } else {
+        result.push(tr);
+      }
+    } else {
+      result.push(msg);
+    }
+  }
+  return result;
+}
+
 function toLlmMessages(messages: AgentMessage[]): Message[] {
   return messages.filter(isLlmMessage) as Message[];
 }
@@ -179,14 +253,21 @@ export class CodingAgent {
       missing: [...promptBuild.missing],
     };
 
+    const resolvedModelObj = resolveModel(config);
+
     this.agent = new Agent({
       initialState: {
         systemPrompt: promptBuild.prompt,
-        model: resolveModel(config),
+        model: resolvedModelObj,
         tools,
         messages: config.initialMessages || [],
       },
-      convertToLlm: toLlmMessages,
+      convertToLlm: (messages) => {
+        if (resolvedModelObj.provider === 'moonshot') {
+          return toMoonshotLlmMessages(messages);
+        }
+        return toLlmMessages(messages);
+      },
       getApiKey: () => {
         const apiKey = config.apiKey.trim();
         return apiKey.length > 0 ? apiKey : undefined;

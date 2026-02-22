@@ -15,8 +15,9 @@ export const el = {
   tabLogs:      () => document.getElementById('tabLogs')!,
   tabSettings:  () => document.getElementById('tabSettings')!,
   logsPane:     () => document.getElementById('logsPane')!,
-  settingsPane: () => document.getElementById('settingsPane')!,
-  settingsNote: () => document.getElementById('settingsNote')!,
+  settingsPane:    () => document.getElementById('settingsPane')!,
+  settingsNote:    () => document.getElementById('settingsNote')!,
+  saveSettingsBtn: () => document.getElementById('saveSettingsBtn')!,
 };
 
 export function setStatus(text: string): void {
@@ -52,4 +53,8 @@ export function setTab(tab: Tab): void {
   el.tabSettings().classList.toggle('active', !isLogs);
   el.logsPane().classList.toggle('hidden', !isLogs);
   el.settingsPane().classList.toggle('hidden', isLogs);
+  
+  // Only show Save button and note on Settings tab
+  el.saveSettingsBtn().classList.toggle('hidden', isLogs);
+  el.settingsNote().classList.toggle('hidden', isLogs);
 }

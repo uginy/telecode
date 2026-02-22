@@ -15,7 +15,10 @@ import esbuild from 'esbuild';
 const notifyPlugin = (label) => ({
   name: 'watch-notify',
   setup(build) {
-    build.onStart(() => process.stdout.write(`[watch] build started\n`));
+    build.onStart(async () => {
+      process.stdout.write(`[watch] build started\n`);
+      return {};
+    });
     build.onEnd((result) => {
       for (const err of result.errors) {
         const loc = err.location;

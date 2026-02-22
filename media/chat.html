@@ -20,6 +20,9 @@
   <nav class="tabs">
     <button id="tabLogs"     class="tab active" type="button">Logs</button>
     <button id="tabSettings" class="tab"        type="button">Settings</button>
+    <div class="tabs-spacer"></div>
+    <span id="settingsNote" class="settings-note hidden"></span>
+    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button">Save Settings</button>
   </nav>
 
   <!-- ── Logs pane ──────────────────────────────────────── -->
@@ -39,14 +42,6 @@
   <!-- ── Settings pane ──────────────────────────────────── -->
   <section id="settingsPane" class="pane hidden">
     <form id="settingsForm" class="settings-form">
-
-      <!-- ── Actions (Top) ───────────────────────────────────── -->
-      <div class="settings-actions" style="margin-bottom: 20px;">
-        <span id="settingsNote" class="settings-note"></span>
-        <button id="saveSettingsBtn" class="btn btn-primary" type="button" style="width: 100%;">Save Settings</button>
-      </div>
-
-      <!-- ── Inference ───────────────────────────────────────── -->
       <div class="settings-block">
         <div class="settings-block-header">
           <span class="settings-block-title">Inference</span>

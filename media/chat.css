@@ -70,9 +70,14 @@ body {
 /* ── Tabs ───────────────────────────────────────────────────────────────────── */
 .tabs {
   display: flex;
+  align-items: center;
   gap: 2px;
   padding: 8px 14px 0;
   flex-shrink: 0;
+}
+
+.tabs-spacer {
+  flex: 1;
 }
 
 .tab {
@@ -100,7 +105,8 @@ body {
   padding: var(--gap) 14px 14px;
   gap: var(--gap);
 }
-.pane.hidden { display: none; }
+.pane.hidden,
+.hidden { display: none !important; }
 
 /* ── Phase bar ───────────────────────────────────────────────────────────────── */
 .phase {
@@ -207,6 +213,12 @@ textarea:focus { border-color: var(--accent); }
   font-weight: 500;
 }
 .btn-primary:not(:disabled):hover { opacity: .88; }
+
+.btn-sm {
+  font-size: 10px;
+  padding: 3px 8px;
+  margin-bottom: 4px;
+}
 
 /* ── Settings form ───────────────────────────────────────────────────────────── */
 .settings-form {

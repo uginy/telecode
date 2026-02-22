@@ -8,7 +8,8 @@ export type ChatViewCommand =
   | { command: 'runTask'; prompt: string }
   | { command: 'openSettings' }
   | { command: 'requestSettings' }
-  | { command: 'saveSettings'; settings: ChatViewSettings };
+  | { command: 'saveSettings'; settings: ChatViewSettings }
+  | { command: 'fetchModels'; provider: string; baseUrl: string; apiKey: string };
 
 export interface ChatViewSettings {
   provider: string;
@@ -92,6 +93,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       if (command === 'requestSettings') {
         this.commandEmitter.fire({ command: 'requestSettings' });
+      }
+
+      if (command === 'fetchModels') {
+        this.commandEmitter.fire({
+          command: 'fetchModels',
+          provider: typeof payload.provider === 'string' ? payload.provider : '',
+          baseUrl: typeof payload.baseUrl === 'string' ? payload.baseUrl : '',
+          apiKey: typeof payload.apiKey === 'string' ? payload.apiKey : '',
+        });
       }
 
       if (command === 'saveSettings' && payload.settings && typeof payload.settings === 'object') {
