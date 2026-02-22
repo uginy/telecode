@@ -10,6 +10,7 @@ export interface AgentSettings {
   responseStyle: 'concise' | 'normal' | 'detailed';
   language: 'ru' | 'en' | 'auto';
   uiLanguage: 'ru' | 'en';
+  allowOutOfWorkspace: boolean;
 }
 
 export interface TelegramSettings {
@@ -79,6 +80,8 @@ export function readAISCodeSettings(): AISCodeSettings {
   const uiLanguageRaw = config.get<string>('uiLanguage') || 'ru';
   const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en') ? uiLanguageRaw : 'ru';
 
+  const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
+
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
   const telegramChatIdRaw = (config.get<string>('telegram.chatId') || '').trim();
@@ -96,6 +99,7 @@ export function readAISCodeSettings(): AISCodeSettings {
       responseStyle,
       language,
       uiLanguage,
+      allowOutOfWorkspace,
     },
     telegram: {
       enabled: telegramEnabled,

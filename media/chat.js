@@ -149,6 +149,7 @@
       responseStyle: strVal("responseStyle"),
       language: strVal("language"),
       uiLanguage: strVal("uiLanguage"),
+      allowOutOfWorkspace: boolVal("allowOutOfWorkspace"),
       telegramEnabled: boolVal("telegramEnabled"),
       telegramBotToken: strVal("telegramBotToken"),
       telegramChatId: strVal("telegramChatId"),
@@ -166,6 +167,7 @@
     setStr("responseStyle", s.responseStyle ?? "concise");
     setStr("language", s.language ?? "ru");
     setStr("uiLanguage", s.uiLanguage ?? "ru");
+    setBool("allowOutOfWorkspace", s.allowOutOfWorkspace === true);
     setBool("telegramEnabled", s.telegramEnabled === true);
     setStr("telegramBotToken", s.telegramBotToken ?? "");
     setStr("telegramChatId", s.telegramChatId ?? "");

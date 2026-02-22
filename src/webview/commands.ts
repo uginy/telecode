@@ -10,6 +10,7 @@ export type Settings = {
   responseStyle?: string;
   language?: string;
   uiLanguage?: string;
+  allowOutOfWorkspace: boolean;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;

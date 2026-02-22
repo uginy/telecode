@@ -114,7 +114,8 @@ export function activate(context: vscode.ExtensionContext): void {
             event.affectsConfiguration('aisCode.maxSteps') ||
             event.affectsConfiguration('aisCode.allowedTools') ||
             event.affectsConfiguration('aisCode.responseStyle') ||
-            event.affectsConfiguration('aisCode.language'))
+            event.affectsConfiguration('aisCode.language') ||
+            event.affectsConfiguration('aisCode.allowOutOfWorkspace'))
         ) {
           pendingRuntimeRestart = true;
         }
@@ -398,6 +399,7 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     await config.update('maxSteps', settings.maxSteps, target);
     await config.update('responseStyle', settings.responseStyle, target);
     await config.update('language', settings.language, target);
+    await config.update('allowOutOfWorkspace', settings.allowOutOfWorkspace === true, target);
     await config.update('telegram.enabled', settings.telegramEnabled, target);
     if (telegramBotToken.length > 0) {
       await config.update('telegram.botToken', telegramBotToken, target);
@@ -623,6 +625,7 @@ function syncSettingsToChatView(): void {
     responseStyle: settings.agent.responseStyle,
     language: settings.agent.language,
     uiLanguage: settings.agent.uiLanguage,
+    allowOutOfWorkspace: settings.agent.allowOutOfWorkspace,
     telegramEnabled: settings.telegram.enabled,
     telegramBotToken: settings.telegram.botToken,
     telegramChatId: settings.telegram.chatId || '',

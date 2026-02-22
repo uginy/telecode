@@ -269,6 +269,11 @@
             "English (interface)"
           ],
           "description": "Язык интерфейса расширения / Extension UI language"
+        },
+        "aisCode.allowOutOfWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow agent to access files and run commands outside the current workspace folder"
         }
       }
     }

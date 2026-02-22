@@ -23,6 +23,7 @@ export interface ChatViewSettings {
   responseStyle: string;
   language: string;
   uiLanguage: string;
+  allowOutOfWorkspace: boolean;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;

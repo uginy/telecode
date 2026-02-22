@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { Type, type Static } from '@mariozechner/pi-ai';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
+import { readAISCodeSettings } from '../config/settings';
 
 type ToolName =
   | 'read_file'
@@ -128,6 +129,27 @@ function renderPath(fsPath: string, cwd: string): string {
   return relative.length > 0 && !relative.startsWith('..') ? relative : fsPath;
 }
 
+function isWithinWorkspace(targetPath: string): boolean {
+  const settings = readAISCodeSettings();
+  if (settings.agent.allowOutOfWorkspace) {
+    return true;
+  }
+  const workspaceRoot = getWorkspaceRoot();
+  const relative = path.relative(workspaceRoot, targetPath);
+  return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function checkPathAllowed(targetPath: string, operation: string): void {
+  if (!isWithinWorkspace(targetPath)) {
+    const workspaceRoot = getWorkspaceRoot();
+    throw new Error(
+      `Operation "${operation}" is restricted to workspace folder "${workspaceRoot}". ` +
+      `Target path "${targetPath}" is outside the workspace. ` +
+      `Enable "aisCode.allowOutOfWorkspace" in settings to allow access outside the workspace.`
+    );
+  }
+}
+
 function trimOutput(text: string, maxChars = MAX_TEXT_OUTPUT_CHARS): string {
   if (text.length <= maxChars) {
     return text;
@@ -247,6 +269,8 @@ export function createWorkspaceTools(): AgentTool[] {
         const typed = params as ReadFileParams;
         const filePath = resolveToolPath(typed.path, workingDirectory);
 
+        checkPathAllowed(filePath, 'read_file');
+
         const content = await fs.readFile(filePath, 'utf8');
         const lines = content.split(/\r?\n/);
 
@@ -279,6 +303,8 @@ export function createWorkspaceTools(): AgentTool[] {
         const typed = params as WriteFileParams;
         const filePath = resolveToolPath(typed.path, workingDirectory);
 
+        checkPathAllowed(filePath, 'write_file');
+
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         await fs.writeFile(filePath, typed.content, 'utf8');
 
@@ -299,6 +325,8 @@ export function createWorkspaceTools(): AgentTool[] {
       execute: async (_toolCallId, params) => {
         const typed = params as EditFileParams;
         const filePath = resolveToolPath(typed.path, workingDirectory);
+
+        checkPathAllowed(filePath, 'edit_file');
 
         if (typed.oldText.length === 0) {
           throw new Error('oldText must not be empty.');
@@ -475,6 +503,8 @@ export function createWorkspaceTools(): AgentTool[] {
         const cwd = resolveCwdInput(typed.cwd);
         const timeoutMs = typed.timeoutMs ?? DEFAULT_BASH_TIMEOUT_MS;
 
+        checkPathAllowed(cwd, 'bash');
+
         onUpdate?.({
           content: [{ type: 'text', text: `Running in ${renderPath(cwd, workingDirectory)}: ${typed.command}` }],
           details: {},
@@ -528,6 +558,9 @@ export function createWorkspaceTools(): AgentTool[] {
       execute: async (_toolCallId, params) => {
         const typed = params as ListDirectoryParams;
         const target = resolveCwdInput(typed.path);
+
+        checkPathAllowed(target, 'list_directory');
+
         const maxResults = typed.maxResults ?? 500;
         const recursive = typed.recursive === true;
         const command = recursive
@@ -557,6 +590,9 @@ export function createWorkspaceTools(): AgentTool[] {
       execute: async (_toolCallId, params) => {
         const typed = params as SetWorkingDirectoryParams;
         const next = resolveToolPath(typed.path, workingDirectory);
+
+        checkPathAllowed(next, 'set_working_directory');
+
         const stat = await fs.stat(next);
         if (!stat.isDirectory()) {
           throw new Error(`Not a directory: ${next}`);
@@ -576,6 +612,9 @@ export function createWorkspaceTools(): AgentTool[] {
       execute: async (_toolCallId, params) => {
         const typed = params as OpenWorkspaceParams;
         const target = resolveToolPath(typed.path, workingDirectory);
+
+        checkPathAllowed(target, 'open_workspace');
+
         const stat = await fs.stat(target);
         if (!stat.isDirectory()) {
           throw new Error(`Not a directory: ${target}`);
