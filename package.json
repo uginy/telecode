@@ -99,21 +99,7 @@
           ],
           "description": "AI provider"
         },
-        "aisCode.engine": {
-          "type": "string",
-          "default": "auto",
-          "enum": [
-            "auto",
-            "nanoclaw",
-            "pi"
-          ],
-          "enumDescriptions": [
-            "Auto-select engine: nanoclaw for Claude/Anthropic, pi for other providers",
-            "Force nanoclaw runtime (Claude-native flow)",
-            "Force pi runtime (multi-provider flow)"
-          ],
-          "description": "Agent runtime engine"
-        },
+
         "aisCode.model": {
           "type": "string",
           "default": "arcee-ai/trinity-large-preview:free",

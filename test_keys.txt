@@ -1,8 +1,0 @@
-# This file is just a note for the user about how to add their keys
-# User can add keys to their VS Code Settings:
-# 1. Open VS Code Settings (Cmd + , on Mac)
-# 2. Search for "AIS Code"
-# 3. Look for the "Ais Code: Api Key" setting and enter OpenRouter/Gemini key etc.
-# 4. Look for "Ais Code > Telegram: Bot Token" and enter Telegram bot token.
-# 5. Look for "Ais Code > Telegram: Chat Id" and enter your chat id.
-# 6. Check "Ais Code > Telegram: Enabled".

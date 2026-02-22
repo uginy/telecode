@@ -23,6 +23,11 @@ export interface ChatViewSettings {
   telegramForceIPv4: boolean;
 }
 
+/** Maximum output buffer size in characters (~500 KB). Older text is trimmed when exceeded. */
+const OUTPUT_MAX_CHARS = 500_000;
+/** When the buffer exceeds the max, trim this many chars from the start. */
+const OUTPUT_TRIM_CHARS = 100_000;
+
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private webview?: vscode.Webview;
   private status = 'Idle';
@@ -137,6 +142,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   appendOutput(text: string): void {
     this.output += text;
+    if (this.output.length > OUTPUT_MAX_CHARS) {
+      const trimmed = this.output.slice(OUTPUT_TRIM_CHARS);
+      const newlineIdx = trimmed.indexOf('\n');
+      this.output = newlineIdx !== -1 ? trimmed.slice(newlineIdx + 1) : trimmed;
+    }
     this.post({ type: 'appendOutput', text });
   }
 

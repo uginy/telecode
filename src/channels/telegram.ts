@@ -12,6 +12,7 @@ import { readAISCodeSettings } from '../config/settings';
 import { createRuntime } from '../engine/createRuntime';
 import type { AgentRuntime, RuntimeConfig } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
+import type { IChannel } from './types';
 
 
 
@@ -61,10 +62,14 @@ const TELEGRAM_MARKDOWN = new MarkdownIt({
   typographer: false,
 });
 
-export class TelegramChannel {
+export class TelegramChannel implements IChannel {
+  public readonly id = 'telegram';
+  public readonly name = 'Telegram';
+
   private bot: Bot | null = null;
   private runtime: AgentRuntime | null = null;
   private runtimeConfigSignature = '';
+  private active = false;
 
   private isProcessing = false;
 
@@ -81,6 +86,10 @@ export class TelegramChannel {
     private readonly onLog?: (line: string) => void,
     private readonly onStatus?: (status: string) => void
   ) {}
+
+  public isActive(): boolean {
+    return this.active;
+  }
 
   public async start(): Promise<void> {
     this.stop();
