@@ -7,6 +7,8 @@ export type Settings = {
   apiKey: string;
   baseUrl: string;
   maxSteps: number;
+  responseStyle?: string;
+  language?: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;

@@ -77,6 +77,25 @@
           <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
         </div>
 
+        <div class="field">
+          <label for="responseStyle">Response Style</label>
+          <span class="field-hint">Style of text responses from the agent.</span>
+          <select id="responseStyle">
+            <option value="concise">Concise (Short)</option>
+            <option value="normal">Normal</option>
+            <option value="detailed">Detailed</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="language">Language</label>
+          <span class="field-hint">Agent's response language.</span>
+          <select id="language">
+            <option value="ru">Russian (ru)</option>
+            <option value="en">English (en)</option>
+          </select>
+        </div>
+
         <div class="field field-inline">
           <div>
             <label for="maxSteps">Max Steps</label>

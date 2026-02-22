@@ -16,6 +16,8 @@ export interface ChatViewSettings {
   apiKey: string;
   baseUrl: string;
   maxSteps: number;
+  responseStyle: string;
+  language: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
@@ -105,6 +107,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : '',
             baseUrl: typeof raw.baseUrl === 'string' ? raw.baseUrl : '',
             maxSteps,
+            responseStyle: typeof raw.responseStyle === 'string' ? raw.responseStyle : 'concise',
+            language: typeof raw.language === 'string' ? raw.language : 'ru',
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',

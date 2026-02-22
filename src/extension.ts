@@ -385,6 +385,8 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     }
     await config.update('baseUrl', settings.baseUrl, target);
     await config.update('maxSteps', settings.maxSteps, target);
+    await config.update('responseStyle', settings.responseStyle, target);
+    await config.update('language', settings.language, target);
     await config.update('telegram.enabled', settings.telegramEnabled, target);
     if (telegramBotToken.length > 0) {
       await config.update('telegram.botToken', telegramBotToken, target);
@@ -607,6 +609,8 @@ function syncSettingsToChatView(): void {
     apiKey: settings.agent.apiKey,
     baseUrl: settings.agent.baseUrl || '',
     maxSteps: settings.agent.maxSteps,
+    responseStyle: settings.agent.responseStyle,
+    language: settings.agent.language,
     telegramEnabled: settings.telegram.enabled,
     telegramBotToken: settings.telegram.botToken,
     telegramChatId: settings.telegram.chatId || '',

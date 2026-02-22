@@ -32,6 +32,8 @@ export function readForm(): Settings {
     apiKey:            strVal('apiKey'),
     baseUrl:           strVal('baseUrl'),
     maxSteps,
+    responseStyle:     strVal('responseStyle'),
+    language:          strVal('language'),
     telegramEnabled:   boolVal('telegramEnabled'),
     telegramBotToken:  strVal('telegramBotToken'),
     telegramChatId:    strVal('telegramChatId'),
@@ -46,6 +48,8 @@ export function writeForm(s: Settings): void {
   setStr( 'apiKey',           s.apiKey ?? '');
   setStr( 'baseUrl',          s.baseUrl ?? '');
   setStr( 'maxSteps',         String(s.maxSteps ?? 100));
+  setStr( 'responseStyle',    s.responseStyle ?? 'concise');
+  setStr( 'language',         s.language ?? 'ru');
   setBool('telegramEnabled',  s.telegramEnabled === true);
   setStr( 'telegramBotToken', s.telegramBotToken ?? '');
   setStr( 'telegramChatId',   s.telegramChatId ?? '');
