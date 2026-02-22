@@ -40,6 +40,12 @@
   <section id="settingsPane" class="pane hidden">
     <form id="settingsForm" class="settings-form">
 
+      <!-- ── Actions (Top) ───────────────────────────────────── -->
+      <div class="settings-actions" style="margin-bottom: 20px;">
+        <span id="settingsNote" class="settings-note"></span>
+        <button id="saveSettingsBtn" class="btn btn-primary" type="button" style="width: 100%;">Save Settings</button>
+      </div>
+
       <!-- ── Inference ───────────────────────────────────────── -->
       <div class="settings-block">
         <div class="settings-block-header">
@@ -120,12 +126,6 @@
             <span class="field-hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
           </div>
         </div>
-      </div>
-
-      <!-- ── Actions ─────────────────────────────────────────── -->
-      <div class="settings-actions">
-        <span id="settingsNote" class="settings-note"></span>
-        <button id="saveSettingsBtn" class="btn btn-primary" type="button">Save Settings</button>
       </div>
 
     </form>
