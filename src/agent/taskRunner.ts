@@ -1,5 +1,5 @@
 import { createRuntime } from '../engine/createRuntime';
-import type { AgentRuntime, RuntimeConfig, RuntimeEvent } from '../engine/types';
+import type { AgentRuntime, RuntimeConfig, RuntimeEvent, ImageContentExt } from '../engine/types';
 import type { AgentTool, AgentMessage } from '@mariozechner/pi-agent-core';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -64,7 +64,7 @@ export class TaskRunner {
   /**
    * Run a prompt (task) on the active runtime.
    */
-  public async runTask(prompt: string): Promise<void> {
+  public async runTask(prompt: string, images?: ImageContentExt[]): Promise<void> {
     if (!this.runtime) {
       throw new Error('Runtime not initialized');
     }
@@ -77,7 +77,7 @@ export class TaskRunner {
     this.startWatchdog();
 
     try {
-      await this.runtime.prompt(prompt);
+      await this.runtime.prompt(prompt, images);
     } catch (e) {
       this.stopWatchdog();
       this.setState('error');

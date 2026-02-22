@@ -1,5 +1,5 @@
 import { Agent, type AgentEvent, type AgentMessage, type AgentTool } from '@mariozechner/pi-agent-core';
-import { getModel, getModels, type Message, type Model } from '@mariozechner/pi-ai';
+import { getModel, getModels, type Message, type Model, type ImageContent } from '@mariozechner/pi-ai';
 import { buildComposedSystemPrompt } from '../prompts/promptStack';
 
 export interface AISCodeConfig {
@@ -130,7 +130,7 @@ function resolveModel(config: AISCodeConfig): Model<any> {
     const template = providerModels.find((candidate) => isModelLike(candidate));
     if (template) {
       const resolved: Model<any> = {
-        ...template,
+        ...(template as Model<any>),
         id: modelId,
         name: modelId,
       };
@@ -188,13 +188,13 @@ export class CodingAgent {
     return this.agent.subscribe(fn);
   }
 
-  async prompt(message: string): Promise<void> {
+  async prompt(message: string, images?: ImageContent[]): Promise<void> {
     const normalized = message.trim();
     if (normalized.length === 0) {
       return;
     }
 
-    await this.agent.prompt(normalized);
+    await this.agent.prompt(normalized, images);
   }
 
   abort(): void {

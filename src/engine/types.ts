@@ -10,9 +10,15 @@ export type RuntimeEvent =
 
 export type RuntimeListener = (event: RuntimeEvent) => void;
 
+export interface ImageContentExt {
+  type: 'image';
+  data: string; // base64
+  mimeType: string;
+}
+
 export interface AgentRuntime {
   readonly engine: 'pi';
-  prompt(message: string): Promise<void>;
+  prompt(message: string, images?: ImageContentExt[]): Promise<void>;
   abort(): void;
   onEvent(listener: RuntimeListener): () => void;
   getModelInfo?(): { id: string; provider: string; api: string; baseUrl: string };

@@ -1,6 +1,6 @@
 import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
 import { type AISCodeConfig, CodingAgent, createAgent } from '../agent/codingAgent';
-import type { AgentRuntime, RuntimeConfig, RuntimeEvent, RuntimeListener } from './types';
+import type { AgentRuntime, RuntimeConfig, RuntimeEvent, RuntimeListener, ImageContentExt } from './types';
 
 export class PiRuntime implements AgentRuntime {
   public readonly engine = 'pi' as const;
@@ -27,7 +27,7 @@ export class PiRuntime implements AgentRuntime {
     });
   }
 
-  async prompt(message: string): Promise<void> {
+  async prompt(message: string, images?: ImageContentExt[]): Promise<void> {
     const modelInfo = this.agent.getModelInfo();
     const promptInfo = this.agent.getPromptInfo();
     const toolsPreview = this.toolNames.slice(0, 12).join(',');
@@ -50,7 +50,8 @@ export class PiRuntime implements AgentRuntime {
       type: 'status',
       message: `llm_config api=${modelInfo.api} provider=${modelInfo.provider} model=${modelInfo.id} baseUrl=${modelInfo.baseUrl}`,
     });
-    await this.agent.prompt(message);
+    // @ts-ignore pi-agent-core Agent.prompt supports images parameter
+    await this.agent.prompt(message, images);
   }
 
   abort(): void {

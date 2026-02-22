@@ -11,7 +11,7 @@ import { Type } from '@mariozechner/pi-ai';
 import MarkdownIt from 'markdown-it';
 import { readAISCodeSettings } from '../config/settings';
 import { createRuntime } from '../engine/createRuntime';
-import type { AgentRuntime, RuntimeConfig } from '../engine/types';
+import type { AgentRuntime, RuntimeConfig, ImageContentExt } from '../engine/types';
 import { getPromptStackSignature } from '../prompts/promptStack';
 import type { IChannel } from './types';
 import { TaskRunner } from '../agent/taskRunner';
@@ -299,6 +299,43 @@ export class TelegramChannel implements IChannel {
         await this.executeTask(ctx, text);
       });
 
+      this.bot.on('message:photo', async (ctx) => {
+        const text = ctx.message?.caption?.trim() || '';
+        if (text.startsWith('/')) {
+          return;
+        }
+
+        const photos = ctx.message?.photo;
+        if (!photos || photos.length === 0) return;
+
+        try {
+          // Telegram sends an array of sizes, the last one is the largest
+          const largestPhoto = photos[photos.length - 1];
+          const file = await ctx.api.getFile(largestPhoto.file_id);
+          const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+          
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to download photo: ${response.statusText}`);
+          }
+          
+          const buffer = await response.arrayBuffer();
+          const base64Data = Buffer.from(buffer).toString('base64');
+          
+          const images: ImageContentExt[] = [{
+            type: 'image',
+            data: base64Data,
+            mimeType: 'image/jpeg',
+          }];
+
+          await this.executeTask(ctx, text || 'Explain or analyze this image', images);
+        } catch (error) {
+          const errStr = error instanceof Error ? error.message : String(error);
+          this.pushLog(`[telegram:error] downloading photo: ${errStr}`);
+          await ctx.reply('Failed to process image.');
+        }
+      });
+
       this.bot.catch((error) => {
         this.pushLog(`[telegram:error] ${formatError(error)}`);
         console.error('AIS Code Telegram error:', error);
@@ -395,7 +432,7 @@ export class TelegramChannel implements IChannel {
     this.pushLog('[telegram] current task stopped by UI');
   }
 
-  private async executeTask(ctx: Context, task: string): Promise<void> {
+  private async executeTask(ctx: Context, task: string, images?: ImageContentExt[]): Promise<void> {
     if (this.isProcessing) {
       await ctx.reply('Agent is busy. Wait for completion or send /stop.');
       return;
@@ -587,7 +624,7 @@ export class TelegramChannel implements IChannel {
       // Initial status — send immediately (lastEditTime is 0 → gap >= throttle)
       scheduleUpdate(`Starting\n${formatProgress()}\n\n${limitText(normalizedTask, 300)}`);
 
-      await this.taskRunner.runTask(normalizedTask);
+      await this.taskRunner.runTask(normalizedTask, images);
 
       this.lastResponse = responseBuffer.trim().length > 0 ? responseBuffer : 'Done.';
       this.lastActivityAt = Date.now();
