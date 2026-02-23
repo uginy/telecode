@@ -24,6 +24,8 @@ export interface ChatViewSettings {
   language: string;
   uiLanguage: string;
   allowOutOfWorkspace: boolean;
+  logMaxChars: number;
+  telegramMaxLogLines: number;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
@@ -31,10 +33,7 @@ export interface ChatViewSettings {
   telegramForceIPv4: boolean;
 }
 
-/** Maximum output buffer size in characters (~500 KB). Older text is trimmed when exceeded. */
-const OUTPUT_MAX_CHARS = 500_000;
-/** When the buffer exceeds the max, trim this many chars from the start. */
-const OUTPUT_TRIM_CHARS = 100_000;
+const DEFAULT_OUTPUT_MAX_CHARS = 500_000;
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private webview?: vscode.Webview;
@@ -113,6 +112,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         const raw = payload.settings as Record<string, unknown>;
         const maxStepsRaw = typeof raw.maxSteps === 'number' ? raw.maxSteps : Number(raw.maxSteps);
         const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? Math.floor(maxStepsRaw) : 100;
+        const logMaxCharsRaw = typeof raw.logMaxChars === 'number' ? raw.logMaxChars : Number(raw.logMaxChars);
+        const logMaxChars = Number.isFinite(logMaxCharsRaw) && logMaxCharsRaw > 0 ? Math.floor(logMaxCharsRaw) : DEFAULT_OUTPUT_MAX_CHARS;
+        const telegramMaxLogLinesRaw = typeof raw.telegramMaxLogLines === 'number' ? raw.telegramMaxLogLines : Number(raw.telegramMaxLogLines);
+        const telegramMaxLogLines = Number.isFinite(telegramMaxLogLinesRaw) && telegramMaxLogLinesRaw > 0 ? Math.floor(telegramMaxLogLinesRaw) : 300;
 
         this.commandEmitter.fire({
           command: 'saveSettings',
@@ -126,6 +129,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             language: typeof raw.language === 'string' ? raw.language : 'ru',
             uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'ru',
             allowOutOfWorkspace: raw.allowOutOfWorkspace === true,
+            logMaxChars,
+            telegramMaxLogLines,
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',
@@ -162,9 +167,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   appendOutput(text: string): void {
+    const settings = readTelecodeSettings();
+    const maxChars = settings.agent.logMaxChars > 0 ? settings.agent.logMaxChars : DEFAULT_OUTPUT_MAX_CHARS;
+    const trimChars = Math.max(1_000, Math.floor(maxChars * 0.2));
+
     this.output += text;
-    if (this.output.length > OUTPUT_MAX_CHARS) {
-      const trimmed = this.output.slice(OUTPUT_TRIM_CHARS);
+    if (this.output.length > maxChars) {
+      const trimmed = this.output.slice(trimChars);
       const newlineIdx = trimmed.indexOf('\n');
       this.output = newlineIdx !== -1 ? trimmed.slice(newlineIdx + 1) : trimmed;
     }

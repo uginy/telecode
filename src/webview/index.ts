@@ -15,7 +15,7 @@ type PersistedState = {
   prompt?: string;
   status?: string;
   tab?: 'logs' | 'settings';
-  view?: 'grouped' | 'list';
+  view?: 'grouped';
 };
 
 function saveState(): void {
@@ -36,17 +36,90 @@ function saveState(): void {
 // Wire up view toggles
 el.viewGroupedBtn().addEventListener('click', () => {
   el.viewGroupedBtn().classList.add('active');
-  el.viewListBtn().classList.remove('active');
   el.output().setAttribute('data-view', 'grouped');
   saveState();
 });
 
-el.viewListBtn().addEventListener('click', () => {
-  el.viewListBtn().classList.add('active');
-  el.viewGroupedBtn().classList.remove('active');
-  el.output().setAttribute('data-view', 'list');
-  saveState();
-});
+type LogKind =
+  | 'tool-start'
+  | 'tool-done'
+  | 'tool-error'
+  | 'status'
+  | 'channel'
+  | 'llm';
+
+const enabledKinds = new Set<LogKind>();
+let filterQuery = '';
+
+function applyGroupedFilters(): void {
+  const output = el.output();
+  const query = filterQuery.trim().toLowerCase();
+  const hasKindFilters = enabledKinds.size > 0;
+  const hasQuery = query.length > 0;
+
+  const lines = Array.from(output.querySelectorAll('.grouped-body .log-line')) as HTMLElement[];
+  for (const line of lines) {
+    const kind = (line.dataset.kind || 'text') as LogKind | string;
+    const text = (line.textContent || '').toLowerCase();
+    const kindMatch = !hasKindFilters || enabledKinds.has(kind as LogKind);
+    const queryMatch = !hasQuery || text.includes(query);
+    line.style.display = kindMatch && queryMatch ? '' : 'none';
+  }
+
+  const nodes = Array.from(output.querySelectorAll('.grouped-node')) as HTMLElement[];
+  for (const node of nodes) {
+    const nodeLines = Array.from(node.querySelectorAll('.grouped-body .log-line')) as HTMLElement[];
+    const visibleLines = nodeLines.filter((line) => line.style.display !== 'none');
+    const shouldHide = (hasKindFilters || hasQuery) && nodeLines.length > 0 && visibleLines.length === 0;
+    node.style.display = shouldHide ? 'none' : '';
+  }
+}
+
+function updateFilterButtons(): void {
+  const buttons = Array.from(document.querySelectorAll('.log-filter-btn')) as HTMLButtonElement[];
+  for (const button of buttons) {
+    const kind = (button.dataset.kind || 'all') as LogKind | 'all';
+    if (kind === 'all') {
+      button.classList.toggle('active', enabledKinds.size === 0);
+      continue;
+    }
+    button.classList.toggle('active', enabledKinds.has(kind));
+  }
+}
+
+function bindLogFilters(): void {
+  const buttons = Array.from(document.querySelectorAll('.log-filter-btn')) as HTMLButtonElement[];
+  const input = document.getElementById('logFilterQuery') as HTMLInputElement | null;
+  const clear = document.getElementById('logFilterClear') as HTMLButtonElement | null;
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const kind = (button.dataset.kind || 'all') as LogKind | 'all';
+      if (kind === 'all') {
+        enabledKinds.clear();
+      } else if (enabledKinds.has(kind)) {
+        enabledKinds.delete(kind);
+      } else {
+        enabledKinds.add(kind);
+      }
+      updateFilterButtons();
+      applyGroupedFilters();
+    });
+  }
+
+  input?.addEventListener('input', () => {
+    filterQuery = input.value;
+    applyGroupedFilters();
+  });
+
+  clear?.addEventListener('click', () => {
+    enabledKinds.clear();
+    filterQuery = '';
+    if (input) input.value = '';
+    updateFilterButtons();
+    applyGroupedFilters();
+  });
+}
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 el.tabLogs().addEventListener('click',     () => { setTab('logs');     api.setState({ ...(api.getState() as object), tab: 'logs' }); });
@@ -185,6 +258,7 @@ function applyTranslations(t: Record<string, string>): void {
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
   handleMessage(e.data);
+  applyGroupedFilters();
   saveState();
 });
 
@@ -195,17 +269,13 @@ if (saved) {
   if (saved.prompt) el.prompt().value = saved.prompt;
   if (saved.status) { setStatus(saved.status); setControlState(saved.status); }
   if (saved.tab === 'settings') setTab('settings');
-  if (saved.view === 'list') {
-    el.viewListBtn().classList.add('active');
-    el.viewGroupedBtn().classList.remove('active');
-    el.output().setAttribute('data-view', 'list');
-  } else {
-    el.viewGroupedBtn().classList.add('active');
-    el.viewListBtn().classList.remove('active');
-    el.output().setAttribute('data-view', 'grouped');
-  }
+  el.viewGroupedBtn().classList.add('active');
+  el.output().setAttribute('data-view', 'grouped');
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+bindLogFilters();
+updateFilterButtons();
+applyGroupedFilters();
 setControlState(el.status().textContent ?? '');
 cmd.requestSettings();

@@ -211,6 +211,16 @@
           "default": 100,
           "description": "Max agent steps per task"
         },
+        "telecode.logMaxChars": {
+          "type": "number",
+          "default": 500000,
+          "description": "Maximum in-memory UI log buffer size before trimming old lines"
+        },
+        "telecode.telegramMaxLogLines": {
+          "type": "number",
+          "default": 300,
+          "description": "Maximum number of Telegram log lines kept in memory"
+        },
         "telecode.allowedTools": {
           "type": "array",
           "default": [

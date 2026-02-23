@@ -107,6 +107,9 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
     `Workspace root: ${workspaceHint}.`,
     `Available tools: ${toolInventory}.`,
     'Use available tools first; do not claim actions you did not execute.',
+    'Before creating new tooling, compare with existing built-in tools and files in ~/.telecode/tools.',
+    'If missing capabilities block the task, create an ephemeral tool in ~/.telecode/tools/.tmp and delete it after execution.',
+    'Choose runtime by availability: node (.js), else python3 (.py), else shell by OS (bash on macOS/Linux, powershell on Windows).',
     `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
     `Response style: ${styleInstruction}`,
     `Language: ${language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`}`,
@@ -162,8 +165,12 @@ export function buildComposedSystemPrompt(options: {
     styleInstruction,
     `- Language: ${options.language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`}`,
     `- Tools available: ${toolInventory}`,
+    '- Custom tools directory: ~/.telecode/tools',
     `- Out of Workspace allowed: ${options.allowOutOfWorkspace === true ? 'YES' : 'NO'}`,
     '- Always prefer actual tool execution over speculation.',
+    '- Before adding new tooling, check existing tools first.',
+    '- If still blocked, create ephemeral tooling under ~/.telecode/tools/.tmp, execute it, then delete it.',
+    '- Runtime choice for ephemeral tools: node (.js), else python3 (.py), else bash/powershell based on OS.',
   ].join('\n');
 
   if (layers.length === 0) {

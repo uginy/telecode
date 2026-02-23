@@ -11,6 +11,8 @@ export interface AgentSettings {
   language: 'ru' | 'en' | 'auto';
   uiLanguage: 'ru' | 'en';
   allowOutOfWorkspace: boolean;
+  logMaxChars: number;
+  telegramMaxLogLines: number;
 }
 
 export interface TelegramSettings {
@@ -81,6 +83,8 @@ export function readTelecodeSettings(): TelecodeSettings {
   const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en') ? uiLanguageRaw : 'ru';
 
   const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
+  const logMaxChars = readPositiveNumber(config.get<number>('logMaxChars'), 500_000);
+  const telegramMaxLogLines = readPositiveNumber(config.get<number>('telegramMaxLogLines'), 300);
 
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
@@ -100,6 +104,8 @@ export function readTelecodeSettings(): TelecodeSettings {
       language,
       uiLanguage,
       allowOutOfWorkspace,
+      logMaxChars,
+      telegramMaxLogLines,
     },
     telegram: {
       enabled: telegramEnabled,

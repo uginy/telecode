@@ -67,6 +67,10 @@ export interface Translations {
   field_ui_language_hint: string;
   field_max_steps: string;
   field_max_steps_hint: string;
+  field_log_max_chars: string;
+  field_log_max_chars_hint: string;
+  field_tg_log_lines: string;
+  field_tg_log_lines_hint: string;
 
   // UI - Settings Telegram
   settings_telegram_title: string;
@@ -122,6 +126,10 @@ export interface Translations {
   tg_bot_online: string;
   tg_denied: string;
   tg_connected: string;
+  tg_lifecycle_starting: string;
+  tg_lifecycle_stopping: string;
+  tg_lifecycle_stopped: string;
+  tg_lifecycle_start_failed: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -182,6 +190,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_ui_language_hint: 'Язык меню, вкладок и настроек расширения.',
     field_max_steps: 'Макс. шагов',
     field_max_steps_hint: 'Максимальное количество вызовов инструментов (1–1000).',
+    field_log_max_chars: 'Буфер логов (симв.)',
+    field_log_max_chars_hint: 'Максимальный размер логов в UI в памяти перед обрезкой старых строк.',
+    field_tg_log_lines: 'Линии Telegram-логов',
+    field_tg_log_lines_hint: 'Максимальное число строк Telegram-логов в памяти.',
 
     settings_telegram_title: 'Telegram Бот',
     settings_telegram_desc: 'Управление задачами через внешнего бота.',
@@ -235,6 +247,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_bot_online: 'Бот TeleCode AI онлайн. Используйте /help для просмотра команд.',
     tg_denied: 'Доступ запрещен для User ID {id}. Обновите telecode.telegram.chatId в настройках.',
     tg_connected: 'TeleCode AI подключен. Отправьте /status',
+    tg_lifecycle_starting: 'Запускаю бота TeleCode AI...',
+    tg_lifecycle_stopping: 'Останавливаю бота TeleCode AI...',
+    tg_lifecycle_stopped: 'Бот TeleCode AI остановлен.',
+    tg_lifecycle_start_failed: 'Не удалось запустить бота TeleCode AI: {error}',
   },
   en: {
     tools_available: 'Tools loaded',
@@ -293,6 +309,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_ui_language_hint: 'Language for tabs, buttons and settings.',
     field_max_steps: 'Max Steps',
     field_max_steps_hint: 'Max tool calls allowed per task (1–1000).',
+    field_log_max_chars: 'Log Buffer (chars)',
+    field_log_max_chars_hint: 'Maximum in-memory UI log buffer size before trimming old lines.',
+    field_tg_log_lines: 'Telegram Log Lines',
+    field_tg_log_lines_hint: 'Maximum number of Telegram log lines kept in memory.',
 
     settings_telegram_title: 'Telegram Bot',
     settings_telegram_desc: 'Receive and respond to tasks via a Telegram bot.',
@@ -346,6 +366,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_bot_online: 'TeleCode AI bot is online. Use /help to see commands.',
     tg_denied: 'Access denied for User ID {id}. Update telecode.telegram.chatId in settings.',
     tg_connected: 'TeleCode AI connected. Send /status',
+    tg_lifecycle_starting: 'Starting TeleCode AI bot...',
+    tg_lifecycle_stopping: 'Stopping TeleCode AI bot...',
+    tg_lifecycle_stopped: 'TeleCode AI bot stopped.',
+    tg_lifecycle_start_failed: 'Failed to start TeleCode AI bot: {error}',
   }
 };
 

@@ -45,12 +45,17 @@ export function setPhaseText(text: string): void {
 export function setControlState(statusText: string): void {
   const lower = statusText.toLowerCase();
   const running = lower.includes('running') || lower.includes('thinking') || lower.includes('tool ');
-  const ready   = lower.includes('ready');
+  const ready = lower.includes('ready');
+  const connecting = lower.includes('connecting');
+  const idle = lower.includes('idle');
+  const stopped = lower.includes('stopped');
+  const error = lower.includes('error');
+  const active = running || ready || connecting || idle;
 
-  el.startBtn().disabled = running || ready;
-  el.startBtn().textContent = ready ? 'Ready' : 'Start';
-  el.stopBtn().disabled  = !running && !ready;
-  el.runBtn().disabled   = running;
+  el.startBtn().disabled = active && !stopped && !error;
+  el.startBtn().textContent = ready ? 'Ready' : active ? 'Started' : 'Start';
+  el.stopBtn().disabled = !active || stopped;
+  el.runBtn().disabled = running;
 }
 
 export type Tab = 'logs' | 'settings';

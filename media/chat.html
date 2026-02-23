@@ -35,6 +35,21 @@
   <!-- ── Logs pane ──────────────────────────────────────── -->
   <section id="logsPane" class="pane">
     <div id="phase" class="phase" data-busy="0">Ready</div>
+    <div class="log-filters" id="logFilters">
+      <div class="log-filter-row">
+        <button class="log-filter-btn active" type="button" data-kind="all">All</button>
+        <button class="log-filter-btn" type="button" data-kind="tool-start">Tool Start</button>
+        <button class="log-filter-btn" type="button" data-kind="tool-done">Tool Done</button>
+        <button class="log-filter-btn" type="button" data-kind="tool-error">Errors</button>
+        <button class="log-filter-btn" type="button" data-kind="status">Status</button>
+        <button class="log-filter-btn" type="button" data-kind="channel">Channel</button>
+        <button class="log-filter-btn" type="button" data-kind="llm">LLM</button>
+      </div>
+      <div class="log-filter-row compact">
+        <input id="logFilterQuery" class="log-filter-input" type="text" placeholder="Filter logs..." />
+        <button id="logFilterClear" class="log-filter-clear" type="button">Clear</button>
+      </div>
+    </div>
     <div id="output" class="output" data-view="grouped"></div>
     <div class="input-area">
       <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="3"></textarea>
@@ -116,6 +131,22 @@
                 <label for="allowOutOfWorkspace" data-t="field_allow_out_workspace">Allow Out of Workspace</label>
                 <span class="field-hint" data-t="field_allow_out_workspace_hint">Allow agent to access files and run commands outside the current workspace folder. Disabled by default for security.</span>
               </div>
+            </div>
+
+            <div class="field field-inline">
+              <div>
+                <label for="logMaxChars" data-t="field_log_max_chars">Log Buffer (chars)</label>
+                <span class="field-hint" data-t="field_log_max_chars_hint">Maximum in-memory UI log buffer size before trimming old lines.</span>
+              </div>
+              <input id="logMaxChars" type="number" min="50000" max="5000000" placeholder="500000" style="width:120px" />
+            </div>
+
+            <div class="field field-inline">
+              <div>
+                <label for="telegramMaxLogLines" data-t="field_tg_log_lines">Telegram Log Lines</label>
+                <span class="field-hint" data-t="field_tg_log_lines_hint">Maximum number of Telegram log lines kept in memory.</span>
+              </div>
+              <input id="telegramMaxLogLines" type="number" min="50" max="5000" placeholder="300" style="width:120px" />
             </div>
           </div>
 

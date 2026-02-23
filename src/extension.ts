@@ -118,6 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
             event.affectsConfiguration('telecode.apiKey') ||
             event.affectsConfiguration('telecode.baseUrl') ||
             event.affectsConfiguration('telecode.maxSteps') ||
+            event.affectsConfiguration('telecode.logMaxChars') ||
+            event.affectsConfiguration('telecode.telegramMaxLogLines') ||
             event.affectsConfiguration('telecode.allowedTools') ||
             event.affectsConfiguration('telecode.responseStyle') ||
             event.affectsConfiguration('telecode.language') ||
@@ -208,6 +210,8 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
 }
 
 async function startAgent(forceRestart: boolean): Promise<boolean> {
+  ensureChannelsRunning();
+
   const settings = readTelecodeSettings();
   const tools = resolveTools(settings.agent.allowedTools);
 
@@ -298,6 +302,22 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   }
 }
 
+function ensureChannelsRunning(): void {
+  const telegramRegistered = channelRegistry.get('telegram');
+  const telegramActive = channelRegistry.activeIds().includes('telegram');
+  const settings = readTelecodeSettings();
+  const telegramConfigured = settings.telegram.enabled && settings.telegram.botToken.trim().length > 0;
+
+  if (!telegramRegistered) {
+    refreshChannels();
+    return;
+  }
+
+  if (telegramConfigured && !telegramActive) {
+    refreshChannels();
+  }
+}
+
 async function runTask(task: string): Promise<void> {
   const prompt = task.trim();
   if (prompt.length === 0) {
@@ -347,11 +367,13 @@ function stopAgent(logToOutput: boolean): void {
     stoppedSomething = true;
   }
 
-  channelRegistry.stopAllCurrentTasks();
-  stoppedSomething = true;
+  if (channelRegistry.size > 0) {
+    channelRegistry.stopAll();
+    stoppedSomething = true;
+  }
 
   if (logToOutput && stoppedSomething) {
-    appendLogLine('[agent] Stopped');
+    appendLogLine('[agent] Stopped (runtime + channels)');
   }
 
   if (stoppedSomething) {
@@ -373,7 +395,9 @@ function refreshChannels(): void {
   const telegramChannel = new TelegramChannel(
     tools,
     (line) => {
-      appendLogLine(line.startsWith('[telegram]') ? line : `[telegram] ${line}`);
+      const hasTelegramPrefix =
+        line.startsWith('[telegram]') || /^\[[^\]]+\]\s+\[telegram\]/i.test(line);
+      appendLogLine(hasTelegramPrefix ? line : `[telegram] ${line}`);
     },
     (status) => {
       setStatus(status);
@@ -401,6 +425,8 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     }
     await config.update('baseUrl', settings.baseUrl, target);
     await config.update('maxSteps', settings.maxSteps, target);
+    await config.update('logMaxChars', settings.logMaxChars, target);
+    await config.update('telegramMaxLogLines', settings.telegramMaxLogLines, target);
     await config.update('responseStyle', settings.responseStyle, target);
     await config.update('language', settings.language, target);
     await config.update('uiLanguage', settings.uiLanguage, target);
@@ -627,6 +653,8 @@ function syncSettingsToChatView(): void {
     apiKey: settings.agent.apiKey,
     baseUrl: settings.agent.baseUrl || '',
     maxSteps: settings.agent.maxSteps,
+    logMaxChars: settings.agent.logMaxChars,
+    telegramMaxLogLines: settings.agent.telegramMaxLogLines,
     responseStyle: settings.agent.responseStyle,
     language: settings.agent.language,
     uiLanguage: settings.agent.uiLanguage,

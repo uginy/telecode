@@ -40,6 +40,9 @@ export class TelegramChannel implements IChannel {
 
   private lastResponse = '';
   private readonly logs: string[] = [];
+  private startGeneration = 0;
+  private lastLifecycleNotice = '';
+  private lastLifecycleNoticeAt = 0;
 
   constructor(
     private readonly tools: AgentTool[],
@@ -66,6 +69,7 @@ export class TelegramChannel implements IChannel {
 
   public async start(): Promise<void> {
     this.stop();
+    const generation = ++this.startGeneration;
 
     const settings = readTelecodeSettings();
     const { enabled, botToken, chatId, apiRoot, forceIPv4 } = settings.telegram;
@@ -87,29 +91,33 @@ export class TelegramChannel implements IChannel {
       const preferredMode: NetworkMode = forceIPv4 ? 'ipv4' : 'auto';
       const fallbackMode: NetworkMode = preferredMode === 'ipv4' ? 'auto' : 'ipv4';
 
-      this.bot = this.createBot(botToken, apiRoot, preferredMode);
+      let bot = this.createBot(botToken, apiRoot, preferredMode);
       this.setStatus('Connecting');
       this.pushLog(
         `[telegram] starting (chatId=${allowedChatId !== null ? String(allowedChatId) : 'not-set'}, apiRoot=${apiRoot || 'default'}, mode=${preferredMode})`
       );
 
       try {
-        await this.verifyBotConnectivity(this.bot);
+        await this.verifyBotConnectivity(bot);
       } catch (error) {
         const message = formatError(error);
         this.pushLog(`[telegram:error] token/webhook check failed - ${message}`);
 
         if (isLikelyNetworkError(error)) {
           this.pushLog(`[telegram] retrying connectivity with mode=${fallbackMode}`);
-          this.bot = this.createBot(botToken, apiRoot, fallbackMode);
-          await this.verifyBotConnectivity(this.bot);
+          bot = this.createBot(botToken, apiRoot, fallbackMode);
+          await this.verifyBotConnectivity(bot);
           this.pushLog(`[telegram] connectivity recovered with mode=${fallbackMode}`);
         } else {
           throw error;
         }
       }
 
-      this.bot.use(async (ctx, next) => {
+      if (generation !== this.startGeneration) {
+        return;
+      }
+
+      bot.use(async (ctx, next) => {
         const text = ctx.message && 'text' in ctx.message ? (ctx.message.text || '').trim() : '';
         const incomingChatId = typeof ctx.chat?.id === 'number' ? String(ctx.chat.id) : '(unknown)';
         this.lastActivityAt = Date.now();
@@ -131,33 +139,33 @@ export class TelegramChannel implements IChannel {
         await next();
       });
 
-      this.bot.command('start', async (ctx) => {
-        await ctx.reply('TeleCode AI bot is online. Use /help to see commands.');
+      bot.command('start', async (ctx) => {
+        await ctx.reply(this.getT().tg_bot_online);
       });
 
-      this.bot.command('help', async (ctx) => {
+      bot.command('help', async (ctx) => {
         await ctx.reply(this.renderHelp(this.getT()));
       });
 
-      this.bot.command('status', async (ctx) => {
+      bot.command('status', async (ctx) => {
         await ctx.reply(this.renderStatus(this.getT()));
       });
 
-      this.bot.command('settings', async (ctx) => {
+      bot.command('settings', async (ctx) => {
         await ctx.reply(this.renderSettings(this.getT()));
       });
 
-      this.bot.command('stop', async (ctx) => {
+      bot.command('stop', async (ctx) => {
         this.stopCurrentTask();
         await ctx.reply('Stopped current run.');
       });
 
-      this.bot.command('reset', async (ctx) => {
+      bot.command('reset', async (ctx) => {
         this.taskRunner.clearHistorySync();
         await ctx.reply('Session history has been cleared.');
       });
 
-      this.bot.command('last', async (ctx) => {
+      bot.command('last', async (ctx) => {
         if (!this.lastResponse) {
           await ctx.reply('No completed runs yet.');
           return;
@@ -165,7 +173,7 @@ export class TelegramChannel implements IChannel {
         await this.replyMarkdown(ctx, this.lastResponse);
       });
 
-      this.bot.command('logs', async (ctx) => {
+      bot.command('logs', async (ctx) => {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         const requested = args ? Number.parseInt(args, 10) : 20;
@@ -175,12 +183,12 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(lines.length > 0 ? lines.join('\n') : 'No logs yet.');
       });
 
-      this.bot.command('changes', async (ctx) => {
+      bot.command('changes', async (ctx) => {
         const { stdout } = await runGitCommand(['status', '--porcelain']);
         await ctx.reply(stdout.trim().length > 0 ? limitText(stdout) : 'No working tree changes.');
       });
 
-      this.bot.command('diff', async (ctx) => {
+      bot.command('diff', async (ctx) => {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         if (!args) {
@@ -192,12 +200,12 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(stdout.trim().length > 0 ? limitText(stdout) : `No diff for ${args}`);
       });
 
-      this.bot.command('rollback', async (ctx) => {
+      bot.command('rollback', async (ctx) => {
         const result = await rollbackWorkingTree();
         await ctx.reply(result);
       });
 
-      this.bot.command('api', async (ctx) => {
+      bot.command('api', async (ctx) => {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         if (!args) {
@@ -206,7 +214,7 @@ export class TelegramChannel implements IChannel {
         }
 
         try {
-          const apiService = new TelegramApiService(this.bot, (l) => this.pushLog(l));
+          const apiService = new TelegramApiService(bot, (l) => this.pushLog(l));
           const parsed = this.parseRawApiCommand(args);
           const workspaceRoot = getWorkspaceRoot();
           const preparedParams = await apiService.prepareParams(parsed.params, workspaceRoot);
@@ -220,7 +228,7 @@ export class TelegramChannel implements IChannel {
         }
       });
 
-      this.bot.command('model', async (ctx) => {
+      bot.command('model', async (ctx) => {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         if (!args) {
@@ -232,7 +240,7 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(`Model updated to ${args}`);
       });
 
-      this.bot.command('provider', async (ctx) => {
+      bot.command('provider', async (ctx) => {
         const text = ctx.match;
         const args = typeof text === 'string' ? text.trim() : '';
         if (!args) {
@@ -244,7 +252,7 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(`Provider updated to ${args}`);
       });
 
-      this.bot.command('style', async (ctx) => {
+      bot.command('style', async (ctx) => {
         const text = ctx.match;
         const args = (typeof text === 'string' ? text.trim() : '').toLowerCase();
         if (!args || !['concise', 'normal', 'detailed'].includes(args)) {
@@ -256,7 +264,7 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(`Response style updated to ${args}`);
       });
 
-      this.bot.command('language', async (ctx) => {
+      bot.command('language', async (ctx) => {
         const text = ctx.match;
         const args = (typeof text === 'string' ? text.trim() : '').toLowerCase();
         if (!args || !['ru', 'en'].includes(args)) {
@@ -268,7 +276,7 @@ export class TelegramChannel implements IChannel {
         await ctx.reply(`Language updated to ${args}`);
       });
 
-      this.bot.command('run', async (ctx) => {
+      bot.command('run', async (ctx) => {
         const text = ctx.match;
         const task = typeof text === 'string' ? text.trim() : '';
         if (!task) {
@@ -279,7 +287,7 @@ export class TelegramChannel implements IChannel {
         await this.executeTask(ctx, task);
       });
 
-      this.bot.on('message:text', async (ctx) => {
+      bot.on('message:text', async (ctx) => {
         const text = ctx.message?.text?.trim() || '';
         if (!text || text.startsWith('/')) {
           return;
@@ -288,7 +296,7 @@ export class TelegramChannel implements IChannel {
         await this.executeTask(ctx, text);
       });
 
-      this.bot.on('message:photo', async (ctx) => {
+      bot.on('message:photo', async (ctx) => {
         const text = ctx.message?.caption?.trim() || '';
         if (text.startsWith('/')) {
           return;
@@ -300,7 +308,7 @@ export class TelegramChannel implements IChannel {
         try {
           const largestPhoto = photos[photos.length - 1];
           const file = await ctx.api.getFile(largestPhoto.file_id);
-          const url = `https://api.telegram.org/file/bot${this.bot!.token}/${file.file_path}`;
+          const url = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`;
           
           const response = await fetch(url);
           if (!response.ok) {
@@ -324,13 +332,17 @@ export class TelegramChannel implements IChannel {
         }
       });
 
-      this.bot.catch((error) => {
+      bot.catch((error) => {
         this.pushLog(`[telegram:error] ${formatError(error)}`);
         console.error('TeleCode AI Telegram error:', error);
       });
 
-      await this.bot.start({
+      this.bot = bot;
+      await bot.start({
         onStart: (botInfo) => {
+          if (generation !== this.startGeneration) {
+            return;
+          }
           this.active = true;
           this.lastActivityAt = Date.now();
           this.setStatus('Idle');
@@ -338,17 +350,21 @@ export class TelegramChannel implements IChannel {
           console.log(`TeleCode AI Telegram started as @${botInfo.username}`);
           vscode.window.showInformationMessage(`TeleCode AI: Telegram bot started (@${botInfo.username})`);
           if (allowedChatId !== null) {
-            void this.bot?.api
-              .sendMessage(allowedChatId, 'TeleCode AI connected. Send /status')
+            void bot.api
+              .sendMessage(allowedChatId, this.getT().tg_connected)
               .catch((error) => this.pushLog(`[telegram:error] startup ping failed - ${formatError(error)}`));
           }
         },
       });
     } catch (error) {
+      if (generation !== this.startGeneration) {
+        return;
+      }
       this.active = false;
       this.setStatus('Error');
       const message = formatError(error);
       this.pushLog(`[telegram:error] failed to start - ${message}`);
+      void this.notifyLifecycleMessage(this.bot, this.resolveNotifyChatId(), this.getT().tg_lifecycle_start_failed.replace('{error}', message));
       vscode.window.showErrorMessage(`TeleCode AI: failed to start Telegram bot - ${message}`);
       console.error(error);
     }
@@ -378,19 +394,23 @@ export class TelegramChannel implements IChannel {
   }
 
   public stop(): void {
+    this.startGeneration += 1;
     this.cleanupActiveTask();
     this.taskRunner.abortCurrentRun();
+    this.active = false;
+    this.currentPhase = 'idle';
+    this.setStatus('Idle');
 
-    if (!this.bot) {
+    const bot = this.bot;
+    this.bot = null;
+    const notifyChatId = this.resolveNotifyChatId();
+    void this.notifyLifecycleMessage(bot, notifyChatId, this.getT().tg_lifecycle_stopped);
+    if (!bot) {
       return;
     }
 
-    this.bot.stop();
-    this.bot = null;
-    this.active = false;
+    bot.stop();
     this.lastActivityAt = Date.now();
-    this.currentPhase = 'idle';
-    this.setStatus('Idle');
     this.pushLog('[telegram] stopped');
   }
 
@@ -734,7 +754,8 @@ export class TelegramChannel implements IChannel {
   private pushLog(line: string): void {
     const entry = `[${new Date().toLocaleTimeString()}] ${line}`;
     this.logs.push(entry);
-    if (this.logs.length > 300) this.logs.shift();
+    const maxLines = Math.max(50, readTelecodeSettings().agent.telegramMaxLogLines || 300);
+    while (this.logs.length > maxLines) this.logs.shift();
     if (this.onLog) this.onLog(entry);
   }
 
@@ -779,6 +800,30 @@ export class TelegramChannel implements IChannel {
     if (this.activeTaskCleanup) {
       this.activeTaskCleanup();
       this.activeTaskCleanup = null;
+    }
+  }
+
+  private resolveNotifyChatId(): number | null {
+    const settings = readTelecodeSettings();
+    const configured = parseTelegramChatId(settings.telegram.chatId);
+    return configured ?? this.currentChatId;
+  }
+
+  private async notifyLifecycleMessage(bot: Bot | null, chatId: number | null, text: string): Promise<void> {
+    if (!bot || chatId === null || text.trim().length === 0) {
+      return;
+    }
+    const now = Date.now();
+    const dedupeKey = `${chatId}:${text}`;
+    if (this.lastLifecycleNotice === dedupeKey && now - this.lastLifecycleNoticeAt < 2_500) {
+      return;
+    }
+    try {
+      await bot.api.sendMessage(chatId, text);
+      this.lastLifecycleNotice = dedupeKey;
+      this.lastLifecycleNoticeAt = now;
+    } catch (error) {
+      this.pushLog(`[telegram:notify:warn] ${formatError(error)}`);
     }
   }
 }

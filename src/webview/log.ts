@@ -5,28 +5,114 @@
  */
 
 import { el } from './ui-state';
+import { makeIcon } from './icon-service';
 
-type LineKind = 'tool-start' | 'tool-done' | 'tool-error' | 'phase' | 'status' | 'llm' | 'text' | 'request' | 'user' | 'run' | 'agent';
+type LineKind = 'tool-start' | 'tool-done' | 'tool-error' | 'phase' | 'status' | 'llm' | 'text' | 'request' | 'user' | 'run' | 'agent' | 'channel';
+type GroupedNodeType = 'task' | 'tool';
+type IconId = LineKind | 'task' | 'session' | 'tool';
+
+interface ParsedLine {
+  kind: LineKind;
+  message: string;
+  icon: IconId;
+  label: string;
+}
+
+const LINE_META: Record<LineKind, { icon: IconId; label: string }> = {
+  'tool-start': { icon: 'tool-start', label: 'TOOL START' },
+  'tool-done': { icon: 'tool-done', label: 'TOOL DONE' },
+  'tool-error': { icon: 'tool-error', label: 'TOOL ERROR' },
+  phase: { icon: 'phase', label: 'PHASE' },
+  status: { icon: 'status', label: 'STATUS' },
+  llm: { icon: 'llm', label: 'LLM' },
+  text: { icon: 'text', label: 'LOG' },
+  request: { icon: 'request', label: 'REQUEST' },
+  user: { icon: 'user', label: 'USER' },
+  run: { icon: 'run', label: 'RUN' },
+  agent: { icon: 'agent', label: 'AGENT' },
+  channel: { icon: 'channel', label: 'CHANNEL' },
+};
+
+function normalizeStructuredLine(line: string): string {
+  let normalized = line.trim();
+  // extension wrapper: [telegram] [time] ...
+  normalized = normalized.replace(/^\[(telegram|whatsapp)\]\s+(?=\[\d{1,2}:\d{2}:\d{2}(?:\s?[AP]M)?\])/i, '');
+  // channel internal timestamp: [time] ...
+  normalized = normalized.replace(/^\[\d{1,2}:\d{2}:\d{2}(?:\s?[AP]M)?\]\s+/, '');
+  return normalized;
+}
 
 function classifyLine(line: string): LineKind {
-  if (line.startsWith('[tool:start]'))  return 'tool-start';
-  if (line.startsWith('[tool:done]'))   return 'tool-done';
-  if (line.startsWith('[tool:error]'))  return 'tool-error';
-  if (line.startsWith('[phase]'))       return 'phase';
-  if (line.startsWith('[status]') || line.startsWith('[heartbeat]')) return 'status';
-  if (line.startsWith('[llm:'))         return 'llm';
-  if (line.startsWith('[request]'))     return 'request';
-  if (line.startsWith('[user]'))        return 'user';
-  if (line.startsWith('[run]'))         return 'run';
-  if (line.startsWith('[agent]'))       return 'agent';
+  const normalized = normalizeStructuredLine(line);
+  if (normalized.startsWith('[tool:start]'))  return 'tool-start';
+  if (normalized.startsWith('[tool:done]'))   return 'tool-done';
+  if (normalized.startsWith('[tool:error]'))  return 'tool-error';
+  if (normalized.startsWith('[tool:end]')) {
+    return /\berror\b|isError=true|error=|failed/i.test(normalized) ? 'tool-error' : 'tool-done';
+  }
+  if (normalized.startsWith('[phase]'))       return 'phase';
+  if (normalized.startsWith('[status]') || normalized.startsWith('[heartbeat]')) return 'status';
+  if (normalized.startsWith('[llm:'))         return 'llm';
+  if (normalized.startsWith('[request]'))     return 'request';
+  if (normalized.startsWith('[user]'))        return 'user';
+  if (normalized.startsWith('[run]') || normalized.startsWith('[done]')) return 'run';
+  if (normalized.startsWith('[agent]'))       return 'agent';
+  if (normalized.startsWith('[telegram]') || normalized.startsWith('[whatsapp]')) return 'channel';
   return 'text';
 }
 
+function stripPrefix(line: string): string {
+  const normalized = normalizeStructuredLine(line);
+  const closing = normalized.indexOf(']');
+  if (closing === -1) {
+    return normalized.trim();
+  }
+  return normalized.slice(closing + 1).trim();
+}
+
+function parseToolInvocation(line: string, prefix: '[tool:start]' | '[tool:done]' | '[tool:error]'): { name: string; details: string } {
+  const normalized = normalizeStructuredLine(line);
+  const compatiblePrefix = prefix === '[tool:done]' && normalized.startsWith('[tool:end]') ? '[tool:end]' : prefix;
+  const payload = normalized.replace(compatiblePrefix, '').trim();
+  if (payload.length === 0) {
+    return { name: 'tool', details: '' };
+  }
+  const [name, ...rest] = payload.split(/\s+/);
+  return { name, details: rest.join(' ') };
+}
+
+function parseLine(line: string): ParsedLine {
+  const kind = classifyLine(line);
+  const meta = LINE_META[kind];
+  const message = kind === 'text' ? line.trim() : stripPrefix(line);
+  return {
+    kind,
+    message: message.length > 0 ? message : line.trim(),
+    icon: meta.icon,
+    label: meta.label,
+  };
+}
+
 function makeLine(text: string): HTMLElement {
+  const parsed = parseLine(text);
   const div = document.createElement('div');
   div.className = 'log-line';
-  div.dataset.kind = classifyLine(text);
-  div.textContent = text;
+  div.dataset.kind = parsed.kind;
+
+  const icon = makeIcon(parsed.icon, 'log-icon');
+
+  const kind = document.createElement('span');
+  kind.className = 'log-kind';
+  kind.textContent = parsed.label;
+
+  const message = document.createElement('span');
+  message.className = 'log-message';
+  message.textContent = parsed.message;
+
+  div.title = text;
+  div.appendChild(icon);
+  div.appendChild(kind);
+  div.appendChild(message);
   return div;
 }
 
@@ -37,12 +123,14 @@ interface GroupedNode {
   body: HTMLElement;
   descSpan: HTMLElement;
   infoSpan: HTMLElement;
+  titleSpan: HTMLElement;
 }
 
 let currentTaskNode: GroupedNode | null = null;
 let currentToolNode: GroupedNode | null = null;
+let currentSystemNode: GroupedNode | null = null;
 
-function createGroupedNode(type: 'task' | 'tool', title: string, info: string, desc: string): GroupedNode {
+function createGroupedNode(type: GroupedNodeType, title: string, info: string, desc: string, icon: IconId): GroupedNode {
   const nodeEl = document.createElement('div');
   nodeEl.className = 'grouped-node expanded';
   nodeEl.dataset.type = type;
@@ -56,16 +144,24 @@ function createGroupedNode(type: 'task' | 'tool', title: string, info: string, d
   const row1 = document.createElement('div');
   row1.className = 'grouped-header-row1';
 
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'grouped-title-wrap';
+
+  const iconSpan = makeIcon(icon, 'grouped-title-icon');
+
   const titleSpan = document.createElement('span');
   titleSpan.className = `grouped-header-title ${type}`;
   titleSpan.textContent = title;
+
+  titleWrap.appendChild(iconSpan);
+  titleWrap.appendChild(titleSpan);
 
   const infoSpan = document.createElement('span');
   infoSpan.className = 'grouped-header-info grouped-badge';
   infoSpan.textContent = info;
   if (info === 'Running...') infoSpan.classList.add('running');
 
-  row1.appendChild(titleSpan);
+  row1.appendChild(titleWrap);
   row1.appendChild(infoSpan);
 
   const descSpan = document.createElement('div');
@@ -86,7 +182,16 @@ function createGroupedNode(type: 'task' | 'tool', title: string, info: string, d
     nodeEl.classList.toggle('expanded');
   });
 
-  return { el: nodeEl, header, body, descSpan, infoSpan };
+  return { el: nodeEl, header, body, descSpan, infoSpan, titleSpan };
+}
+
+function ensureSystemNode(out: HTMLElement): GroupedNode {
+  if (currentSystemNode) {
+    return currentSystemNode;
+  }
+  currentSystemNode = createGroupedNode('task', 'Session', 'Active', 'Initialization and runtime status', 'session');
+  out.appendChild(currentSystemNode.el);
+  return currentSystemNode;
 }
 
 export function appendLine(text: string): void {
@@ -97,20 +202,20 @@ export function appendLine(text: string): void {
   out.appendChild(lineEl); // Used for List view
 
   // Grouped view logic
-  const kind = classifyLine(text);
+  const parsed = parseLine(text);
+  const kind = parsed.kind;
   if (kind === 'request' || kind === 'user') {
+    currentSystemNode = null;
     if (!currentTaskNode) {
-      currentTaskNode = createGroupedNode('task', 'Task', 'Active', text.replace('[request]', '').replace('[user]', '').trim());
+      currentTaskNode = createGroupedNode('task', kind === 'request' ? 'Task request' : 'User message', 'Active', parsed.message, 'task');
       out.appendChild(currentTaskNode.el);
     } else {
-      currentTaskNode.descSpan.textContent = text.replace('[request]', '').replace('[user]', '').trim();
+      currentTaskNode.descSpan.textContent = parsed.message;
     }
     currentToolNode = null;
   } else if (kind === 'tool-start') {
-    const parts = text.replace('[tool:start]', '').trim().split(' ');
-    const name = parts[0];
-    const details = parts.slice(1).join(' ');
-    currentToolNode = createGroupedNode('tool', name, 'Running...', details);
+    const { name, details } = parseToolInvocation(text, '[tool:start]');
+    currentToolNode = createGroupedNode('tool', name, 'Running...', details || 'Executing tool...', 'tool');
 
     if (currentTaskNode) {
       currentTaskNode.body.appendChild(currentToolNode.el);
@@ -118,8 +223,15 @@ export function appendLine(text: string): void {
       out.appendChild(currentToolNode.el);
     }
   } else if (kind === 'tool-done' || kind === 'tool-error') {
+    const { name, details } = parseToolInvocation(text, kind === 'tool-done' ? '[tool:done]' : '[tool:error]');
     if (currentToolNode) {
       currentToolNode.infoSpan.classList.remove('running');
+      if (name.length > 0) {
+        currentToolNode.titleSpan.textContent = name;
+      }
+      if (details.length > 0) {
+        currentToolNode.descSpan.textContent = details;
+      }
       if (kind === 'tool-error') {
         currentToolNode.el.classList.add('error');
         currentToolNode.infoSpan.classList.add('error');
@@ -127,11 +239,14 @@ export function appendLine(text: string): void {
       } else {
         currentToolNode.el.classList.add('done');
         currentToolNode.infoSpan.classList.add('done');
-        currentToolNode.infoSpan.textContent = 'Done';
+        const duration = details.match(/\b\d+ms\b/)?.[0];
+        currentToolNode.infoSpan.textContent = duration ? `Done ${duration}` : 'Done';
       }
       currentToolNode.body.appendChild(lineEl.cloneNode(true));
       // Auto-collapse done tools
-      currentToolNode.el.classList.remove('expanded');
+      if (kind === 'tool-done') {
+        currentToolNode.el.classList.remove('expanded');
+      }
       currentToolNode = null;
     } else if (currentTaskNode) {
       currentTaskNode.body.appendChild(lineEl.cloneNode(true));
@@ -145,6 +260,14 @@ export function appendLine(text: string): void {
       currentTaskNode.infoSpan.textContent = 'Done';
       currentTaskNode = null;
       currentToolNode = null;
+    } else {
+      const systemNode = ensureSystemNode(out);
+      systemNode.body.appendChild(lineEl.cloneNode(true));
+      if (kind === 'run') {
+        systemNode.infoSpan.classList.remove('running');
+        systemNode.infoSpan.classList.add('done');
+        systemNode.infoSpan.textContent = 'Ready';
+      }
     }
   } else {
     // Normal text, LLM chunks, phase, status
@@ -153,6 +276,9 @@ export function appendLine(text: string): void {
       currentToolNode.body.appendChild(clone);
     } else if (currentTaskNode) {
       currentTaskNode.body.appendChild(clone);
+    } else {
+      const systemNode = ensureSystemNode(out);
+      systemNode.body.appendChild(clone);
     }
   }
 
@@ -164,6 +290,7 @@ export function replaceOutput(text: string): void {
   out.innerHTML = '';
   currentTaskNode = null;
   currentToolNode = null;
+  currentSystemNode = null;
 
   if (!text) return;
   for (const line of text.split('\n')) {
@@ -182,4 +309,5 @@ export function clearOutput(): void {
   el.output().innerHTML = '';
   currentTaskNode = null;
   currentToolNode = null;
+  currentSystemNode = null;
 }

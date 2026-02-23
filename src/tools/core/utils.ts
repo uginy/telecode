@@ -48,8 +48,21 @@ export function isWithinWorkspace(targetPath: string): boolean {
     return true;
   }
   const workspaceRoot = getWorkspaceRoot();
-  const relative = path.relative(workspaceRoot, targetPath);
-  return !relative.startsWith('..') && !path.isAbsolute(relative);
+  const normalizedTargetPath = path.normalize(targetPath);
+  const workspaceRelative = path.relative(workspaceRoot, normalizedTargetPath);
+  if (!workspaceRelative.startsWith('..') && !path.isAbsolute(workspaceRelative)) {
+    return true;
+  }
+
+  const homeDir = process.env.HOME || process.env.USERPROFILE;
+  if (!homeDir) {
+    return false;
+  }
+
+  // Allow autonomous fallback tools under ~/.telecode/tools even when out-of-workspace access is disabled.
+  const telecodeToolsDir = path.join(homeDir, '.telecode', 'tools');
+  const telecodeRelative = path.relative(telecodeToolsDir, normalizedTargetPath);
+  return telecodeRelative === '' || (!telecodeRelative.startsWith('..') && !path.isAbsolute(telecodeRelative));
 }
 
 export function checkPathAllowed(targetPath: string, operation: string): void {

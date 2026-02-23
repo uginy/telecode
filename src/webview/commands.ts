@@ -11,6 +11,8 @@ export type Settings = {
   language?: string;
   uiLanguage?: string;
   allowOutOfWorkspace: boolean;
+  logMaxChars: number;
+  telegramMaxLogLines: number;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
