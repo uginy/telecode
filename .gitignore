@@ -6,3 +6,4 @@ builds/
 test_keys.txt
 .env*
 landing/
+docs
