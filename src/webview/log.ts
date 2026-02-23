@@ -129,6 +129,9 @@ interface GroupedNode {
 let currentTaskNode: GroupedNode | null = null;
 let currentToolNode: GroupedNode | null = null;
 let currentSystemNode: GroupedNode | null = null;
+let streamText = '';
+let streamListLine: HTMLElement | null = null;
+let streamGroupedLine: HTMLElement | null = null;
 
 function createGroupedNode(type: GroupedNodeType, title: string, info: string, desc: string, icon: IconId): GroupedNode {
   const nodeEl = document.createElement('div');
@@ -194,6 +197,51 @@ function ensureSystemNode(out: HTMLElement): GroupedNode {
   return currentSystemNode;
 }
 
+function setLineText(line: HTMLElement, text: string): HTMLElement {
+  const updated = makeLine(text);
+  line.replaceWith(updated);
+  return updated;
+}
+
+function appendToCurrentGroupedContext(line: HTMLElement, out: HTMLElement): HTMLElement | null {
+  const clone = line.cloneNode(true) as HTMLElement;
+  if (currentToolNode) {
+    currentToolNode.body.appendChild(clone);
+    return clone;
+  }
+  if (currentTaskNode) {
+    currentTaskNode.body.appendChild(clone);
+    return clone;
+  }
+  const systemNode = ensureSystemNode(out);
+  systemNode.body.appendChild(clone);
+  return clone;
+}
+
+function beginOrUpdateStreamingText(chunk: string): void {
+  if (chunk.length === 0) {
+    return;
+  }
+  const out = el.output();
+  streamText += chunk;
+  if (!streamListLine) {
+    streamListLine = makeLine(streamText);
+    out.appendChild(streamListLine);
+    streamGroupedLine = appendToCurrentGroupedContext(streamListLine, out);
+    return;
+  }
+  streamListLine = setLineText(streamListLine, streamText);
+  if (streamGroupedLine) {
+    streamGroupedLine = setLineText(streamGroupedLine, streamText);
+  }
+}
+
+function finalizeStreamingText(): void {
+  streamText = '';
+  streamListLine = null;
+  streamGroupedLine = null;
+}
+
 export function appendLine(text: string): void {
   const out = el.output();
   const atBottom = Math.abs(out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
@@ -204,6 +252,9 @@ export function appendLine(text: string): void {
   // Grouped view logic
   const parsed = parseLine(text);
   const kind = parsed.kind;
+  if (kind !== 'text') {
+    finalizeStreamingText();
+  }
   if (kind === 'request' || kind === 'user') {
     currentSystemNode = null;
     if (!currentTaskNode) {
@@ -291,6 +342,7 @@ export function replaceOutput(text: string): void {
   currentTaskNode = null;
   currentToolNode = null;
   currentSystemNode = null;
+  finalizeStreamingText();
 
   if (!text) return;
   for (const line of text.split('\n')) {
@@ -300,8 +352,16 @@ export function replaceOutput(text: string): void {
 }
 
 export function appendOutput(text: string): void {
-  for (const line of text.split('\n')) {
-    if (line.trim().length > 0) appendLine(line);
+  if (text.length === 0) {
+    return;
+  }
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    beginOrUpdateStreamingText(line);
+    if (i < lines.length - 1) {
+      finalizeStreamingText();
+    }
   }
 }
 
@@ -310,4 +370,5 @@ export function clearOutput(): void {
   currentTaskNode = null;
   currentToolNode = null;
   currentSystemNode = null;
+  finalizeStreamingText();
 }

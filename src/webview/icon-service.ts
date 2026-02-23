@@ -9,6 +9,8 @@ type IconId =
   | 'request'
   | 'user'
   | 'run'
+  | 'send'
+  | 'stop'
   | 'agent'
   | 'channel'
   | 'task'
@@ -26,6 +28,8 @@ const ICON_PATHS: Record<IconId, string> = {
   request: '<path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/>',
   user: '<circle cx="12" cy="8" r="3"/><path d="M6 19c1.5-3 4-4 6-4s4.5 1 6 4"/>',
   run: '<path d="M7 5l11 7-11 7z"/>',
+  send: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
+  stop: '<rect x="7" y="7" width="10" height="10" rx="1.5"/>',
   agent: '<rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="10" cy="12" r="1"/><circle cx="14" cy="12" r="1"/><path d="M10 16h4"/>',
   channel: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
   task: '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>',
@@ -52,4 +56,3 @@ export function makeIcon(id: IconId, className: string): HTMLElement {
   span.appendChild(createSvgIcon(ICON_PATHS[id]));
   return span;
 }
-

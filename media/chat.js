@@ -17,14 +17,54 @@
     fetchModels: /* @__PURE__ */ __name((provider, baseUrl, apiKey) => vscode_api_default.postMessage({ command: "fetchModels", provider, baseUrl, apiKey }), "fetchModels")
   };
 
+  // src/webview/icon-service.ts
+  var ICON_PATHS = {
+    "tool-start": '<path d="M4 8h8M8 4v8"/><circle cx="16" cy="16" r="3"/><path d="M19 19l3 3"/>',
+    "tool-done": '<path d="M4 12l5 5L20 6"/>',
+    "tool-error": '<path d="M6 6l12 12M18 6L6 18"/>',
+    phase: '<path d="M12 3l7 4v10l-7 4-7-4V7z"/><path d="M12 7v10"/>',
+    status: '<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>',
+    llm: '<path d="M7 6h10l2 3-2 3H7L5 9z"/><path d="M8 14h8l2 3-2 3H8l-2-3z"/>',
+    text: '<circle cx="12" cy="12" r="2"/>',
+    request: '<path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/>',
+    user: '<circle cx="12" cy="8" r="3"/><path d="M6 19c1.5-3 4-4 6-4s4.5 1 6 4"/>',
+    run: '<path d="M7 5l11 7-11 7z"/>',
+    send: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
+    stop: '<rect x="7" y="7" width="10" height="10" rx="1.5"/>',
+    agent: '<rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="10" cy="12" r="1"/><circle cx="14" cy="12" r="1"/><path d="M10 16h4"/>',
+    channel: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
+    task: '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>',
+    session: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 3v4M16 3v4M8 12h8"/>',
+    tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>'
+  };
+  function createSvgIcon(path) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.innerHTML = path;
+    return svg;
+  }
+  __name(createSvgIcon, "createSvgIcon");
+  function makeIcon(id, className) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.appendChild(createSvgIcon(ICON_PATHS[id]));
+    return span;
+  }
+  __name(makeIcon, "makeIcon");
+
   // src/webview/ui-state.ts
   var el = {
     status: /* @__PURE__ */ __name(() => document.getElementById("status"), "status"),
     phase: /* @__PURE__ */ __name(() => document.getElementById("phase"), "phase"),
     output: /* @__PURE__ */ __name(() => document.getElementById("output"), "output"),
     prompt: /* @__PURE__ */ __name(() => document.getElementById("prompt"), "prompt"),
-    startBtn: /* @__PURE__ */ __name(() => document.getElementById("startBtn"), "startBtn"),
-    stopBtn: /* @__PURE__ */ __name(() => document.getElementById("stopBtn"), "stopBtn"),
+    agentToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("agentToggleBtn"), "agentToggleBtn"),
     runBtn: /* @__PURE__ */ __name(() => document.getElementById("runBtn"), "runBtn"),
     tabLogs: /* @__PURE__ */ __name(() => document.getElementById("tabLogs"), "tabLogs"),
     tabSettings: /* @__PURE__ */ __name(() => document.getElementById("tabSettings"), "tabSettings"),
@@ -61,9 +101,17 @@
     const stopped = lower.includes("stopped");
     const error = lower.includes("error");
     const active = running || ready || connecting || idle;
-    el.startBtn().disabled = active && !stopped && !error;
-    el.startBtn().textContent = ready ? "Ready" : active ? "Started" : "Start";
-    el.stopBtn().disabled = !active || stopped;
+    const toggle = el.agentToggleBtn();
+    const startTitle = toggle.dataset.startTitle || "Start";
+    const stopTitle = toggle.dataset.stopTitle || "Stop";
+    toggle.dataset.action = active && !stopped && !error ? "stop" : "start";
+    toggle.innerHTML = "";
+    toggle.appendChild(makeIcon(toggle.dataset.action === "stop" ? "stop" : "run", "top-icon-glyph"));
+    toggle.classList.toggle("toggle-stop", toggle.dataset.action === "stop");
+    toggle.classList.toggle("toggle-play", toggle.dataset.action !== "stop");
+    const title = toggle.dataset.action === "stop" ? stopTitle : startTitle;
+    toggle.title = title;
+    toggle.setAttribute("aria-label", title);
     el.runBtn().disabled = running;
   }
   __name(setControlState, "setControlState");
@@ -78,45 +126,6 @@
     el.logViewToggles().classList.toggle("hidden", !isLogs);
   }
   __name(setTab, "setTab");
-
-  // src/webview/icon-service.ts
-  var ICON_PATHS = {
-    "tool-start": '<path d="M4 8h8M8 4v8"/><circle cx="16" cy="16" r="3"/><path d="M19 19l3 3"/>',
-    "tool-done": '<path d="M4 12l5 5L20 6"/>',
-    "tool-error": '<path d="M6 6l12 12M18 6L6 18"/>',
-    phase: '<path d="M12 3l7 4v10l-7 4-7-4V7z"/><path d="M12 7v10"/>',
-    status: '<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>',
-    llm: '<path d="M7 6h10l2 3-2 3H7L5 9z"/><path d="M8 14h8l2 3-2 3H8l-2-3z"/>',
-    text: '<circle cx="12" cy="12" r="2"/>',
-    request: '<path d="M5 6h14v12H5z"/><path d="M8 10h8M8 14h5"/>',
-    user: '<circle cx="12" cy="8" r="3"/><path d="M6 19c1.5-3 4-4 6-4s4.5 1 6 4"/>',
-    run: '<path d="M7 5l11 7-11 7z"/>',
-    agent: '<rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="10" cy="12" r="1"/><circle cx="14" cy="12" r="1"/><path d="M10 16h4"/>',
-    channel: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
-    task: '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>',
-    session: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 3v4M16 3v4M8 12h8"/>',
-    tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>'
-  };
-  function createSvgIcon(path) {
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "1.8");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("stroke-linejoin", "round");
-    svg.innerHTML = path;
-    return svg;
-  }
-  __name(createSvgIcon, "createSvgIcon");
-  function makeIcon(id, className) {
-    const span = document.createElement("span");
-    span.className = className;
-    span.appendChild(createSvgIcon(ICON_PATHS[id]));
-    return span;
-  }
-  __name(makeIcon, "makeIcon");
 
   // src/webview/log.ts
   var LINE_META = {
@@ -213,6 +222,9 @@
   var currentTaskNode = null;
   var currentToolNode = null;
   var currentSystemNode = null;
+  var streamText = "";
+  var streamListLine = null;
+  var streamGroupedLine = null;
   function createGroupedNode(type, title, info, desc, icon) {
     const nodeEl = document.createElement("div");
     nodeEl.className = "grouped-node expanded";
@@ -262,6 +274,51 @@
     return currentSystemNode;
   }
   __name(ensureSystemNode, "ensureSystemNode");
+  function setLineText(line, text) {
+    const updated = makeLine(text);
+    line.replaceWith(updated);
+    return updated;
+  }
+  __name(setLineText, "setLineText");
+  function appendToCurrentGroupedContext(line, out) {
+    const clone = line.cloneNode(true);
+    if (currentToolNode) {
+      currentToolNode.body.appendChild(clone);
+      return clone;
+    }
+    if (currentTaskNode) {
+      currentTaskNode.body.appendChild(clone);
+      return clone;
+    }
+    const systemNode = ensureSystemNode(out);
+    systemNode.body.appendChild(clone);
+    return clone;
+  }
+  __name(appendToCurrentGroupedContext, "appendToCurrentGroupedContext");
+  function beginOrUpdateStreamingText(chunk) {
+    if (chunk.length === 0) {
+      return;
+    }
+    const out = el.output();
+    streamText += chunk;
+    if (!streamListLine) {
+      streamListLine = makeLine(streamText);
+      out.appendChild(streamListLine);
+      streamGroupedLine = appendToCurrentGroupedContext(streamListLine, out);
+      return;
+    }
+    streamListLine = setLineText(streamListLine, streamText);
+    if (streamGroupedLine) {
+      streamGroupedLine = setLineText(streamGroupedLine, streamText);
+    }
+  }
+  __name(beginOrUpdateStreamingText, "beginOrUpdateStreamingText");
+  function finalizeStreamingText() {
+    streamText = "";
+    streamListLine = null;
+    streamGroupedLine = null;
+  }
+  __name(finalizeStreamingText, "finalizeStreamingText");
   function appendLine(text) {
     const out = el.output();
     const atBottom = Math.abs(out.scrollHeight - out.scrollTop - out.clientHeight) < 40;
@@ -269,6 +326,9 @@
     out.appendChild(lineEl);
     const parsed = parseLine(text);
     const kind = parsed.kind;
+    if (kind !== "text") {
+      finalizeStreamingText();
+    }
     if (kind === "request" || kind === "user") {
       currentSystemNode = null;
       if (!currentTaskNode) {
@@ -352,6 +412,7 @@
     currentTaskNode = null;
     currentToolNode = null;
     currentSystemNode = null;
+    finalizeStreamingText();
     if (!text) return;
     for (const line of text.split("\n")) {
       if (line.trim().length > 0) appendLine(line);
@@ -360,8 +421,16 @@
   }
   __name(replaceOutput, "replaceOutput");
   function appendOutput(text) {
-    for (const line of text.split("\n")) {
-      if (line.trim().length > 0) appendLine(line);
+    if (text.length === 0) {
+      return;
+    }
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      beginOrUpdateStreamingText(line);
+      if (i < lines.length - 1) {
+        finalizeStreamingText();
+      }
     }
   }
   __name(appendOutput, "appendOutput");
@@ -370,6 +439,7 @@
     currentTaskNode = null;
     currentToolNode = null;
     currentSystemNode = null;
+    finalizeStreamingText();
   }
   __name(clearOutput, "clearOutput");
 
@@ -490,6 +560,24 @@
   __name(handleMessage, "handleMessage");
 
   // src/webview/index.ts
+  function updateComposerMeta() {
+    const provider = document.getElementById("provider")?.value?.trim() || "-";
+    const model = document.getElementById("model")?.value?.trim() || "-";
+    const style = document.getElementById("responseStyle")?.value?.trim() || "-";
+    const metaProvider = document.getElementById("metaProvider");
+    const metaModel = document.getElementById("metaModel");
+    const metaStyle = document.getElementById("metaStyle");
+    if (metaProvider) metaProvider.textContent = `provider: ${provider}`;
+    if (metaModel) metaModel.textContent = `model: ${model}`;
+    if (metaStyle) metaStyle.textContent = `style: ${style}`;
+  }
+  __name(updateComposerMeta, "updateComposerMeta");
+  function initStaticIcons() {
+    const sendBtn = el.runBtn();
+    sendBtn.innerHTML = "";
+    sendBtn.appendChild(makeIcon("send", "send-icon"));
+  }
+  __name(initStaticIcons, "initStaticIcons");
   function saveState() {
     const outputEl = el.output();
     const lines = Array.from(outputEl.querySelectorAll(".log-line"));
@@ -584,8 +672,14 @@
     setTab("settings");
     vscode_api_default.setState({ ...vscode_api_default.getState(), tab: "settings" });
   });
-  el.startBtn().addEventListener("click", () => cmd.startAgent());
-  el.stopBtn().addEventListener("click", () => cmd.stopAgent());
+  el.agentToggleBtn().addEventListener("click", () => {
+    const action = el.agentToggleBtn().dataset.action;
+    if (action === "stop") {
+      cmd.stopAgent();
+      return;
+    }
+    cmd.startAgent();
+  });
   function runTask() {
     const prompt = el.prompt().value.trim();
     if (!prompt) return;
@@ -598,6 +692,7 @@
   });
   el.saveSettingsBtn().addEventListener("click", () => {
     cmd.saveSettings(readForm());
+    updateComposerMeta();
   });
   el.fetchModelsBtn().addEventListener("click", () => {
     const settings = readForm();
@@ -625,6 +720,7 @@
     const models = e.detail;
     updateModelSuggestions(models);
     el.settingsNote().textContent = `Loaded ${models.length} models`;
+    updateComposerMeta();
   });
   function updateModelSuggestions(models) {
     const picker = el.modelPicker();
@@ -689,10 +785,15 @@
         element.placeholder = t[key];
       }
     }
+    const toggle = el.agentToggleBtn();
+    toggle.dataset.startTitle = t.btn_start || "Start";
+    toggle.dataset.stopTitle = t.btn_stop || "Stop";
+    setControlState(el.status().textContent ?? "");
   }
   __name(applyTranslations, "applyTranslations");
   window.addEventListener("message", (e) => {
     handleMessage(e.data);
+    updateComposerMeta();
     applyGroupedFilters();
     saveState();
   });
@@ -711,6 +812,8 @@
   bindLogFilters();
   updateFilterButtons();
   applyGroupedFilters();
+  initStaticIcons();
+  updateComposerMeta();
   setControlState(el.status().textContent ?? "");
   cmd.requestSettings();
 })();

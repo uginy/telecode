@@ -9,6 +9,7 @@ import { el, setStatus, setControlState, setTab } from './ui-state';
 import { replaceOutput } from './log';
 import { readForm } from './settings';
 import { handleMessage } from './messages';
+import { makeIcon } from './icon-service';
 
 type PersistedState = {
   output?: string;
@@ -17,6 +18,25 @@ type PersistedState = {
   tab?: 'logs' | 'settings';
   view?: 'grouped';
 };
+
+function updateComposerMeta(): void {
+  const provider = (document.getElementById('provider') as HTMLInputElement | null)?.value?.trim() || '-';
+  const model = (document.getElementById('model') as HTMLInputElement | null)?.value?.trim() || '-';
+  const style = (document.getElementById('responseStyle') as HTMLSelectElement | null)?.value?.trim() || '-';
+
+  const metaProvider = document.getElementById('metaProvider');
+  const metaModel = document.getElementById('metaModel');
+  const metaStyle = document.getElementById('metaStyle');
+  if (metaProvider) metaProvider.textContent = `provider: ${provider}`;
+  if (metaModel) metaModel.textContent = `model: ${model}`;
+  if (metaStyle) metaStyle.textContent = `style: ${style}`;
+}
+
+function initStaticIcons(): void {
+  const sendBtn = el.runBtn();
+  sendBtn.innerHTML = '';
+  sendBtn.appendChild(makeIcon('send', 'send-icon'));
+}
 
 function saveState(): void {
   const outputEl = el.output();
@@ -126,8 +146,14 @@ el.tabLogs().addEventListener('click',     () => { setTab('logs');     api.setSt
 el.tabSettings().addEventListener('click', () => { setTab('settings'); api.setState({ ...(api.getState() as object), tab: 'settings' }); });
 
 // ── Agent controls ────────────────────────────────────────────────────────────
-el.startBtn().addEventListener('click', () => cmd.startAgent());
-el.stopBtn().addEventListener('click',  () => cmd.stopAgent());
+el.agentToggleBtn().addEventListener('click', () => {
+  const action = el.agentToggleBtn().dataset.action;
+  if (action === 'stop') {
+    cmd.stopAgent();
+    return;
+  }
+  cmd.startAgent();
+});
 
 // ── Task prompt ───────────────────────────────────────────────────────────────
 function runTask(): void {
@@ -144,6 +170,7 @@ el.prompt().addEventListener('keydown', (e: KeyboardEvent) => {
 // ── Settings form ─────────────────────────────────────────────────────────────
 el.saveSettingsBtn().addEventListener('click', () => {
   cmd.saveSettings(readForm());
+  updateComposerMeta();
 });
 
 el.fetchModelsBtn().addEventListener('click', () => {
@@ -176,6 +203,7 @@ window.addEventListener('models-loaded', (e: Event) => {
   const models = (e as CustomEvent).detail as string[];
   updateModelSuggestions(models);
   el.settingsNote().textContent = `Loaded ${models.length} models`;
+  updateComposerMeta();
 });
 
 function updateModelSuggestions(models: string[]): void {
@@ -253,11 +281,17 @@ function applyTranslations(t: Record<string, string>): void {
       (element as HTMLInputElement | HTMLTextAreaElement).placeholder = t[key];
     }
   }
+
+  const toggle = el.agentToggleBtn();
+  toggle.dataset.startTitle = t.btn_start || 'Start';
+  toggle.dataset.stopTitle = t.btn_stop || 'Stop';
+  setControlState(el.status().textContent ?? '');
 }
 
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
   handleMessage(e.data);
+  updateComposerMeta();
   applyGroupedFilters();
   saveState();
 });
@@ -277,5 +311,7 @@ if (saved) {
 bindLogFilters();
 updateFilterButtons();
 applyGroupedFilters();
+initStaticIcons();
+updateComposerMeta();
 setControlState(el.status().textContent ?? '');
 cmd.requestSettings();

@@ -4,13 +4,14 @@
  * No business logic here — only getters/setters for the view.
  */
 
+import { makeIcon } from './icon-service';
+
 export const el = {
   status:       () => document.getElementById('status')!,
   phase:        () => document.getElementById('phase')!,
   output:       () => document.getElementById('output')!,
   prompt:       () => document.getElementById('prompt')! as HTMLTextAreaElement,
-  startBtn:     () => document.getElementById('startBtn')! as HTMLButtonElement,
-  stopBtn:      () => document.getElementById('stopBtn')! as HTMLButtonElement,
+  agentToggleBtn: () => document.getElementById('agentToggleBtn')! as HTMLButtonElement,
   runBtn:       () => document.getElementById('runBtn')! as HTMLButtonElement,
   tabLogs:      () => document.getElementById('tabLogs')!,
   tabSettings:  () => document.getElementById('tabSettings')!,
@@ -51,10 +52,19 @@ export function setControlState(statusText: string): void {
   const stopped = lower.includes('stopped');
   const error = lower.includes('error');
   const active = running || ready || connecting || idle;
+  const toggle = el.agentToggleBtn();
+  const startTitle = toggle.dataset.startTitle || 'Start';
+  const stopTitle = toggle.dataset.stopTitle || 'Stop';
 
-  el.startBtn().disabled = active && !stopped && !error;
-  el.startBtn().textContent = ready ? 'Ready' : active ? 'Started' : 'Start';
-  el.stopBtn().disabled = !active || stopped;
+  toggle.dataset.action = active && !stopped && !error ? 'stop' : 'start';
+  toggle.innerHTML = '';
+  toggle.appendChild(makeIcon(toggle.dataset.action === 'stop' ? 'stop' : 'run', 'top-icon-glyph'));
+  toggle.classList.toggle('toggle-stop', toggle.dataset.action === 'stop');
+  toggle.classList.toggle('toggle-play', toggle.dataset.action !== 'stop');
+  const title = toggle.dataset.action === 'stop' ? stopTitle : startTitle;
+  toggle.title = title;
+  toggle.setAttribute('aria-label', title);
+
   el.runBtn().disabled = running;
 }
 

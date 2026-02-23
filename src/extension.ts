@@ -259,7 +259,10 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
     return true;
   }
 
-  stopAgent(false);
+  if (taskRunner?.getRuntime) {
+    taskRunner.abortCurrentRun();
+    runningConfigSignature = '';
+  }
 
   try {
     if (!taskRunner) {

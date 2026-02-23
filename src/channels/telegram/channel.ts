@@ -348,7 +348,6 @@ export class TelegramChannel implements IChannel {
           this.setStatus('Idle');
           this.pushLog(`[telegram] started as @${botInfo.username}`);
           console.log(`TeleCode AI Telegram started as @${botInfo.username}`);
-          vscode.window.showInformationMessage(`TeleCode AI: Telegram bot started (@${botInfo.username})`);
           if (allowedChatId !== null) {
             void bot.api
               .sendMessage(allowedChatId, this.getT().tg_connected)
@@ -365,7 +364,6 @@ export class TelegramChannel implements IChannel {
       const message = formatError(error);
       this.pushLog(`[telegram:error] failed to start - ${message}`);
       void this.notifyLifecycleMessage(this.bot, this.resolveNotifyChatId(), this.getT().tg_lifecycle_start_failed.replace('{error}', message));
-      vscode.window.showErrorMessage(`TeleCode AI: failed to start Telegram bot - ${message}`);
       console.error(error);
     }
   }

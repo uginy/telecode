@@ -13,7 +13,13 @@
   <!-- ── Header ─────────────────────────────────────────── -->
   <header class="header">
     <span class="brand">◆ TeleCode AI</span>
-    <span id="status" class="status-badge" data-state="idle">Idle</span>
+    <div class="header-controls">
+      <span id="status" class="status-badge" data-state="idle">Idle</span>
+      <div class="top-controls" id="topControls">
+        <button id="agentToggleBtn" class="top-icon-btn toggle-play" type="button" title="Start" aria-label="Start" data-action="start">
+        </button>
+      </div>
+    </div>
   </header>
 
   <!-- ── Tabs ───────────────────────────────────────────── -->
@@ -22,7 +28,7 @@
     <button id="tabSettings" class="tab"        type="button" data-t="tab_settings">Settings</button>
     
     <div class="tabs-spacer"></div>
-    
+
     <div class="view-toggles" id="logViewToggles">
       <button id="viewGroupedBtn" class="toggle-btn active" type="button" data-t="btn_view_grouped">Group</button>
       <button id="viewListBtn" class="toggle-btn" type="button" data-t="btn_view_list">List</button>
@@ -52,11 +58,15 @@
     </div>
     <div id="output" class="output" data-view="grouped"></div>
     <div class="input-area">
-      <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="3"></textarea>
-      <div class="actions">
-        <button id="startBtn" class="btn btn-ghost"    type="button" data-t="btn_start">Start</button>
-        <button id="stopBtn"  class="btn btn-ghost"    type="button" data-t="btn_stop">Stop</button>
-        <button id="runBtn"   class="btn btn-primary"  type="button" data-t="btn_run">Run ▶</button>
+      <div class="composer">
+        <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="2"></textarea>
+        <button id="runBtn" class="composer-send" type="button" title="Send" aria-label="Send">
+        </button>
+      </div>
+      <div class="composer-meta">
+        <span id="metaProvider" class="meta-chip">provider: -</span>
+        <span id="metaModel" class="meta-chip">model: -</span>
+        <span id="metaStyle" class="meta-chip">style: -</span>
       </div>
     </div>
   </section>
