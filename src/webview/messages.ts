@@ -3,13 +3,14 @@
  * All incoming messages from the extension → webview.
  */
 
-import { setStatus, setPhaseText, setControlState, setTab, el } from './ui-state';
+import { setStatus, setPhaseText, setControlState, setChannelsToggleState, setTab, el } from './ui-state';
 import { appendOutput, replaceOutput, clearOutput, appendLine } from './log';
 import { writeForm } from './settings';
 import type { Settings } from './commands';
 
 type IncomingMessage =
   | { type: 'status';   text: string }
+  | { type: 'channelsState'; connected: boolean }
   | { type: 'progress'; text: string; busy: boolean }
   | { type: 'replaceOutput'; text: string }
   | { type: 'appendOutput';  text: string }
@@ -28,6 +29,10 @@ export function handleMessage(raw: unknown): void {
     case 'status':
       setStatus(msg.text);
       setControlState(msg.text);
+      break;
+
+    case 'channelsState':
+      setChannelsToggleState(msg.connected === true);
       break;
 
     case 'progress':

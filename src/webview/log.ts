@@ -16,6 +16,7 @@ interface ParsedLine {
   message: string;
   icon: IconId;
   label: string;
+  variant?: 'whatsapp-qr-svg' | 'whatsapp-qr-note';
 }
 
 const LINE_META: Record<LineKind, { icon: IconId; label: string }> = {
@@ -57,7 +58,7 @@ function classifyLine(line: string): LineKind {
   if (normalized.startsWith('[user]'))        return 'user';
   if (normalized.startsWith('[run]') || normalized.startsWith('[done]')) return 'run';
   if (normalized.startsWith('[agent]'))       return 'agent';
-  if (normalized.startsWith('[telegram]') || normalized.startsWith('[whatsapp]')) return 'channel';
+  if (/^\[(telegram|whatsapp)(?::[^\]]+)?\]/i.test(normalized)) return 'channel';
   return 'text';
 }
 
@@ -84,6 +85,35 @@ function parseToolInvocation(line: string, prefix: '[tool:start]' | '[tool:done]
 function parseLine(line: string): ParsedLine {
   const kind = classifyLine(line);
   const meta = LINE_META[kind];
+  if (kind === 'channel') {
+    const normalized = normalizeStructuredLine(line);
+    const match = normalized.match(/^\[(telegram|whatsapp)(?::([^\]]+))?\](.*)$/i);
+    const source = (match?.[1] || 'channel').toUpperCase();
+    const tag = (match?.[2] || '').toLowerCase();
+    let bodyRaw = match?.[3] || '';
+    if (bodyRaw.startsWith(' ')) {
+      bodyRaw = bodyRaw.slice(1);
+    }
+    if (source === 'WHATSAPP' && tag === 'qrsvg') {
+      const body = bodyRaw.trim();
+      const variant = body.startsWith('PHN2Zy') ? 'whatsapp-qr-svg' : 'whatsapp-qr-note';
+      return {
+        kind,
+        message: body.length > 0 ? body : normalized,
+        icon: meta.icon,
+        label: source,
+        variant,
+      };
+    }
+    const body = bodyRaw.trim();
+    return {
+      kind,
+      message: body.length > 0 ? body : normalized,
+      icon: meta.icon,
+      label: source,
+    };
+  }
+
   const message = kind === 'text' ? line.trim() : stripPrefix(line);
   return {
     kind,
@@ -98,6 +128,10 @@ function makeLine(text: string): HTMLElement {
   const div = document.createElement('div');
   div.className = 'log-line';
   div.dataset.kind = parsed.kind;
+  if (parsed.variant) {
+    div.dataset.variant = parsed.variant;
+    div.classList.add(`variant-${parsed.variant}`);
+  }
 
   const icon = makeIcon(parsed.icon, 'log-icon');
 
@@ -107,7 +141,15 @@ function makeLine(text: string): HTMLElement {
 
   const message = document.createElement('span');
   message.className = 'log-message';
-  message.textContent = parsed.message;
+  if (parsed.variant === 'whatsapp-qr-svg') {
+    const img = document.createElement('img');
+    img.className = 'qr-svg-image';
+    img.alt = 'WhatsApp QR';
+    img.src = `data:image/svg+xml;base64,${parsed.message}`;
+    message.appendChild(img);
+  } else {
+    message.textContent = parsed.message;
+  }
 
   div.title = text;
   div.appendChild(icon);

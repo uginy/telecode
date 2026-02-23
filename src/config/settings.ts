@@ -28,6 +28,10 @@ export interface TelegramSettings {
 export interface TelecodeSettings {
   agent: AgentSettings;
   telegram: TelegramSettings;
+  whatsapp: {
+    enabled: boolean;
+    sessionPath: string;
+  };
 }
 
 const DEFAULT_ALLOWED_TOOLS = [
@@ -103,6 +107,8 @@ export function readTelecodeSettings(): TelecodeSettings {
   const telegramChatIdRaw = (config.get<string>('telegram.chatId') || '').trim();
   const telegramApiRootRaw = (config.get<string>('telegram.apiRoot') || '').trim();
   const telegramForceIPv4 = config.get<boolean>('telegram.forceIPv4', true) !== false;
+  const whatsappEnabled = config.get<boolean>('whatsapp.enabled') === true;
+  const whatsappSessionPath = (config.get<string>('whatsapp.sessionPath') || '~/.telecode-ai/whatsapp-session.json').trim();
 
   return {
     agent: {
@@ -127,6 +133,10 @@ export function readTelecodeSettings(): TelecodeSettings {
       chatId: telegramChatIdRaw.length > 0 ? telegramChatIdRaw : undefined,
       apiRoot: telegramApiRootRaw.length > 0 ? telegramApiRootRaw : undefined,
       forceIPv4: telegramForceIPv4,
+    },
+    whatsapp: {
+      enabled: whatsappEnabled,
+      sessionPath: whatsappSessionPath,
     },
   };
 }

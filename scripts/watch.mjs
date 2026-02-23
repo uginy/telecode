@@ -39,7 +39,7 @@ const extCtx = await esbuild.context({
   format: 'cjs',
   platform: 'node',
   sourcemap: true,
-  keepNames: true,
+  keepNames: false,
   plugins: [notifyPlugin('ext')],
 });
 

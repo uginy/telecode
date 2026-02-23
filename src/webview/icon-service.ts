@@ -1,4 +1,4 @@
-type IconId =
+export type IconId =
   | 'tool-start'
   | 'tool-done'
   | 'tool-error'

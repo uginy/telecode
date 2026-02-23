@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{NONCE}}';" />
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{{NONCE}}'; img-src data:;" />
   <title>TeleCode AI</title>
   <style>{{CSS}}</style>
 </head>
@@ -17,8 +17,8 @@
       <span id="phase" class="phase" data-busy="0"></span>
       <span id="status" class="status-badge" data-state="idle">Idle</span>
       <div class="top-controls" id="topControls">
-        <button id="agentToggleBtn" class="top-icon-btn toggle-play" type="button" aria-label="Start" data-action="start" data-tooltip-key="tt_toggle_agent_start" data-tooltip-placement="bottom">
-        </button>
+        <button id="agentToggleBtn" class="top-icon-btn toggle-agent" type="button" aria-label="Start Agent" data-tooltip-key="tt_toggle_agent_start" data-tooltip="Start Agent" data-tooltip-placement="bottom"></button>
+        <button id="channelsToggleBtn" class="top-icon-btn toggle-channels" type="button" aria-label="Connect Channels" data-tooltip-key="tt_toggle_channels_connect" data-tooltip="Connect Channels" data-tooltip-placement="bottom"></button>
       </div>
     </div>
   </header>

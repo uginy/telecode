@@ -5,7 +5,7 @@
 
 import api from './vscode-api';
 import { cmd } from './commands';
-import { el, setStatus, setControlState, setTab } from './ui-state';
+import { el, setStatus, setControlState, setTab, isAgentToggleOn, isChannelsToggleOn, refreshToggleLabels } from './ui-state';
 import { replaceOutput, collapseAllGroups, expandAllGroups } from './log';
 import { readForm } from './settings';
 import { handleMessage } from './messages';
@@ -57,6 +57,7 @@ function initStaticIcons(): void {
   const sendBtn = el.runBtn();
   sendBtn.innerHTML = '';
   sendBtn.appendChild(makeIcon('send', 'send-icon'));
+  refreshToggleLabels();
 
   const aboutIcons = Array.from(document.querySelectorAll('[data-about-icon]')) as HTMLElement[];
   const allowed = new Set(['github', 'globe', 'run', 'task', 'channel', 'tool']);
@@ -274,14 +275,20 @@ function bindLogFilters(): void {
 el.tabLogs().addEventListener('click',     () => { setTab('logs');     api.setState({ ...(api.getState() as object), tab: 'logs' }); });
 el.tabSettings().addEventListener('click', () => { setTab('settings'); api.setState({ ...(api.getState() as object), tab: 'settings' }); });
 
-// ── Agent controls ────────────────────────────────────────────────────────────
+// ── Agent + channels controls ───────────────────────────────────────────────
 el.agentToggleBtn().addEventListener('click', () => {
-  const action = el.agentToggleBtn().dataset.action;
-  if (action === 'stop') {
+  if (isAgentToggleOn()) {
     cmd.stopAgent();
     return;
   }
   cmd.startAgent();
+});
+el.channelsToggleBtn().addEventListener('click', () => {
+  if (isChannelsToggleOn()) {
+    cmd.disconnectChannels();
+    return;
+  }
+  cmd.connectChannels();
 });
 
 // ── Task prompt ───────────────────────────────────────────────────────────────
@@ -433,10 +440,8 @@ function applyTranslations(t: Record<string, string>): void {
     }
   }
 
-  const toggle = el.agentToggleBtn();
-  toggle.dataset.startTitle = t.btn_start || 'Start';
-  toggle.dataset.stopTitle = t.btn_stop || 'Stop';
   setControlState(el.status().textContent ?? '');
+  refreshToggleLabels();
   applyTooltipTranslations(t);
 
   const toggleAll = document.getElementById('toggleAllGroupsBtn') as HTMLButtonElement | null;

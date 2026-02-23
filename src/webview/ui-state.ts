@@ -4,7 +4,7 @@
  * No business logic here — only getters/setters for the view.
  */
 
-import { makeIcon } from './icon-service';
+import { makeIcon, type IconId } from './icon-service';
 
 export const el = {
   status:       () => document.getElementById('status')!,
@@ -12,6 +12,7 @@ export const el = {
   output:       () => document.getElementById('output')!,
   prompt:       () => document.getElementById('prompt')! as HTMLTextAreaElement,
   agentToggleBtn: () => document.getElementById('agentToggleBtn')! as HTMLButtonElement,
+  channelsToggleBtn: () => document.getElementById('channelsToggleBtn')! as HTMLButtonElement,
   runBtn:       () => document.getElementById('runBtn')! as HTMLButtonElement,
   tabLogs:      () => document.getElementById('tabLogs')!,
   tabSettings:  () => document.getElementById('tabSettings')!,
@@ -28,6 +29,60 @@ export const el = {
   viewListBtn:     () => document.getElementById('viewListBtn')! as HTMLButtonElement,
   logViewToggles:  () => document.getElementById('logViewToggles')!,
 };
+
+let agentActive = false;
+let channelsConnected = false;
+
+function getTranslations(): Record<string, string> {
+  return (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations || {};
+}
+
+function getTooltipText(key: string, fallback: string): string {
+  return getTranslations()[key] || fallback;
+}
+
+function setToggleVisual(
+  button: HTMLButtonElement,
+  state: 'on' | 'off',
+  icon: IconId,
+  tooltipKey: string,
+  tooltipFallback: string
+): void {
+  button.dataset.state = state;
+  button.classList.toggle('is-on', state === 'on');
+  button.classList.toggle('is-off', state === 'off');
+  button.dataset.tooltipKey = tooltipKey;
+  const tooltip = getTooltipText(tooltipKey, tooltipFallback);
+  button.dataset.tooltip = tooltip;
+  button.setAttribute('aria-label', tooltip);
+  button.innerHTML = '';
+  button.appendChild(makeIcon(icon, 'top-icon-glyph'));
+}
+
+function statusMeansAgentActive(statusText: string): boolean {
+  const lower = statusText.trim().toLowerCase();
+  if (!lower) return false;
+  if (lower.includes('idle') || lower.includes('stopped') || lower.includes('error')) return false;
+  return true;
+}
+
+function applyAgentToggle(): void {
+  const button = el.agentToggleBtn();
+  if (agentActive) {
+    setToggleVisual(button, 'on', 'stop', 'tt_toggle_agent_stop', 'Stop agent');
+  } else {
+    setToggleVisual(button, 'off', 'run', 'tt_toggle_agent_start', 'Start agent');
+  }
+}
+
+function applyChannelsToggle(): void {
+  const button = el.channelsToggleBtn();
+  if (channelsConnected) {
+    setToggleVisual(button, 'on', 'stop', 'tt_toggle_channels_disconnect', 'Disconnect channels');
+  } else {
+    setToggleVisual(button, 'off', 'channel', 'tt_toggle_channels_connect', 'Connect channels');
+  }
+}
 
 export function setStatus(text: string): void {
   const s = el.status();
@@ -46,27 +101,31 @@ export function setPhaseText(text: string): void {
 export function setControlState(statusText: string): void {
   const lower = statusText.toLowerCase();
   const running = lower.includes('running') || lower.includes('thinking') || lower.includes('tool ');
-  const ready = lower.includes('ready');
-  const connecting = lower.includes('connecting');
-  const idle = lower.includes('idle');
-  const stopped = lower.includes('stopped');
-  const error = lower.includes('error');
-  const active = running || ready || connecting || idle;
-  const toggle = el.agentToggleBtn();
-  const startTitle = toggle.dataset.startTitle || 'Start';
-  const stopTitle = toggle.dataset.stopTitle || 'Stop';
-
-  toggle.dataset.action = active && !stopped && !error ? 'stop' : 'start';
-  toggle.innerHTML = '';
-  toggle.appendChild(makeIcon(toggle.dataset.action === 'stop' ? 'stop' : 'run', 'top-icon-glyph'));
-  toggle.classList.toggle('toggle-stop', toggle.dataset.action === 'stop');
-  toggle.classList.toggle('toggle-play', toggle.dataset.action !== 'stop');
-  const title = toggle.dataset.action === 'stop' ? stopTitle : startTitle;
-  toggle.dataset.tooltip = title;
-  toggle.dataset.tooltipKey = toggle.dataset.action === 'stop' ? 'tt_toggle_agent_stop' : 'tt_toggle_agent_start';
-  toggle.setAttribute('aria-label', title);
-
   el.runBtn().disabled = running;
+  setAgentToggleState(statusMeansAgentActive(statusText));
+}
+
+export function setAgentToggleState(active: boolean): void {
+  agentActive = active;
+  applyAgentToggle();
+}
+
+export function setChannelsToggleState(connected: boolean): void {
+  channelsConnected = connected;
+  applyChannelsToggle();
+}
+
+export function isAgentToggleOn(): boolean {
+  return agentActive;
+}
+
+export function isChannelsToggleOn(): boolean {
+  return channelsConnected;
+}
+
+export function refreshToggleLabels(): void {
+  applyAgentToggle();
+  applyChannelsToggle();
 }
 
 export type Tab = 'logs' | 'settings';

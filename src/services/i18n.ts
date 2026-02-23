@@ -41,6 +41,8 @@ export interface Translations {
   tt_tab_settings: string;
   tt_toggle_agent_start: string;
   tt_toggle_agent_stop: string;
+  tt_toggle_channels_connect: string;
+  tt_toggle_channels_disconnect: string;
   tt_send_prompt: string;
   tt_safe_mode: string;
   tt_clear_filters: string;
@@ -203,7 +205,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_tab_logs: 'Логи выполнения',
     tt_tab_settings: 'Настройки TeleCode AI',
     tt_toggle_agent_start: 'Запустить агента',
-    tt_toggle_agent_stop: 'Остановить агента и каналы',
+    tt_toggle_agent_stop: 'Остановить агента',
+    tt_toggle_channels_connect: 'Подключить каналы',
+    tt_toggle_channels_disconnect: 'Отключить каналы',
     tt_send_prompt: 'Отправить задачу (Ctrl/Cmd+Enter)',
     tt_safe_mode: 'Профиль прав агента',
     tt_clear_filters: 'Сбросить фильтры логов',
@@ -359,7 +363,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_tab_logs: 'Execution logs',
     tt_tab_settings: 'TeleCode AI settings',
     tt_toggle_agent_start: 'Start agent',
-    tt_toggle_agent_stop: 'Stop agent and channels',
+    tt_toggle_agent_stop: 'Stop agent',
+    tt_toggle_channels_connect: 'Connect channels',
+    tt_toggle_channels_disconnect: 'Disconnect channels',
     tt_send_prompt: 'Send task (Ctrl/Cmd+Enter)',
     tt_safe_mode: 'Agent permission profile',
     tt_clear_filters: 'Clear log filters',

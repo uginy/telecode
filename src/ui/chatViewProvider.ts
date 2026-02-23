@@ -8,6 +8,8 @@ import { readTelecodeSettings } from '../config/settings';
 export type ChatViewCommand =
   | { command: 'startAgent' }
   | { command: 'stopAgent' }
+  | { command: 'connectChannels' }
+  | { command: 'disconnectChannels' }
   | { command: 'runTask'; prompt: string }
   | { command: 'openSettings' }
   | { command: 'requestSettings' }
@@ -40,6 +42,7 @@ const DEFAULT_OUTPUT_MAX_CHARS = 500_000;
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   private webview?: vscode.Webview;
   private status = 'Idle';
+  private channelsConnected = false;
   private buildInfo = '';
   private progressText = 'Idle';
   private progressBusy = false;
@@ -66,6 +69,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.renderHtml(webviewView.webview);
 
     this.post({ type: 'status', text: this.status });
+    this.post({ type: 'channelsState', connected: this.channelsConnected });
     this.post({ type: 'buildInfo', text: this.buildInfo });
     this.post({ type: 'progress', text: this.progressText, busy: this.progressBusy });
     this.post({ type: 'replaceOutput', text: this.output });
@@ -87,6 +91,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
       if (command === 'stopAgent') {
         this.commandEmitter.fire({ command: 'stopAgent' });
+      }
+      if (command === 'connectChannels') {
+        this.commandEmitter.fire({ command: 'connectChannels' });
+      }
+      if (command === 'disconnectChannels') {
+        this.commandEmitter.fire({ command: 'disconnectChannels' });
       }
 
       if (command === 'runTask' && typeof payload.prompt === 'string') {
@@ -159,6 +169,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'status', text: status });
   }
 
+  setChannelsConnected(connected: boolean): void {
+    this.channelsConnected = connected;
+    this.post({ type: 'channelsState', connected });
+  }
+
   setBuildInfo(info: string): void {
     this.buildInfo = info;
     this.post({ type: 'buildInfo', text: info });
@@ -215,6 +230,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     }
     this.webview.html = this.renderHtml(this.webview);
     this.post({ type: 'status', text: this.status });
+    this.post({ type: 'channelsState', connected: this.channelsConnected });
     this.post({ type: 'buildInfo', text: this.buildInfo });
     this.post({ type: 'progress', text: this.progressText, busy: this.progressBusy });
     this.post({ type: 'replaceOutput', text: this.output });

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
+import { WhatsAppChannel } from './channels/whatsapp/channel';
 import { providerRequiresApiKey, readTelecodeSettings } from './config/settings';
 import { TaskRunner } from './agent/taskRunner';
 import type { RuntimeConfig, RuntimeEvent } from './engine/types';
@@ -153,6 +154,9 @@ export function activate(context: vscode.ExtensionContext): void {
         if (event.affectsConfiguration('telecode.telegram')) {
           pendingChannelsRefresh = true;
         }
+        if (event.affectsConfiguration('telecode.whatsapp')) {
+          pendingChannelsRefresh = true;
+        }
 
         if (
           taskRunner?.getRuntime &&
@@ -223,6 +227,14 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
     stopAgent(true);
     return;
   }
+  if (command.command === 'connectChannels') {
+    connectChannels(true);
+    return;
+  }
+  if (command.command === 'disconnectChannels') {
+    disconnectChannels(true);
+    return;
+  }
 
   if (command.command === 'runTask') {
     await runTask(command.prompt);
@@ -255,8 +267,6 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
 }
 
 async function startAgent(forceRestart: boolean): Promise<boolean> {
-  ensureChannelsRunning();
-
   const settings = readTelecodeSettings();
   const policy = getEffectiveAgentPolicy(settings.agent);
   const tools = resolveTools(policy.allowedTools);
@@ -353,22 +363,6 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   }
 }
 
-function ensureChannelsRunning(): void {
-  const telegramRegistered = channelRegistry.get('telegram');
-  const telegramActive = channelRegistry.activeIds().includes('telegram');
-  const settings = readTelecodeSettings();
-  const telegramConfigured = settings.telegram.enabled && settings.telegram.botToken.trim().length > 0;
-
-  if (!telegramRegistered) {
-    refreshChannels();
-    return;
-  }
-
-  if (telegramConfigured && !telegramActive) {
-    refreshChannels();
-  }
-}
-
 async function runTask(task: string): Promise<void> {
   const prompt = task.trim();
   if (prompt.length === 0) {
@@ -418,17 +412,31 @@ function stopAgent(logToOutput: boolean): void {
     stoppedSomething = true;
   }
 
-  if (channelRegistry.size > 0) {
-    channelRegistry.stopAll();
-    stoppedSomething = true;
-  }
-
   if (logToOutput && stoppedSomething) {
-    appendLogLine('[agent] Stopped (runtime + channels)');
+    appendLogLine('[agent] Stopped runtime');
   }
 
   if (stoppedSomething) {
     setStatus('Stopped');
+  }
+}
+
+function connectChannels(logToOutput: boolean): void {
+  refreshChannels();
+  if (logToOutput) {
+    appendLogLine('[channels] Connect requested');
+  }
+}
+
+function disconnectChannels(logToOutput: boolean): void {
+  if (channelRegistry.size > 0) {
+    channelRegistry.stopAll();
+    syncChannelsStateToChatView();
+    if (logToOutput) {
+      appendLogLine('[channels] Disconnected');
+    }
+  } else if (logToOutput) {
+    appendLogLine('[channels] Already disconnected');
   }
 }
 
@@ -439,6 +447,7 @@ function refreshChannels(): void {
   }
 
   channelRegistry.stopAll();
+  syncChannelsStateToChatView();
 
   const settings = readTelecodeSettings();
   const tools = resolveTools(getEffectiveAgentPolicy(settings.agent).allowedTools);
@@ -447,16 +456,36 @@ function refreshChannels(): void {
     tools,
     (line) => {
       const hasTelegramPrefix =
-        line.startsWith('[telegram]') || /^\[[^\]]+\]\s+\[telegram\]/i.test(line);
+        line.startsWith('[telegram]') || /^\[[^\]]+\]\s+\[telegram(?::[^\]]+)?\]/i.test(line);
       appendLogLine(hasTelegramPrefix ? line : `[telegram] ${line}`);
     },
     (status) => {
       setStatus(status);
+      syncChannelsStateToChatView();
     }
   );
   
   channelRegistry.register(telegramChannel);
-  void channelRegistry.startAll();
+  const whatsappChannel = new WhatsAppChannel(
+    tools,
+    (line) => {
+      const hasPrefix = line.startsWith('[whatsapp]') || /^\[[^\]]+\]\s+\[whatsapp(?::[^\]]+)?\]/i.test(line);
+      appendLogLine(hasPrefix ? line : `[whatsapp] ${line}`);
+    },
+    (status) => {
+      setStatus(status);
+      syncChannelsStateToChatView();
+    }
+  );
+  channelRegistry.register(whatsappChannel);
+  void channelRegistry.startAll().finally(() => {
+    syncChannelsStateToChatView();
+  });
+}
+
+function syncChannelsStateToChatView(): void {
+  const connected = channelRegistry.activeIds().length > 0;
+  chatProvider?.setChannelsConnected(connected);
 }
 
 async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<void> {

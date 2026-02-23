@@ -11,6 +11,8 @@
   var cmd = {
     startAgent: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "startAgent" }), "startAgent"),
     stopAgent: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "stopAgent" }), "stopAgent"),
+    connectChannels: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "connectChannels" }), "connectChannels"),
+    disconnectChannels: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "disconnectChannels" }), "disconnectChannels"),
     runTask: /* @__PURE__ */ __name((prompt) => vscode_api_default.postMessage({ command: "runTask", prompt }), "runTask"),
     requestSettings: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "requestSettings" }), "requestSettings"),
     saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings"),
@@ -69,6 +71,7 @@
     output: /* @__PURE__ */ __name(() => document.getElementById("output"), "output"),
     prompt: /* @__PURE__ */ __name(() => document.getElementById("prompt"), "prompt"),
     agentToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("agentToggleBtn"), "agentToggleBtn"),
+    channelsToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("channelsToggleBtn"), "channelsToggleBtn"),
     runBtn: /* @__PURE__ */ __name(() => document.getElementById("runBtn"), "runBtn"),
     tabLogs: /* @__PURE__ */ __name(() => document.getElementById("tabLogs"), "tabLogs"),
     tabSettings: /* @__PURE__ */ __name(() => document.getElementById("tabSettings"), "tabSettings"),
@@ -85,6 +88,53 @@
     viewListBtn: /* @__PURE__ */ __name(() => document.getElementById("viewListBtn"), "viewListBtn"),
     logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles")
   };
+  var agentActive = false;
+  var channelsConnected = false;
+  function getTranslations() {
+    return window.__tcTranslations || {};
+  }
+  __name(getTranslations, "getTranslations");
+  function getTooltipText(key, fallback) {
+    return getTranslations()[key] || fallback;
+  }
+  __name(getTooltipText, "getTooltipText");
+  function setToggleVisual(button, state, icon, tooltipKey, tooltipFallback) {
+    button.dataset.state = state;
+    button.classList.toggle("is-on", state === "on");
+    button.classList.toggle("is-off", state === "off");
+    button.dataset.tooltipKey = tooltipKey;
+    const tooltip = getTooltipText(tooltipKey, tooltipFallback);
+    button.dataset.tooltip = tooltip;
+    button.setAttribute("aria-label", tooltip);
+    button.innerHTML = "";
+    button.appendChild(makeIcon(icon, "top-icon-glyph"));
+  }
+  __name(setToggleVisual, "setToggleVisual");
+  function statusMeansAgentActive(statusText) {
+    const lower = statusText.trim().toLowerCase();
+    if (!lower) return false;
+    if (lower.includes("idle") || lower.includes("stopped") || lower.includes("error")) return false;
+    return true;
+  }
+  __name(statusMeansAgentActive, "statusMeansAgentActive");
+  function applyAgentToggle() {
+    const button = el.agentToggleBtn();
+    if (agentActive) {
+      setToggleVisual(button, "on", "stop", "tt_toggle_agent_stop", "Stop agent");
+    } else {
+      setToggleVisual(button, "off", "run", "tt_toggle_agent_start", "Start agent");
+    }
+  }
+  __name(applyAgentToggle, "applyAgentToggle");
+  function applyChannelsToggle() {
+    const button = el.channelsToggleBtn();
+    if (channelsConnected) {
+      setToggleVisual(button, "on", "stop", "tt_toggle_channels_disconnect", "Disconnect channels");
+    } else {
+      setToggleVisual(button, "off", "channel", "tt_toggle_channels_connect", "Connect channels");
+    }
+  }
+  __name(applyChannelsToggle, "applyChannelsToggle");
   function setStatus(text) {
     const s = el.status();
     s.title = text;
@@ -99,27 +149,33 @@
   function setControlState(statusText) {
     const lower = statusText.toLowerCase();
     const running = lower.includes("running") || lower.includes("thinking") || lower.includes("tool ");
-    const ready = lower.includes("ready");
-    const connecting = lower.includes("connecting");
-    const idle = lower.includes("idle");
-    const stopped = lower.includes("stopped");
-    const error = lower.includes("error");
-    const active = running || ready || connecting || idle;
-    const toggle = el.agentToggleBtn();
-    const startTitle = toggle.dataset.startTitle || "Start";
-    const stopTitle = toggle.dataset.stopTitle || "Stop";
-    toggle.dataset.action = active && !stopped && !error ? "stop" : "start";
-    toggle.innerHTML = "";
-    toggle.appendChild(makeIcon(toggle.dataset.action === "stop" ? "stop" : "run", "top-icon-glyph"));
-    toggle.classList.toggle("toggle-stop", toggle.dataset.action === "stop");
-    toggle.classList.toggle("toggle-play", toggle.dataset.action !== "stop");
-    const title = toggle.dataset.action === "stop" ? stopTitle : startTitle;
-    toggle.dataset.tooltip = title;
-    toggle.dataset.tooltipKey = toggle.dataset.action === "stop" ? "tt_toggle_agent_stop" : "tt_toggle_agent_start";
-    toggle.setAttribute("aria-label", title);
     el.runBtn().disabled = running;
+    setAgentToggleState(statusMeansAgentActive(statusText));
   }
   __name(setControlState, "setControlState");
+  function setAgentToggleState(active) {
+    agentActive = active;
+    applyAgentToggle();
+  }
+  __name(setAgentToggleState, "setAgentToggleState");
+  function setChannelsToggleState(connected) {
+    channelsConnected = connected;
+    applyChannelsToggle();
+  }
+  __name(setChannelsToggleState, "setChannelsToggleState");
+  function isAgentToggleOn() {
+    return agentActive;
+  }
+  __name(isAgentToggleOn, "isAgentToggleOn");
+  function isChannelsToggleOn() {
+    return channelsConnected;
+  }
+  __name(isChannelsToggleOn, "isChannelsToggleOn");
+  function refreshToggleLabels() {
+    applyAgentToggle();
+    applyChannelsToggle();
+  }
+  __name(refreshToggleLabels, "refreshToggleLabels");
   function setTab(tab) {
     const isLogs = tab === "logs";
     el.tabLogs().classList.toggle("active", isLogs);
@@ -169,7 +225,7 @@
     if (normalized.startsWith("[user]")) return "user";
     if (normalized.startsWith("[run]") || normalized.startsWith("[done]")) return "run";
     if (normalized.startsWith("[agent]")) return "agent";
-    if (normalized.startsWith("[telegram]") || normalized.startsWith("[whatsapp]")) return "channel";
+    if (/^\[(telegram|whatsapp)(?::[^\]]+)?\]/i.test(normalized)) return "channel";
     return "text";
   }
   __name(classifyLine, "classifyLine");
@@ -196,6 +252,34 @@
   function parseLine(line) {
     const kind = classifyLine(line);
     const meta = LINE_META[kind];
+    if (kind === "channel") {
+      const normalized = normalizeStructuredLine(line);
+      const match = normalized.match(/^\[(telegram|whatsapp)(?::([^\]]+))?\](.*)$/i);
+      const source = (match?.[1] || "channel").toUpperCase();
+      const tag = (match?.[2] || "").toLowerCase();
+      let bodyRaw = match?.[3] || "";
+      if (bodyRaw.startsWith(" ")) {
+        bodyRaw = bodyRaw.slice(1);
+      }
+      if (source === "WHATSAPP" && tag === "qrsvg") {
+        const body2 = bodyRaw.trim();
+        const variant = body2.startsWith("PHN2Zy") ? "whatsapp-qr-svg" : "whatsapp-qr-note";
+        return {
+          kind,
+          message: body2.length > 0 ? body2 : normalized,
+          icon: meta.icon,
+          label: source,
+          variant
+        };
+      }
+      const body = bodyRaw.trim();
+      return {
+        kind,
+        message: body.length > 0 ? body : normalized,
+        icon: meta.icon,
+        label: source
+      };
+    }
     const message = kind === "text" ? line.trim() : stripPrefix(line);
     return {
       kind,
@@ -210,13 +294,25 @@
     const div = document.createElement("div");
     div.className = "log-line";
     div.dataset.kind = parsed.kind;
+    if (parsed.variant) {
+      div.dataset.variant = parsed.variant;
+      div.classList.add(`variant-${parsed.variant}`);
+    }
     const icon = makeIcon(parsed.icon, "log-icon");
     const kind = document.createElement("span");
     kind.className = "log-kind";
     kind.textContent = parsed.label;
     const message = document.createElement("span");
     message.className = "log-message";
-    message.textContent = parsed.message;
+    if (parsed.variant === "whatsapp-qr-svg") {
+      const img = document.createElement("img");
+      img.className = "qr-svg-image";
+      img.alt = "WhatsApp QR";
+      img.src = `data:image/svg+xml;base64,${parsed.message}`;
+      message.appendChild(img);
+    } else {
+      message.textContent = parsed.message;
+    }
     div.title = text;
     div.appendChild(icon);
     div.appendChild(kind);
@@ -582,6 +678,9 @@
         setStatus(msg.text);
         setControlState(msg.text);
         break;
+      case "channelsState":
+        setChannelsToggleState(msg.connected === true);
+        break;
       case "progress":
         {
           const text = (msg.text ?? "").trim();
@@ -770,6 +869,7 @@
     const sendBtn = el.runBtn();
     sendBtn.innerHTML = "";
     sendBtn.appendChild(makeIcon("send", "send-icon"));
+    refreshToggleLabels();
     const aboutIcons = Array.from(document.querySelectorAll("[data-about-icon]"));
     const allowed = /* @__PURE__ */ new Set(["github", "globe", "run", "task", "channel", "tool"]);
     for (const holder of aboutIcons) {
@@ -970,12 +1070,18 @@
     vscode_api_default.setState({ ...vscode_api_default.getState(), tab: "settings" });
   });
   el.agentToggleBtn().addEventListener("click", () => {
-    const action = el.agentToggleBtn().dataset.action;
-    if (action === "stop") {
+    if (isAgentToggleOn()) {
       cmd.stopAgent();
       return;
     }
     cmd.startAgent();
+  });
+  el.channelsToggleBtn().addEventListener("click", () => {
+    if (isChannelsToggleOn()) {
+      cmd.disconnectChannels();
+      return;
+    }
+    cmd.connectChannels();
   });
   function runTask() {
     const prompt = el.prompt().value.trim();
@@ -1101,10 +1207,8 @@
         element.placeholder = t[key];
       }
     }
-    const toggle = el.agentToggleBtn();
-    toggle.dataset.startTitle = t.btn_start || "Start";
-    toggle.dataset.stopTitle = t.btn_stop || "Stop";
     setControlState(el.status().textContent ?? "");
+    refreshToggleLabels();
     applyTooltipTranslations(t);
     const toggleAll = document.getElementById("toggleAllGroupsBtn");
     updateGroupsToggleButton((toggleAll?.dataset.action || "collapse") === "collapse");
