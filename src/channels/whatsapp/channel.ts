@@ -184,7 +184,9 @@ export class WhatsAppChannel implements IChannel {
       this.active = true;
       this.setStatus('Ready');
       this.pushLog('[whatsapp] client ready');
-      void this.sendStartupGreeting();
+      setTimeout(() => {
+        void this.sendStartupGreeting();
+      }, 700);
     });
 
     client.on('authenticated', () => {
@@ -194,7 +196,6 @@ export class WhatsAppChannel implements IChannel {
       if (this.authLogged) return;
       this.authLogged = true;
       this.pushLog('[whatsapp] authenticated');
-      void this.sendStartupGreeting();
       this.scheduleReadyFallback();
     });
 
@@ -209,6 +210,11 @@ export class WhatsAppChannel implements IChannel {
         this.active = true;
         this.setStatus('Ready');
         this.clearReadyFallbackTimer();
+        if (!this.startupGreetingSent && normalized === 'CONNECTED') {
+          setTimeout(() => {
+            void this.sendStartupGreeting();
+          }, 900);
+        }
       }
     });
 
@@ -751,6 +757,11 @@ export class WhatsAppChannel implements IChannel {
       if (probeFinal.hasStore && probeFinal.hasWWebJS && typeof client.attachEventListeners === 'function') {
         await client.attachEventListeners();
         this.pushLog('[whatsapp] recovery complete');
+        if (!this.startupGreetingSent) {
+          setTimeout(() => {
+            void this.sendStartupGreeting();
+          }, 700);
+        }
       } else {
         this.pushLog(
           `[whatsapp:warn] recovery incomplete (store=${probeFinal.hasStore ? '1' : '0'}, wwebjs=${probeFinal.hasWWebJS ? '1' : '0'}, state=${probeFinal.appState ?? 'null'})`
