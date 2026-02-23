@@ -358,6 +358,20 @@ export function appendOutput(text: string): void {
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    if (line.length === 0) {
+      if (i < lines.length - 1) {
+        finalizeStreamingText();
+      }
+      continue;
+    }
+
+    const kind = classifyLine(line);
+    if (kind !== 'text') {
+      finalizeStreamingText();
+      appendLine(line);
+      continue;
+    }
+
     beginOrUpdateStreamingText(line);
     if (i < lines.length - 1) {
       finalizeStreamingText();

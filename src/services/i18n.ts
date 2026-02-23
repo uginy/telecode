@@ -30,6 +30,9 @@ export interface Translations {
   btn_run: string;
   prompt_placeholder: string;
   option_auto: string;
+  option_status_minimal: string;
+  option_status_normal: string;
+  option_status_debug: string;
   btn_view_grouped: string;
   btn_view_list: string;
 
@@ -65,6 +68,8 @@ export interface Translations {
   field_language_hint: string;
   field_ui_language: string;
   field_ui_language_hint: string;
+  field_status_verbosity: string;
+  field_status_verbosity_hint: string;
   field_max_steps: string;
   field_max_steps_hint: string;
   field_log_max_chars: string;
@@ -156,6 +161,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_run: 'Пуск ▶',
     prompt_placeholder: 'Опишите задачу...',
     option_auto: 'Авто',
+    option_status_minimal: 'Минимум',
+    option_status_normal: 'Нормально',
+    option_status_debug: 'Отладка',
     btn_view_grouped: 'Группа',
     btn_view_list: 'Список',
 
@@ -188,6 +196,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_language_hint: 'Язык, на котором будет отвечать агент.',
     field_ui_language: 'Язык интерфейса',
     field_ui_language_hint: 'Язык меню, вкладок и настроек расширения.',
+    field_status_verbosity: 'Детализация статусов',
+    field_status_verbosity_hint: 'Сколько служебных статусов показывать в логах.',
     field_max_steps: 'Макс. шагов',
     field_max_steps_hint: 'Максимальное количество вызовов инструментов (1–1000).',
     field_log_max_chars: 'Буфер логов (симв.)',
@@ -275,6 +285,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_run: 'Run ▶',
     prompt_placeholder: 'Describe the task...',
     option_auto: 'Auto',
+    option_status_minimal: 'Minimal',
+    option_status_normal: 'Normal',
+    option_status_debug: 'Debug',
     btn_view_grouped: 'Group',
     btn_view_list: 'List',
 
@@ -307,6 +320,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_language_hint: "Agent's response language.",
     field_ui_language: 'UI Language',
     field_ui_language_hint: 'Language for tabs, buttons and settings.',
+    field_status_verbosity: 'Status Verbosity',
+    field_status_verbosity_hint: 'How many runtime status lines to show in logs.',
     field_max_steps: 'Max Steps',
     field_max_steps_hint: 'Max tool calls allowed per task (1–1000).',
     field_log_max_chars: 'Log Buffer (chars)',

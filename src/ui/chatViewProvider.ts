@@ -26,6 +26,7 @@ export interface ChatViewSettings {
   allowOutOfWorkspace: boolean;
   logMaxChars: number;
   telegramMaxLogLines: number;
+  statusVerbosity: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
@@ -131,6 +132,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             allowOutOfWorkspace: raw.allowOutOfWorkspace === true,
             logMaxChars,
             telegramMaxLogLines,
+            statusVerbosity: typeof raw.statusVerbosity === 'string' ? raw.statusVerbosity : 'normal',
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',

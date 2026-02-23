@@ -13,6 +13,7 @@ export interface AgentSettings {
   allowOutOfWorkspace: boolean;
   logMaxChars: number;
   telegramMaxLogLines: number;
+  statusVerbosity: 'minimal' | 'normal' | 'debug';
 }
 
 export interface TelegramSettings {
@@ -85,6 +86,11 @@ export function readTelecodeSettings(): TelecodeSettings {
   const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
   const logMaxChars = readPositiveNumber(config.get<number>('logMaxChars'), 500_000);
   const telegramMaxLogLines = readPositiveNumber(config.get<number>('telegramMaxLogLines'), 300);
+  const statusVerbosityRaw = (config.get<string>('statusVerbosity') || 'normal').trim();
+  const statusVerbosity =
+    statusVerbosityRaw === 'minimal' || statusVerbosityRaw === 'normal' || statusVerbosityRaw === 'debug'
+      ? statusVerbosityRaw
+      : 'normal';
 
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
@@ -106,6 +112,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       allowOutOfWorkspace,
       logMaxChars,
       telegramMaxLogLines,
+      statusVerbosity,
     },
     telegram: {
       enabled: telegramEnabled,

@@ -35,7 +35,9 @@
     channel: '<path d="M4 19l16-7L4 5v5l10 2-10 2z"/>',
     task: '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>',
     session: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 3v4M16 3v4M8 12h8"/>',
-    tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>'
+    tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>',
+    github: '<path d="M9 19c-4.5 1.4-4.5-2.1-6.3-2.8"/><path d="M15 22v-3.3a3.3 3.3 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-6.6a5.2 5.2 0 0 0-1.4-3.6 4.9 4.9 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.8 12.8 0 0 0-6.7 0C5.7 2 4.6 2.3 4.6 2.3a4.9 4.9 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5 3.1 6.2 6.1 6.6a3.3 3.3 0 0 0-.9 2.6V22"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 2.5 12.4 0 18"/><path d="M12 3c-2.5 2.6-2.5 12.4 0 18"/>'
   };
   function createSvgIcon(path) {
     const ns = "http://www.w3.org/2000/svg";
@@ -427,6 +429,18 @@
     const lines = text.split("\n");
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
+      if (line.length === 0) {
+        if (i < lines.length - 1) {
+          finalizeStreamingText();
+        }
+        continue;
+      }
+      const kind = classifyLine(line);
+      if (kind !== "text") {
+        finalizeStreamingText();
+        appendLine(line);
+        continue;
+      }
       beginOrUpdateStreamingText(line);
       if (i < lines.length - 1) {
         finalizeStreamingText();
@@ -479,6 +493,7 @@
       responseStyle: strVal("responseStyle"),
       language: strVal("language"),
       uiLanguage: strVal("uiLanguage"),
+      statusVerbosity: strVal("statusVerbosity"),
       allowOutOfWorkspace: boolVal("allowOutOfWorkspace"),
       logMaxChars,
       telegramMaxLogLines,
@@ -499,6 +514,7 @@
     setStr("responseStyle", s.responseStyle ?? "concise");
     setStr("language", s.language ?? "ru");
     setStr("uiLanguage", s.uiLanguage ?? "ru");
+    setStr("statusVerbosity", s.statusVerbosity ?? "normal");
     setBool("allowOutOfWorkspace", s.allowOutOfWorkspace === true);
     setStr("logMaxChars", String(s.logMaxChars ?? 5e5));
     setStr("telegramMaxLogLines", String(s.telegramMaxLogLines ?? 300));
@@ -549,6 +565,9 @@
         }
         break;
       case "buildInfo":
+        if (typeof msg.text === "string") {
+          window.dispatchEvent(new CustomEvent("build-info", { detail: msg.text }));
+        }
         break;
       case "translate":
         if (msg.translations) {
@@ -576,6 +595,14 @@
     const sendBtn = el.runBtn();
     sendBtn.innerHTML = "";
     sendBtn.appendChild(makeIcon("send", "send-icon"));
+    const aboutIcons = Array.from(document.querySelectorAll("[data-about-icon]"));
+    for (const holder of aboutIcons) {
+      const id = holder.dataset.aboutIcon;
+      holder.innerHTML = "";
+      if (id === "github" || id === "globe") {
+        holder.appendChild(makeIcon(id, "about-link-icon"));
+      }
+    }
   }
   __name(initStaticIcons, "initStaticIcons");
   function saveState() {
@@ -721,6 +748,15 @@
     updateModelSuggestions(models);
     el.settingsNote().textContent = `Loaded ${models.length} models`;
     updateComposerMeta();
+  });
+  window.addEventListener("build-info", (e) => {
+    const raw = String(e.detail || "");
+    const match = raw.match(/version=([^;]+)/i);
+    const version = (match?.[1] || "").trim();
+    const versionEl = document.getElementById("aboutVersion");
+    if (versionEl && version) {
+      versionEl.textContent = version;
+    }
   });
   function updateModelSuggestions(models) {
     const picker = el.modelPicker();

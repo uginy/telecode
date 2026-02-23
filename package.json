@@ -221,6 +221,21 @@
           "default": 300,
           "description": "Maximum number of Telegram log lines kept in memory"
         },
+        "telecode.statusVerbosity": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "minimal",
+            "normal",
+            "debug"
+          ],
+          "enumDescriptions": [
+            "Only key status phases and tool boundaries",
+            "Balanced status output for daily work",
+            "Full verbose runtime status output"
+          ],
+          "description": "How many runtime status lines are shown in Logs"
+        },
         "telecode.allowedTools": {
           "type": "array",
           "default": [

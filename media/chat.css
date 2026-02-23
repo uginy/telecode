@@ -36,20 +36,82 @@ body {
 /* ── About ─────────────────────────────────────────────────────────────────── */
 .about-hero {
   margin-bottom: 24px;
-  padding: 16px;
-  background: var(--vscode-sideBar-background, var(--surface));
+  padding: 14px;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--accent) 14%, transparent),
+    color-mix(in srgb, var(--vscode-editor-background, #000) 88%, transparent)
+  );
   border-radius: 8px;
   border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.1));
+}
+.about-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.about-brand-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-fg);
+  background: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.about-brand-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.about-brand-subtitle {
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .about-version {
   font-size: 11px;
   color: var(--muted);
+  margin-bottom: 10px;
 }
 .about-version span {
   font-weight: 600;
   color: var(--vscode-foreground);
   margin-right: 4px;
+}
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: var(--border);
+  color: var(--vscode-textLink-foreground, var(--accent));
+  text-decoration: none;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.about-link:hover {
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+.about-link-icon {
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+}
+.about-link-icon svg {
+  width: 12px;
+  height: 12px;
+  display: block;
 }
 
 .about-features {
@@ -879,15 +941,28 @@ textarea:focus { border-color: var(--accent); }
   flex: 1;
 }
 .field-inline input { flex-shrink: 0; }
+.field-inline select { flex-shrink: 0; }
 
 /* Checkbox field */
 .field-check {
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
-.field-check input[type='checkbox'] { margin-top: 2px; flex-shrink: 0; }
-.field-check > div { display: flex; flex-direction: column; gap: 2px; }
+.field-check input[type='checkbox'] {
+  margin-top: 0;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.field-check > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
 .field-check label { font-size: 12px; font-weight: 500; }
 
 .field input,

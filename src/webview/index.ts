@@ -36,6 +36,15 @@ function initStaticIcons(): void {
   const sendBtn = el.runBtn();
   sendBtn.innerHTML = '';
   sendBtn.appendChild(makeIcon('send', 'send-icon'));
+
+  const aboutIcons = Array.from(document.querySelectorAll('[data-about-icon]')) as HTMLElement[];
+  for (const holder of aboutIcons) {
+    const id = holder.dataset.aboutIcon;
+    holder.innerHTML = '';
+    if (id === 'github' || id === 'globe') {
+      holder.appendChild(makeIcon(id, 'about-link-icon'));
+    }
+  }
 }
 
 function saveState(): void {
@@ -204,6 +213,16 @@ window.addEventListener('models-loaded', (e: Event) => {
   updateModelSuggestions(models);
   el.settingsNote().textContent = `Loaded ${models.length} models`;
   updateComposerMeta();
+});
+
+window.addEventListener('build-info', (e: Event) => {
+  const raw = String((e as CustomEvent).detail || '');
+  const match = raw.match(/version=([^;]+)/i);
+  const version = (match?.[1] || '').trim();
+  const versionEl = document.getElementById('aboutVersion');
+  if (versionEl && version) {
+    versionEl.textContent = version;
+  }
 });
 
 function updateModelSuggestions(models: string[]): void {

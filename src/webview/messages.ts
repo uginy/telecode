@@ -70,7 +70,9 @@ export function handleMessage(raw: unknown): void {
       break;
 
     case 'buildInfo':
-      // no-op: buildInfo badge removed from new UI
+      if (typeof msg.text === 'string') {
+        window.dispatchEvent(new CustomEvent('build-info', { detail: msg.text }));
+      }
       break;
 
     case 'translate':

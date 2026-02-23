@@ -36,8 +36,24 @@ let lastToolStatus = '';
 let lastRuntimeEventAt = 0;
 let lastRuntimeEventLabel = 'none';
 let restoreFetchLogger: (() => void) | null = null;
+let lastRenderedStatus = '';
+let lastRenderedStatusAt = 0;
+let extensionVersion = '0.0.0';
+
+const STATUS_SUPPRESSED_PREFIXES_MINIMAL = [
+  'tools_available ',
+  'prompt_stack ',
+  'prompt_stack_missing ',
+  'llm_config ',
+  'event:',
+  'tool_execution_update:',
+];
 
 export function activate(context: vscode.ExtensionContext): void {
+  extensionVersion =
+    (context.extension?.packageJSON && typeof context.extension.packageJSON.version === 'string'
+      ? context.extension.packageJSON.version
+      : '0.0.0');
   installLlmFetchLogger();
   chatProvider = new ChatViewProvider(context.extensionUri);
 
@@ -120,6 +136,7 @@ export function activate(context: vscode.ExtensionContext): void {
             event.affectsConfiguration('telecode.maxSteps') ||
             event.affectsConfiguration('telecode.logMaxChars') ||
             event.affectsConfiguration('telecode.telegramMaxLogLines') ||
+            event.affectsConfiguration('telecode.statusVerbosity') ||
             event.affectsConfiguration('telecode.allowedTools') ||
             event.affectsConfiguration('telecode.responseStyle') ||
             event.affectsConfiguration('telecode.language') ||
@@ -430,6 +447,7 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     await config.update('maxSteps', settings.maxSteps, target);
     await config.update('logMaxChars', settings.logMaxChars, target);
     await config.update('telegramMaxLogLines', settings.telegramMaxLogLines, target);
+    await config.update('statusVerbosity', settings.statusVerbosity, target);
     await config.update('responseStyle', settings.responseStyle, target);
     await config.update('language', settings.language, target);
     await config.update('uiLanguage', settings.uiLanguage, target);
@@ -515,7 +533,17 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
   }
 
   if (event.type === 'status') {
-    appendLogLine(`[status] ${formatRuntimeStatus(event.message)}`);
+    if (!shouldRenderStatus(event.message)) {
+      return;
+    }
+    const formatted = formatRuntimeStatus(event.message);
+    const now = Date.now();
+    if (formatted === lastRenderedStatus && now - lastRenderedStatusAt < 1500) {
+      return;
+    }
+    lastRenderedStatus = formatted;
+    lastRenderedStatusAt = now;
+    appendLogLine(`[status] ${formatted}`);
     return;
   }
 
@@ -525,8 +553,33 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
   }
 
   if (event.type === 'done') {
+    lastRenderedStatus = '';
+    lastRenderedStatusAt = 0;
     setStatus('Ready');
   }
+}
+
+function shouldRenderStatus(raw: string): boolean {
+  const normalized = raw.trim();
+  if (!normalized) {
+    return false;
+  }
+  const verbosity = readTelecodeSettings().agent.statusVerbosity;
+  if (verbosity === 'debug') {
+    return true;
+  }
+  if (verbosity === 'normal') {
+    if (normalized.startsWith('event:')) {
+      return false;
+    }
+    return true;
+  }
+  for (const prefix of STATUS_SUPPRESSED_PREFIXES_MINIMAL) {
+    if (normalized.startsWith(prefix)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function createConfigSignature(config: RuntimeConfig, tools: AgentTool[]): string {
@@ -658,6 +711,7 @@ function syncSettingsToChatView(): void {
     maxSteps: settings.agent.maxSteps,
     logMaxChars: settings.agent.logMaxChars,
     telegramMaxLogLines: settings.agent.telegramMaxLogLines,
+    statusVerbosity: settings.agent.statusVerbosity,
     responseStyle: settings.agent.responseStyle,
     language: settings.agent.language,
     uiLanguage: settings.agent.uiLanguage,
@@ -683,7 +737,7 @@ function syncBuildInfoToChatView(): void {
     // keep unknown
   }
 
-  chatProvider?.setBuildInfo(`Last update: build ${builtAt} | loaded ${loadedAt}`);
+  chatProvider?.setBuildInfo(`version=${extensionVersion}; build=${builtAt}; loaded=${loadedAt}`);
 }
 
 function notifySettingsViews(message: string): void {

@@ -94,18 +94,33 @@
             </div>
 
             <div class="about-hero">
+              <div class="about-brand-row">
+                <div class="about-brand-mark">◆</div>
+                <div class="about-brand-copy">
+                  <div class="about-brand-title">TeleCode AI</div>
+                  <div id="aboutTagline" class="about-brand-subtitle">Remote-controlled autonomous coding agent in VS Code.</div>
+                </div>
+              </div>
               <div class="about-version">
-                <span data-t="about_version">Version</span> 0.1.0
+                <span data-t="about_version">Version</span> <strong id="aboutVersion">-</strong>
+              </div>
+              <div class="about-links">
+                <a id="aboutGithub" class="about-link" href="https://github.com/uginy/telecode" target="_blank" rel="noopener noreferrer">
+                  <span class="about-link-icon" data-about-icon="github"></span>
+                  <span>GitHub</span>
+                </a>
+                <a id="aboutWebsite" class="about-link" href="https://telecode.trendslab.pro/" target="_blank" rel="noopener noreferrer">
+                  <span class="about-link-icon" data-about-icon="globe"></span>
+                  <span>Website</span>
+                </a>
               </div>
             </div>
 
             <ul class="about-features">
-              <li><span class="dot">◆</span> <span data-t="about_feature_agent">Autonomous agent (pi-agent-core) for solving complex coding tasks.</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_files">Direct file system access (read, search, smart editing).</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_terminal">Safe command execution in VS Code terminal.</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_remote">Remote control via Telegram and WhatsApp.</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_multimodal">Multimodal model support (vison/image analysis).</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_i18n">Full multi-language support (UI and responses).</span></li>
+              <li><span class="dot">◆</span> <span>Autonomous agent loop: plans, executes tools, edits code, and iterates until done.</span></li>
+              <li><span class="dot">◆</span> <span>Telegram remote control: run tasks from your phone while VS Code stays open.</span></li>
+              <li><span class="dot">◆</span> <span>Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.</span></li>
+              <li><span class="dot">◆</span> <span>Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.</span></li>
             </ul>
           </div>
 
@@ -116,31 +131,47 @@
               <span class="settings-block-desc" data-t="settings_general_desc">Global application preferences.</span>
             </div>
 
-            <div class="field">
-              <label for="uiLanguage" data-t="field_ui_language">UI Language</label>
-              <span class="field-hint" data-t="field_ui_language_hint">Language for tabs, buttons and settings.</span>
-              <select id="uiLanguage">
+            <div class="field field-inline">
+              <div>
+                <label for="uiLanguage" data-t="field_ui_language">UI Language</label>
+                <span class="field-hint" data-t="field_ui_language_hint">Language for tabs, buttons and settings.</span>
+              </div>
+              <select id="uiLanguage" style="width:170px">
                 <option value="ru">Russian (ru)</option>
                 <option value="en">English (en)</option>
               </select>
             </div>
 
-            <div class="field">
-              <label for="language" data-t="field_language">Response Language</label>
-              <span class="field-hint" data-t="field_language_hint">Agent's response language.</span>
-              <select id="language">
+            <div class="field field-inline">
+              <div>
+                <label for="language" data-t="field_language">Response Language</label>
+                <span class="field-hint" data-t="field_language_hint">Agent's response language.</span>
+              </div>
+              <select id="language" style="width:170px">
                 <option value="auto">Auto</option>
                 <option value="ru">Russian (ru)</option>
                 <option value="en">English (en)</option>
               </select>
             </div>
 
+            <div class="field field-inline">
+              <div>
+                <label for="statusVerbosity" data-t="field_status_verbosity">Status Verbosity</label>
+                <span class="field-hint" data-t="field_status_verbosity_hint">How many runtime status lines to show in logs.</span>
+              </div>
+              <select id="statusVerbosity" style="width:170px">
+                <option value="minimal" data-t="option_status_minimal">Minimal</option>
+                <option value="normal" data-t="option_status_normal">Normal</option>
+                <option value="debug" data-t="option_status_debug">Debug</option>
+              </select>
+            </div>
+
             <div class="field field-check">
-              <input id="allowOutOfWorkspace" type="checkbox" />
               <div>
                 <label for="allowOutOfWorkspace" data-t="field_allow_out_workspace">Allow Out of Workspace</label>
                 <span class="field-hint" data-t="field_allow_out_workspace_hint">Allow agent to access files and run commands outside the current workspace folder. Disabled by default for security.</span>
               </div>
+              <input id="allowOutOfWorkspace" type="checkbox" />
             </div>
 
             <div class="field field-inline">
@@ -226,11 +257,11 @@
             </div>
 
             <div class="field field-check">
-              <input id="telegramEnabled" type="checkbox" />
               <div>
                 <label for="telegramEnabled" data-t="field_telegram_enabled">Enable Telegram Bot</label>
                 <span class="field-hint" data-t="field_telegram_enabled_hint">Start the bot when the agent is running.</span>
               </div>
+              <input id="telegramEnabled" type="checkbox" />
             </div>
 
             <div class="field">
@@ -252,11 +283,11 @@
             </div>
 
             <div class="field field-check">
-              <input id="telegramForceIPv4" type="checkbox" />
               <div>
                 <label for="telegramForceIPv4" data-t="field_telegram_force_ipv4">Force IPv4</label>
                 <span class="field-hint" data-t="field_telegram_force_ipv4_hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
               </div>
+              <input id="telegramForceIPv4" type="checkbox" />
             </div>
           </div>
 
