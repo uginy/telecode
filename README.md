@@ -27,7 +27,7 @@
 It plans, executes tools, edits files, and reports progress in a structured log UI.
 You can control it from VS Code or remotely via Telegram.
 
-## 🆕 Version 0.1.5 Highlights
+## 🆕 Version 0.1.6 Highlights
 
 - Refined grouped logs UX with collapse/expand-all control and cleaner status noise handling.
 - Safe Mode Profiles (`strict`, `balanced`, `power`) in both composer and Settings.
