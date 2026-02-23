@@ -40,6 +40,7 @@ export function readForm(): Settings {
     language:          strVal('language'),
     uiLanguage:        strVal('uiLanguage'),
     statusVerbosity:   strVal('statusVerbosity'),
+    safeModeProfile:   strVal('safeModeProfile'),
     allowOutOfWorkspace: boolVal('allowOutOfWorkspace'),
     logMaxChars,
     telegramMaxLogLines,
@@ -61,6 +62,7 @@ export function writeForm(s: Settings): void {
   setStr( 'language',         s.language ?? 'ru');
   setStr( 'uiLanguage',       s.uiLanguage ?? 'ru');
   setStr( 'statusVerbosity',  s.statusVerbosity ?? 'normal');
+  setStr( 'safeModeProfile',  s.safeModeProfile ?? 'balanced');
   setBool('allowOutOfWorkspace', s.allowOutOfWorkspace === true);
   setStr( 'logMaxChars',      String(s.logMaxChars ?? 500000));
   setStr( 'telegramMaxLogLines', String(s.telegramMaxLogLines ?? 300));

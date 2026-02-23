@@ -14,9 +14,10 @@
   <header class="header">
     <span class="brand">◆ TeleCode AI</span>
     <div class="header-controls">
+      <span id="phase" class="phase" data-busy="0"></span>
       <span id="status" class="status-badge" data-state="idle">Idle</span>
       <div class="top-controls" id="topControls">
-        <button id="agentToggleBtn" class="top-icon-btn toggle-play" type="button" title="Start" aria-label="Start" data-action="start">
+        <button id="agentToggleBtn" class="top-icon-btn toggle-play" type="button" aria-label="Start" data-action="start" data-tooltip-key="tt_toggle_agent_start" data-tooltip-placement="bottom">
         </button>
       </div>
     </div>
@@ -24,8 +25,8 @@
 
   <!-- ── Tabs ───────────────────────────────────────────── -->
   <nav class="tabs">
-    <button id="tabLogs"     class="tab active" type="button" data-t="tab_logs">Logs</button>
-    <button id="tabSettings" class="tab"        type="button" data-t="tab_settings">Settings</button>
+    <button id="tabLogs"     class="tab active" type="button" data-t="tab_logs" data-tooltip-key="tt_tab_logs" data-tooltip-placement="bottom">Logs</button>
+    <button id="tabSettings" class="tab"        type="button" data-t="tab_settings" data-tooltip-key="tt_tab_settings" data-tooltip-placement="bottom">Settings</button>
     
     <div class="tabs-spacer"></div>
 
@@ -35,12 +36,11 @@
     </div>
 
     <span id="settingsNote" class="settings-note hidden"></span>
-    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings">Save Settings</button>
+    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings" data-tooltip-key="tt_save_settings" data-tooltip-placement="bottom">Save Settings</button>
   </nav>
 
   <!-- ── Logs pane ──────────────────────────────────────── -->
   <section id="logsPane" class="pane">
-    <div id="phase" class="phase" data-busy="0">Ready</div>
     <div class="log-filters" id="logFilters">
       <div class="log-filter-row">
         <button class="log-filter-btn active" type="button" data-kind="all">All</button>
@@ -50,23 +50,34 @@
         <button class="log-filter-btn" type="button" data-kind="status">Status</button>
         <button class="log-filter-btn" type="button" data-kind="channel">Channel</button>
         <button class="log-filter-btn" type="button" data-kind="llm">LLM</button>
+        <div class="log-group-actions">
+          <button id="toggleAllGroupsBtn" class="log-filter-btn icon-only" type="button" aria-label="Collapse all" data-tooltip-key="btn_collapse_all" data-tooltip-placement="bottom"></button>
+        </div>
       </div>
       <div class="log-filter-row compact">
         <input id="logFilterQuery" class="log-filter-input" type="text" placeholder="Filter logs..." />
-        <button id="logFilterClear" class="log-filter-clear" type="button">Clear</button>
+        <button id="logFilterClear" class="log-filter-clear" type="button" data-tooltip-key="tt_clear_filters" data-tooltip-placement="top">Clear</button>
       </div>
     </div>
     <div id="output" class="output" data-view="grouped"></div>
     <div class="input-area">
       <div class="composer">
         <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="2"></textarea>
-        <button id="runBtn" class="composer-send" type="button" title="Send" aria-label="Send">
+        <button id="runBtn" class="composer-send" type="button" aria-label="Send" data-tooltip-key="tt_send_prompt" data-tooltip-placement="top">
         </button>
       </div>
       <div class="composer-meta">
         <span id="metaProvider" class="meta-chip">provider: -</span>
         <span id="metaModel" class="meta-chip">model: -</span>
         <span id="metaStyle" class="meta-chip">style: -</span>
+        <div class="safe-mode-inline">
+          <label for="safeModeProfileInline" class="safe-mode-label" data-t="safe_mode_label">Mode:</label>
+          <select id="safeModeProfileInline" class="safe-mode-select" data-tooltip-key="tt_safe_mode" data-tooltip-placement="top">
+            <option value="strict" data-t="safe_mode_strict">Strict</option>
+            <option value="balanced" data-t="safe_mode_balanced">Balanced</option>
+            <option value="power" data-t="safe_mode_power">Power</option>
+          </select>
+        </div>
       </div>
     </div>
   </section>
@@ -98,7 +109,7 @@
                 <div class="about-brand-mark">◆</div>
                 <div class="about-brand-copy">
                   <div class="about-brand-title">TeleCode AI</div>
-                  <div id="aboutTagline" class="about-brand-subtitle">Remote-controlled autonomous coding agent in VS Code.</div>
+                  <div id="aboutTagline" class="about-brand-subtitle" data-t="about_tagline">Remote-controlled autonomous coding agent in VS Code.</div>
                 </div>
               </div>
               <div class="about-version">
@@ -107,20 +118,39 @@
               <div class="about-links">
                 <a id="aboutGithub" class="about-link" href="https://github.com/uginy/telecode" target="_blank" rel="noopener noreferrer">
                   <span class="about-link-icon" data-about-icon="github"></span>
-                  <span>GitHub</span>
+                  <span data-t="about_link_github">GitHub</span>
                 </a>
                 <a id="aboutWebsite" class="about-link" href="https://telecode.trendslab.pro/" target="_blank" rel="noopener noreferrer">
                   <span class="about-link-icon" data-about-icon="globe"></span>
-                  <span>Website</span>
+                  <span data-t="about_link_website">Website</span>
+                </a>
+                <a id="aboutMarketplace" class="about-link" href="https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai" target="_blank" rel="noopener noreferrer">
+                  <span class="about-link-icon" data-about-icon="run"></span>
+                  <span data-t="about_link_marketplace">Marketplace</span>
                 </a>
               </div>
             </div>
 
+            <div class="about-grid">
+              <div class="about-card">
+                <div class="about-card-title"><span class="about-card-icon" data-about-icon="task"></span> <span data-t="about_card_core_title">Core</span></div>
+                <div class="about-card-text" data-t="about_card_core_text">Autonomous loop with plan → tools → apply → verify cycle for real coding tasks.</div>
+              </div>
+              <div class="about-card">
+                <div class="about-card-title"><span class="about-card-icon" data-about-icon="channel"></span> <span data-t="about_card_remote_title">Remote</span></div>
+                <div class="about-card-text" data-t="about_card_remote_text">Telegram channel with lifecycle notifications, status updates, and safe start/stop flow.</div>
+              </div>
+              <div class="about-card">
+                <div class="about-card-title"><span class="about-card-icon" data-about-icon="tool"></span> <span data-t="about_card_tools_title">Tools</span></div>
+                <div class="about-card-text" data-t="about_card_tools_text">Workspace tools for reading/editing files, searching code, and running shell commands.</div>
+              </div>
+            </div>
+
             <ul class="about-features">
-              <li><span class="dot">◆</span> <span>Autonomous agent loop: plans, executes tools, edits code, and iterates until done.</span></li>
-              <li><span class="dot">◆</span> <span>Telegram remote control: run tasks from your phone while VS Code stays open.</span></li>
-              <li><span class="dot">◆</span> <span>Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.</span></li>
-              <li><span class="dot">◆</span> <span>Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_agent">Autonomous agent loop: plans, executes tools, edits code, and iterates until done.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_remote">Telegram remote control: run tasks from your phone while VS Code stays open.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_multimodal">Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_files">Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.</span></li>
             </ul>
           </div>
 
@@ -163,6 +193,18 @@
                 <option value="minimal" data-t="option_status_minimal">Minimal</option>
                 <option value="normal" data-t="option_status_normal">Normal</option>
                 <option value="debug" data-t="option_status_debug">Debug</option>
+              </select>
+            </div>
+
+            <div class="field field-inline">
+              <div>
+                <label for="safeModeProfile" data-t="field_safe_mode_profile">Safe Mode Profile</label>
+                <span class="field-hint" data-t="field_safe_mode_profile_hint">Quick permission profile for tools and workspace scope.</span>
+              </div>
+              <select id="safeModeProfile" style="width:170px">
+                <option value="strict" data-t="safe_mode_strict">Strict</option>
+                <option value="balanced" data-t="safe_mode_balanced">Balanced</option>
+                <option value="power" data-t="safe_mode_power">Power</option>
               </select>
             </div>
 
@@ -225,7 +267,7 @@
                   <span id="modelChevron" class="chevron">▼</span>
                   <div id="modelPicker" class="picker hidden"></div>
                 </div>
-                <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" title="Fetch models from API">↻</button>
+                <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" data-tooltip-key="tt_fetch_models" data-tooltip-placement="right">↻</button>
               </div>
             </div>
 

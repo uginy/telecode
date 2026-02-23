@@ -13,6 +13,7 @@ import { type ChatViewCommand, type ChatViewSettings, ChatViewProvider } from '.
 import { CodingAgent } from './agent/codingAgent';
 import { i18n } from './services/i18n';
 import { saveOpenSettingsFiles } from './utils/vscodeUtils';
+import type { AgentSettings } from './config/settings';
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -48,6 +49,32 @@ const STATUS_SUPPRESSED_PREFIXES_MINIMAL = [
   'event:',
   'tool_execution_update:',
 ];
+
+type SafeModeProfile = 'strict' | 'balanced' | 'power';
+type EffectiveAgentPolicy = {
+  allowedTools: string[];
+  allowOutOfWorkspace: boolean;
+};
+
+function getEffectiveAgentPolicy(agent: AgentSettings): EffectiveAgentPolicy {
+  const profile = agent.safeModeProfile as SafeModeProfile;
+  if (profile === 'strict') {
+    return {
+      allowedTools: ['read', 'glob', 'grep'],
+      allowOutOfWorkspace: false,
+    };
+  }
+  if (profile === 'power') {
+    return {
+      allowedTools: [],
+      allowOutOfWorkspace: true,
+    };
+  }
+  return {
+    allowedTools: agent.allowedTools,
+    allowOutOfWorkspace: false,
+  };
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   extensionVersion =
@@ -137,6 +164,7 @@ export function activate(context: vscode.ExtensionContext): void {
             event.affectsConfiguration('telecode.logMaxChars') ||
             event.affectsConfiguration('telecode.telegramMaxLogLines') ||
             event.affectsConfiguration('telecode.statusVerbosity') ||
+            event.affectsConfiguration('telecode.safeModeProfile') ||
             event.affectsConfiguration('telecode.allowedTools') ||
             event.affectsConfiguration('telecode.responseStyle') ||
             event.affectsConfiguration('telecode.language') ||
@@ -230,7 +258,8 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
   ensureChannelsRunning();
 
   const settings = readTelecodeSettings();
-  const tools = resolveTools(settings.agent.allowedTools);
+  const policy = getEffectiveAgentPolicy(settings.agent);
+  const tools = resolveTools(policy.allowedTools);
 
   let apiKey = settings.agent.apiKey;
   if (!apiKey && sessionApiKey) {
@@ -265,6 +294,8 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 
   const config: RuntimeConfig = {
     ...settings.agent,
+    allowedTools: policy.allowedTools,
+    allowOutOfWorkspace: policy.allowOutOfWorkspace,
     apiKey,
     cwd: getPrimaryWorkspaceRoot(),
     language: settings.agent.language === 'auto' ? undefined : settings.agent.language,
@@ -410,7 +441,7 @@ function refreshChannels(): void {
   channelRegistry.stopAll();
 
   const settings = readTelecodeSettings();
-  const tools = resolveTools(settings.agent.allowedTools);
+  const tools = resolveTools(getEffectiveAgentPolicy(settings.agent).allowedTools);
 
   const telegramChannel = new TelegramChannel(
     tools,
@@ -448,10 +479,11 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     await config.update('logMaxChars', settings.logMaxChars, target);
     await config.update('telegramMaxLogLines', settings.telegramMaxLogLines, target);
     await config.update('statusVerbosity', settings.statusVerbosity, target);
+    await config.update('safeModeProfile', settings.safeModeProfile, target);
     await config.update('responseStyle', settings.responseStyle, target);
     await config.update('language', settings.language, target);
     await config.update('uiLanguage', settings.uiLanguage, target);
-    await config.update('allowOutOfWorkspace', settings.allowOutOfWorkspace === true, target);
+    await config.update('allowOutOfWorkspace', settings.safeModeProfile === 'power', target);
     await config.update('telegram.enabled', settings.telegramEnabled, target);
     if (telegramBotToken.length > 0) {
       await config.update('telegram.botToken', telegramBotToken, target);
@@ -508,7 +540,11 @@ function scheduleConfigApply(): void {
 }
 
 function resolveTools(allowedTools: string[]): AgentTool[] {
-  return filterToolsByAllowed(createWorkspaceTools(), allowedTools);
+  const allTools = createWorkspaceTools();
+  if (!allowedTools || allowedTools.length === 0) {
+    return allTools;
+  }
+  return filterToolsByAllowed(allTools, allowedTools);
 }
 
 function handleRuntimeEvent(event: RuntimeEvent): void {
@@ -712,6 +748,7 @@ function syncSettingsToChatView(): void {
     logMaxChars: settings.agent.logMaxChars,
     telegramMaxLogLines: settings.agent.telegramMaxLogLines,
     statusVerbosity: settings.agent.statusVerbosity,
+    safeModeProfile: settings.agent.safeModeProfile,
     responseStyle: settings.agent.responseStyle,
     language: settings.agent.language,
     uiLanguage: settings.agent.uiLanguage,

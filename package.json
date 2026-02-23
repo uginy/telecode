@@ -236,6 +236,21 @@
           ],
           "description": "How many runtime status lines are shown in Logs"
         },
+        "telecode.safeModeProfile": {
+          "type": "string",
+          "default": "balanced",
+          "enum": [
+            "strict",
+            "balanced",
+            "power"
+          ],
+          "enumDescriptions": [
+            "Read/search focused. No bash and no out-of-workspace access",
+            "Daily coding profile with normal tools, workspace-only scope",
+            "Maximum capability mode. Full tools and out-of-workspace enabled"
+          ],
+          "description": "Safety/capability profile for agent permissions"
+        },
         "telecode.allowedTools": {
           "type": "array",
           "default": [

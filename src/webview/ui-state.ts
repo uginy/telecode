@@ -62,7 +62,8 @@ export function setControlState(statusText: string): void {
   toggle.classList.toggle('toggle-stop', toggle.dataset.action === 'stop');
   toggle.classList.toggle('toggle-play', toggle.dataset.action !== 'stop');
   const title = toggle.dataset.action === 'stop' ? stopTitle : startTitle;
-  toggle.title = title;
+  toggle.dataset.tooltip = title;
+  toggle.dataset.tooltipKey = toggle.dataset.action === 'stop' ? 'tt_toggle_agent_stop' : 'tt_toggle_agent_start';
   toggle.setAttribute('aria-label', title);
 
   el.runBtn().disabled = running;

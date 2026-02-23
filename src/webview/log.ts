@@ -386,3 +386,19 @@ export function clearOutput(): void {
   currentSystemNode = null;
   finalizeStreamingText();
 }
+
+export function collapseAllGroups(): void {
+  const out = el.output();
+  const nodes = Array.from(out.querySelectorAll('.grouped-node')) as HTMLElement[];
+  for (const node of nodes) {
+    node.classList.remove('expanded');
+  }
+}
+
+export function expandAllGroups(): void {
+  const out = el.output();
+  const nodes = Array.from(out.querySelectorAll('.grouped-node')) as HTMLElement[];
+  for (const node of nodes) {
+    node.classList.add('expanded');
+  }
+}

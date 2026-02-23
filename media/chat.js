@@ -37,7 +37,9 @@
     session: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 3v4M16 3v4M8 12h8"/>',
     tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>',
     github: '<path d="M9 19c-4.5 1.4-4.5-2.1-6.3-2.8"/><path d="M15 22v-3.3a3.3 3.3 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-6.6a5.2 5.2 0 0 0-1.4-3.6 4.9 4.9 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.8 12.8 0 0 0-6.7 0C5.7 2 4.6 2.3 4.6 2.3a4.9 4.9 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5 3.1 6.2 6.1 6.6a3.3 3.3 0 0 0-.9 2.6V22"/>',
-    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 2.5 12.4 0 18"/><path d="M12 3c-2.5 2.6-2.5 12.4 0 18"/>'
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 2.5 12.4 0 18"/><path d="M12 3c-2.5 2.6-2.5 12.4 0 18"/>',
+    "collapse-all": '<path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/>',
+    "expand-all": '<path d="M7 10l5 5 5-5"/><path d="M7 5l5 5 5-5"/>'
   };
   function createSvgIcon(path) {
     const ns = "http://www.w3.org/2000/svg";
@@ -112,7 +114,8 @@
     toggle.classList.toggle("toggle-stop", toggle.dataset.action === "stop");
     toggle.classList.toggle("toggle-play", toggle.dataset.action !== "stop");
     const title = toggle.dataset.action === "stop" ? stopTitle : startTitle;
-    toggle.title = title;
+    toggle.dataset.tooltip = title;
+    toggle.dataset.tooltipKey = toggle.dataset.action === "stop" ? "tt_toggle_agent_stop" : "tt_toggle_agent_start";
     toggle.setAttribute("aria-label", title);
     el.runBtn().disabled = running;
   }
@@ -456,6 +459,22 @@
     finalizeStreamingText();
   }
   __name(clearOutput, "clearOutput");
+  function collapseAllGroups() {
+    const out = el.output();
+    const nodes = Array.from(out.querySelectorAll(".grouped-node"));
+    for (const node of nodes) {
+      node.classList.remove("expanded");
+    }
+  }
+  __name(collapseAllGroups, "collapseAllGroups");
+  function expandAllGroups() {
+    const out = el.output();
+    const nodes = Array.from(out.querySelectorAll(".grouped-node"));
+    for (const node of nodes) {
+      node.classList.add("expanded");
+    }
+  }
+  __name(expandAllGroups, "expandAllGroups");
 
   // src/webview/settings.ts
   var $ = /* @__PURE__ */ __name((id) => document.getElementById(id), "$");
@@ -494,6 +513,7 @@
       language: strVal("language"),
       uiLanguage: strVal("uiLanguage"),
       statusVerbosity: strVal("statusVerbosity"),
+      safeModeProfile: strVal("safeModeProfile"),
       allowOutOfWorkspace: boolVal("allowOutOfWorkspace"),
       logMaxChars,
       telegramMaxLogLines,
@@ -515,6 +535,7 @@
     setStr("language", s.language ?? "ru");
     setStr("uiLanguage", s.uiLanguage ?? "ru");
     setStr("statusVerbosity", s.statusVerbosity ?? "normal");
+    setStr("safeModeProfile", s.safeModeProfile ?? "balanced");
     setBool("allowOutOfWorkspace", s.allowOutOfWorkspace === true);
     setStr("logMaxChars", String(s.logMaxChars ?? 5e5));
     setStr("telegramMaxLogLines", String(s.telegramMaxLogLines ?? 300));
@@ -535,8 +556,13 @@
         setControlState(msg.text);
         break;
       case "progress":
-        setPhaseText(msg.text ?? "");
-        el.phase().dataset.busy = msg.busy ? "1" : "0";
+        {
+          const text = (msg.text ?? "").trim();
+          const lower = text.toLowerCase();
+          const isIdleLike = lower === "idle" || lower === "ready" || lower.startsWith("idle \u2022") || lower.startsWith("ready \u2022");
+          setPhaseText(msg.busy || !isIdleLike ? text : "");
+          el.phase().dataset.busy = msg.busy ? "1" : "0";
+        }
         break;
       case "replaceOutput":
         replaceOutput(msg.text);
@@ -578,7 +604,129 @@
   }
   __name(handleMessage, "handleMessage");
 
+  // src/webview/tooltip-service.ts
+  var TOOLTIP_SELECTOR = "[data-tooltip]";
+  var VIEWPORT_GAP = 8;
+  var tooltipEl = null;
+  var activeTarget = null;
+  function ensureTooltip() {
+    if (tooltipEl) return tooltipEl;
+    const el2 = document.createElement("div");
+    el2.className = "tc-tooltip";
+    el2.setAttribute("role", "tooltip");
+    document.body.appendChild(el2);
+    tooltipEl = el2;
+    return el2;
+  }
+  __name(ensureTooltip, "ensureTooltip");
+  function placements(preferred) {
+    const p = preferred === "right" || preferred === "bottom" || preferred === "left" ? preferred : "top";
+    const order = ["top", "right", "bottom", "left"];
+    return [p, ...order.filter((x) => x !== p)];
+  }
+  __name(placements, "placements");
+  function calcPos(trigger, tipRect, place) {
+    let top = 0;
+    let left = 0;
+    if (place === "top") {
+      top = trigger.top - tipRect.height - VIEWPORT_GAP;
+      left = trigger.left + (trigger.width - tipRect.width) / 2;
+    } else if (place === "bottom") {
+      top = trigger.bottom + VIEWPORT_GAP;
+      left = trigger.left + (trigger.width - tipRect.width) / 2;
+    } else if (place === "right") {
+      top = trigger.top + (trigger.height - tipRect.height) / 2;
+      left = trigger.right + VIEWPORT_GAP;
+    } else {
+      top = trigger.top + (trigger.height - tipRect.height) / 2;
+      left = trigger.left - tipRect.width - VIEWPORT_GAP;
+    }
+    const fits = top >= 4 && left >= 4 && top + tipRect.height <= window.innerHeight - 4 && left + tipRect.width <= window.innerWidth - 4;
+    return { top, left, fits };
+  }
+  __name(calcPos, "calcPos");
+  function showTooltip(target) {
+    const text = (target.dataset.tooltip || "").trim();
+    if (!text) return;
+    const tip = ensureTooltip();
+    activeTarget = target;
+    tip.textContent = text;
+    tip.dataset.open = "1";
+    const preferred = target.dataset.tooltipPlacement || "top";
+    tip.style.top = "0px";
+    tip.style.left = "0px";
+    const tipRect = tip.getBoundingClientRect();
+    const triggerRect = target.getBoundingClientRect();
+    let pos = calcPos(triggerRect, tipRect, "top");
+    for (const place of placements(preferred)) {
+      const next = calcPos(triggerRect, tipRect, place);
+      if (next.fits) {
+        pos = next;
+        tip.dataset.place = place;
+        break;
+      }
+    }
+    const clampedTop = Math.max(4, Math.min(pos.top, window.innerHeight - tipRect.height - 4));
+    const clampedLeft = Math.max(4, Math.min(pos.left, window.innerWidth - tipRect.width - 4));
+    tip.style.top = `${clampedTop}px`;
+    tip.style.left = `${clampedLeft}px`;
+  }
+  __name(showTooltip, "showTooltip");
+  function hideTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.dataset.open = "0";
+    activeTarget = null;
+  }
+  __name(hideTooltip, "hideTooltip");
+  function bindElement(el2) {
+    if (el2.dataset.tooltipBound === "1") return;
+    el2.dataset.tooltipBound = "1";
+    el2.addEventListener("mouseenter", () => showTooltip(el2));
+    el2.addEventListener("mouseleave", hideTooltip);
+    el2.addEventListener("focus", () => showTooltip(el2));
+    el2.addEventListener("blur", hideTooltip);
+  }
+  __name(bindElement, "bindElement");
+  function initTooltips() {
+    const all = Array.from(document.querySelectorAll(TOOLTIP_SELECTOR));
+    for (const el2 of all) bindElement(el2);
+    window.addEventListener("scroll", () => {
+      if (activeTarget) showTooltip(activeTarget);
+    }, true);
+    window.addEventListener("resize", () => {
+      if (activeTarget) showTooltip(activeTarget);
+    });
+  }
+  __name(initTooltips, "initTooltips");
+  function applyTooltipTranslations(t) {
+    const all = Array.from(document.querySelectorAll("[data-tooltip-key]"));
+    for (const el2 of all) {
+      const key = el2.dataset.tooltipKey || "";
+      if (key && t[key]) {
+        el2.dataset.tooltip = t[key];
+      }
+    }
+  }
+  __name(applyTooltipTranslations, "applyTooltipTranslations");
+
   // src/webview/index.ts
+  function deriveAllowOutOfWorkspaceByProfile(profile) {
+    return profile === "power";
+  }
+  __name(deriveAllowOutOfWorkspaceByProfile, "deriveAllowOutOfWorkspaceByProfile");
+  function syncSafeModeControls(profile) {
+    const effective = profile || "balanced";
+    const inline = document.getElementById("safeModeProfileInline");
+    if (inline) inline.value = effective;
+    const allowOut = document.getElementById("allowOutOfWorkspace");
+    if (allowOut) {
+      allowOut.checked = deriveAllowOutOfWorkspaceByProfile(effective);
+      allowOut.disabled = effective !== "power";
+    }
+    const settingsSelect = document.getElementById("safeModeProfile");
+    if (settingsSelect) settingsSelect.value = effective;
+  }
+  __name(syncSafeModeControls, "syncSafeModeControls");
   function updateComposerMeta() {
     const provider = document.getElementById("provider")?.value?.trim() || "-";
     const model = document.getElementById("model")?.value?.trim() || "-";
@@ -596,15 +744,43 @@
     sendBtn.innerHTML = "";
     sendBtn.appendChild(makeIcon("send", "send-icon"));
     const aboutIcons = Array.from(document.querySelectorAll("[data-about-icon]"));
+    const allowed = /* @__PURE__ */ new Set(["github", "globe", "run", "task", "channel", "tool"]);
     for (const holder of aboutIcons) {
       const id = holder.dataset.aboutIcon;
       holder.innerHTML = "";
-      if (id === "github" || id === "globe") {
+      if (id && allowed.has(id)) {
         holder.appendChild(makeIcon(id, "about-link-icon"));
       }
     }
+    updateGroupsToggleButton(true);
   }
   __name(initStaticIcons, "initStaticIcons");
+  function updateGroupsToggleButton(collapseAction) {
+    const btn = document.getElementById("toggleAllGroupsBtn");
+    if (!btn) return;
+    btn.dataset.action = collapseAction ? "collapse" : "expand";
+    const key = collapseAction ? "btn_collapse_all" : "btn_expand_all";
+    const t = window.__tcTranslations || {};
+    const text = t[key] || (collapseAction ? "Collapse all" : "Expand all");
+    btn.dataset.tooltipKey = key;
+    btn.dataset.tooltip = text;
+    btn.setAttribute("aria-label", text);
+    btn.innerHTML = "";
+    btn.appendChild(makeIcon(collapseAction ? "collapse-all" : "expand-all", "log-action-icon"));
+  }
+  __name(updateGroupsToggleButton, "updateGroupsToggleButton");
+  function bindSafeModeStrip() {
+    const inline = document.getElementById("safeModeProfileInline");
+    inline?.addEventListener("change", () => {
+      const profile = inline.value || "balanced";
+      const settings = readForm();
+      settings.safeModeProfile = profile;
+      settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(profile);
+      cmd.saveSettings(settings);
+      syncSafeModeControls(profile);
+    });
+  }
+  __name(bindSafeModeStrip, "bindSafeModeStrip");
   function saveState() {
     const outputEl = el.output();
     const lines = Array.from(outputEl.querySelectorAll(".log-line"));
@@ -664,6 +840,7 @@
     const buttons = Array.from(document.querySelectorAll(".log-filter-btn"));
     const input = document.getElementById("logFilterQuery");
     const clear = document.getElementById("logFilterClear");
+    const toggleAll = document.getElementById("toggleAllGroupsBtn");
     for (const button of buttons) {
       button.addEventListener("click", () => {
         const kind = button.dataset.kind || "all";
@@ -688,6 +865,16 @@
       if (input) input.value = "";
       updateFilterButtons();
       applyGroupedFilters();
+    });
+    toggleAll?.addEventListener("click", () => {
+      const action = toggleAll.dataset.action || "collapse";
+      if (action === "collapse") {
+        collapseAllGroups();
+        updateGroupsToggleButton(false);
+      } else {
+        expandAllGroups();
+        updateGroupsToggleButton(true);
+      }
     });
   }
   __name(bindLogFilters, "bindLogFilters");
@@ -718,8 +905,14 @@
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runTask();
   });
   el.saveSettingsBtn().addEventListener("click", () => {
-    cmd.saveSettings(readForm());
+    const settings = readForm();
+    settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(settings.safeModeProfile || "balanced");
+    cmd.saveSettings(settings);
     updateComposerMeta();
+  });
+  var safeModeSelect = document.getElementById("safeModeProfile");
+  safeModeSelect?.addEventListener("change", () => {
+    syncSafeModeControls(safeModeSelect.value || "balanced");
   });
   el.fetchModelsBtn().addEventListener("click", () => {
     const settings = readForm();
@@ -807,6 +1000,7 @@
     applyTranslations(translations);
   });
   function applyTranslations(t) {
+    window.__tcTranslations = t;
     const textElements = Array.from(document.querySelectorAll("[data-t]"));
     for (const element of textElements) {
       const key = element.getAttribute("data-t");
@@ -825,10 +1019,19 @@
     toggle.dataset.startTitle = t.btn_start || "Start";
     toggle.dataset.stopTitle = t.btn_stop || "Stop";
     setControlState(el.status().textContent ?? "");
+    applyTooltipTranslations(t);
+    const toggleAll = document.getElementById("toggleAllGroupsBtn");
+    updateGroupsToggleButton((toggleAll?.dataset.action || "collapse") === "collapse");
   }
   __name(applyTranslations, "applyTranslations");
   window.addEventListener("message", (e) => {
     handleMessage(e.data);
+    const anyExpanded = Array.from(document.querySelectorAll(".grouped-node")).some(
+      (node) => node.classList.contains("expanded")
+    );
+    updateGroupsToggleButton(anyExpanded);
+    const safeMode = document.getElementById("safeModeProfile")?.value || "balanced";
+    syncSafeModeControls(safeMode);
     updateComposerMeta();
     applyGroupedFilters();
     saveState();
@@ -849,6 +1052,8 @@
   updateFilterButtons();
   applyGroupedFilters();
   initStaticIcons();
+  initTooltips();
+  bindSafeModeStrip();
   updateComposerMeta();
   setControlState(el.status().textContent ?? "");
   cmd.requestSettings();

@@ -33,8 +33,23 @@ export interface Translations {
   option_status_minimal: string;
   option_status_normal: string;
   option_status_debug: string;
+  safe_mode_label: string;
+  safe_mode_strict: string;
+  safe_mode_balanced: string;
+  safe_mode_power: string;
+  tt_tab_logs: string;
+  tt_tab_settings: string;
+  tt_toggle_agent_start: string;
+  tt_toggle_agent_stop: string;
+  tt_send_prompt: string;
+  tt_safe_mode: string;
+  tt_clear_filters: string;
+  tt_save_settings: string;
+  tt_fetch_models: string;
   btn_view_grouped: string;
   btn_view_list: string;
+  btn_collapse_all: string;
+  btn_expand_all: string;
 
   // UI - Settings General
   settings_general_title: string;
@@ -44,6 +59,16 @@ export interface Translations {
   settings_about_title: string;
   settings_about_desc: string;
   about_version: string;
+  about_tagline: string;
+  about_link_github: string;
+  about_link_website: string;
+  about_link_marketplace: string;
+  about_card_core_title: string;
+  about_card_core_text: string;
+  about_card_remote_title: string;
+  about_card_remote_text: string;
+  about_card_tools_title: string;
+  about_card_tools_text: string;
   about_feature_agent: string;
   about_feature_files: string;
   about_feature_terminal: string;
@@ -70,6 +95,8 @@ export interface Translations {
   field_ui_language_hint: string;
   field_status_verbosity: string;
   field_status_verbosity_hint: string;
+  field_safe_mode_profile: string;
+  field_safe_mode_profile_hint: string;
   field_max_steps: string;
   field_max_steps_hint: string;
   field_log_max_chars: string;
@@ -164,8 +191,23 @@ const TRANSLATIONS: Record<Language, Translations> = {
     option_status_minimal: 'Минимум',
     option_status_normal: 'Нормально',
     option_status_debug: 'Отладка',
+    safe_mode_label: 'Режим:',
+    safe_mode_strict: 'Строгий',
+    safe_mode_balanced: 'Сбаланс.',
+    safe_mode_power: 'Мощный',
+    tt_tab_logs: 'Логи выполнения',
+    tt_tab_settings: 'Настройки TeleCode AI',
+    tt_toggle_agent_start: 'Запустить агента',
+    tt_toggle_agent_stop: 'Остановить агента и каналы',
+    tt_send_prompt: 'Отправить задачу (Ctrl/Cmd+Enter)',
+    tt_safe_mode: 'Профиль прав агента',
+    tt_clear_filters: 'Сбросить фильтры логов',
+    tt_save_settings: 'Сохранить настройки',
+    tt_fetch_models: 'Получить модели от API',
     btn_view_grouped: 'Группа',
     btn_view_list: 'Список',
+    btn_collapse_all: 'Свернуть всё',
+    btn_expand_all: 'Развернуть всё',
 
     settings_general_title: 'Общие',
     settings_general_desc: 'Глобальные настройки приложения.',
@@ -173,11 +215,21 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_about_title: 'О программе',
     settings_about_desc: 'Информация о возможностях TeleCode AI.',
     about_version: 'Версия',
-    about_feature_agent: 'Автономный агент (pi-agent-core) для решения сложных задач по кодингу.',
-    about_feature_files: 'Прямая работа с файловой системой (чтение, поиск, умное редактирование).',
-    about_feature_terminal: 'Исполнение команд в безопасном терминале VS Code.',
-    about_feature_remote: 'Дистанционное управление через Telegram и WhatsApp.',
-    about_feature_multimodal: 'Поддержка мультимодальных моделей (анализ изображений).',
+    about_tagline: 'Автономный coding-агент с удалённым управлением прямо в VS Code.',
+    about_link_github: 'GitHub',
+    about_link_website: 'Сайт',
+    about_link_marketplace: 'Marketplace',
+    about_card_core_title: 'Ядро',
+    about_card_core_text: 'Автономный цикл: план → инструменты → правки → проверка для реальных задач.',
+    about_card_remote_title: 'Удалённо',
+    about_card_remote_text: 'Telegram-канал с уведомлениями жизненного цикла, статусами и безопасным старт/стоп.',
+    about_card_tools_title: 'Инструменты',
+    about_card_tools_text: 'Инструменты workspace для чтения/редактирования, поиска по коду и shell-команд.',
+    about_feature_agent: 'Автономный агентный цикл: планирует, использует инструменты и доводит задачу до конца.',
+    about_feature_files: 'Нативный coding-toolchain: read/write/edit, glob/grep, bash и контекст workspace.',
+    about_feature_terminal: 'Безопасное выполнение команд и прозрачные логи выполнения.',
+    about_feature_remote: 'Удалённое управление через Telegram, пока VS Code открыт на вашей машине.',
+    about_feature_multimodal: 'Поддержка нескольких LLM-провайдеров: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Полная многоязычность (интерфейс и ответы агента).',
 
     settings_inference_title: 'Инференс',
@@ -198,6 +250,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_ui_language_hint: 'Язык меню, вкладок и настроек расширения.',
     field_status_verbosity: 'Детализация статусов',
     field_status_verbosity_hint: 'Сколько служебных статусов показывать в логах.',
+    field_safe_mode_profile: 'Профиль безопасности',
+    field_safe_mode_profile_hint: 'Быстрый профиль прав для инструментов и доступа к файлам.',
     field_max_steps: 'Макс. шагов',
     field_max_steps_hint: 'Максимальное количество вызовов инструментов (1–1000).',
     field_log_max_chars: 'Буфер логов (симв.)',
@@ -288,8 +342,23 @@ const TRANSLATIONS: Record<Language, Translations> = {
     option_status_minimal: 'Minimal',
     option_status_normal: 'Normal',
     option_status_debug: 'Debug',
+    safe_mode_label: 'Mode:',
+    safe_mode_strict: 'Strict',
+    safe_mode_balanced: 'Balanced',
+    safe_mode_power: 'Power',
+    tt_tab_logs: 'Execution logs',
+    tt_tab_settings: 'TeleCode AI settings',
+    tt_toggle_agent_start: 'Start agent',
+    tt_toggle_agent_stop: 'Stop agent and channels',
+    tt_send_prompt: 'Send task (Ctrl/Cmd+Enter)',
+    tt_safe_mode: 'Agent permission profile',
+    tt_clear_filters: 'Clear log filters',
+    tt_save_settings: 'Save settings',
+    tt_fetch_models: 'Fetch models from API',
     btn_view_grouped: 'Group',
     btn_view_list: 'List',
+    btn_collapse_all: 'Collapse all',
+    btn_expand_all: 'Expand all',
 
     settings_general_title: 'General',
     settings_general_desc: 'Global application preferences.',
@@ -297,11 +366,21 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_about_title: 'About',
     settings_about_desc: 'Capabilities of TeleCode AI.',
     about_version: 'Version',
-    about_feature_agent: 'Autonomous agent (pi-agent-core) for solving complex coding tasks.',
-    about_feature_files: 'Direct file system access (read, search, smart editing).',
-    about_feature_terminal: 'Safe command execution in VS Code terminal.',
-    about_feature_remote: 'Remote control via Telegram and WhatsApp.',
-    about_feature_multimodal: 'Multimodal model support (vison/image analysis).',
+    about_tagline: 'Remote-controlled autonomous coding agent inside VS Code.',
+    about_link_github: 'GitHub',
+    about_link_website: 'Website',
+    about_link_marketplace: 'Marketplace',
+    about_card_core_title: 'Core',
+    about_card_core_text: 'Autonomous loop with plan → tools → apply → verify cycle for real coding tasks.',
+    about_card_remote_title: 'Remote',
+    about_card_remote_text: 'Telegram channel with lifecycle notifications, status updates, and safe start/stop flow.',
+    about_card_tools_title: 'Tools',
+    about_card_tools_text: 'Workspace tools for reading/editing files, searching code, and running shell commands.',
+    about_feature_agent: 'Autonomous agent loop: plans, executes tools, edits code, and iterates until done.',
+    about_feature_files: 'Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.',
+    about_feature_terminal: 'Safe command execution and transparent execution logs.',
+    about_feature_remote: 'Telegram remote control: run tasks from your phone while VS Code stays open.',
+    about_feature_multimodal: 'Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Full multi-language support (UI and responses).',
 
     settings_inference_title: 'Inference',
@@ -322,6 +401,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_ui_language_hint: 'Language for tabs, buttons and settings.',
     field_status_verbosity: 'Status Verbosity',
     field_status_verbosity_hint: 'How many runtime status lines to show in logs.',
+    field_safe_mode_profile: 'Safe Mode Profile',
+    field_safe_mode_profile_hint: 'Quick permission profile for tools and workspace scope.',
     field_max_steps: 'Max Steps',
     field_max_steps_hint: 'Max tool calls allowed per task (1–1000).',
     field_log_max_chars: 'Log Buffer (chars)',

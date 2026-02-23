@@ -35,8 +35,8 @@ body {
 
 /* ── About ─────────────────────────────────────────────────────────────────── */
 .about-hero {
-  margin-bottom: 24px;
-  padding: 14px;
+  margin-bottom: 12px;
+  padding: 10px;
   background: linear-gradient(
     165deg,
     color-mix(in srgb, var(--accent) 14%, transparent),
@@ -49,7 +49,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 .about-brand-mark {
   width: 24px;
@@ -76,7 +76,7 @@ body {
 .about-version {
   font-size: 11px;
   color: var(--muted);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 .about-version span {
   font-weight: 600;
@@ -114,13 +114,59 @@ body {
   display: block;
 }
 
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.about-card {
+  border: var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.about-card-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.about-card-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.about-card-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.about-card-text {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
 .about-features {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .about-features li {
@@ -138,6 +184,12 @@ body {
   margin-top: 2px;
 }
 
+@media (max-width: 940px) {
+  .about-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 .header {
   display: flex;
@@ -150,6 +202,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .brand {
@@ -190,6 +243,7 @@ body {
   gap: 2px;
   padding: 8px 14px 0;
   flex-shrink: 0;
+  position: relative;
 }
 
 .tabs-spacer {
@@ -355,10 +409,15 @@ body {
 
 .settings-note {
   font-size: 11px;
-  color: var(--vscode-terminal-ansiGreen, #4caf50);
+  color: var(--muted);
   font-style: italic;
   font-weight: 500;
-  opacity: 0.9;
+  opacity: 0.85;
+  position: absolute;
+  right: 14px;
+  top: calc(100% + 2px);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* ── Panes ──────────────────────────────────────────────────────────────────── */
@@ -375,13 +434,17 @@ body {
 
 /* ── Phase bar ───────────────────────────────────────────────────────────────── */
 .phase {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 0;
+  max-width: 320px;
+  flex-shrink: 1;
   transition: opacity 200ms;
+}
+.phase:empty {
+  display: none;
 }
 .phase[data-busy='1']::before {
   content: '⟳ ';
@@ -559,6 +622,36 @@ body {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+.log-group-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+.log-filter-btn.icon-only {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+}
+.log-filter-btn.icon-only .log-action-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.log-filter-btn.icon-only .log-action-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  transform: translateY(-0.5px);
 }
 .log-filter-row.compact {
   justify-content: space-between;
@@ -820,6 +913,32 @@ textarea:focus { border-color: var(--accent); }
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
+.safe-mode-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.safe-mode-inline {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.safe-mode-select {
+  border: var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  color: var(--vscode-input-foreground, inherit);
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 10px;
+  outline: none;
+}
+.safe-mode-select:focus {
+  border-color: var(--accent);
+}
+
 /* ── Action row ──────────────────────────────────────────────────────────────── */
 .actions {
   display: flex;
@@ -856,6 +975,28 @@ textarea:focus { border-color: var(--accent); }
   font-weight: 500;
 }
 .btn-primary:not(:disabled):hover { opacity: .88; }
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+.tc-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: 260px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.25));
+  background: color-mix(in srgb, var(--vscode-editorWidget-background, #1f2530) 92%, black);
+  color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+  font-size: 10px;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-2px) scale(0.98);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.tc-tooltip[data-open='1'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
 
 .btn-sm {
   font-size: 10px;

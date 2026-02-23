@@ -17,7 +17,9 @@ type IconId =
   | 'session'
   | 'tool'
   | 'github'
-  | 'globe';
+  | 'globe'
+  | 'collapse-all'
+  | 'expand-all';
 
 const ICON_PATHS: Record<IconId, string> = {
   'tool-start': '<path d="M4 8h8M8 4v8"/><circle cx="16" cy="16" r="3"/><path d="M19 19l3 3"/>',
@@ -39,6 +41,8 @@ const ICON_PATHS: Record<IconId, string> = {
   tool: '<path d="M14 3a5 5 0 0 0 0 10l5 5 2-2-5-5a5 5 0 0 0-2-8z"/><path d="M4 20l6-6"/>',
   github: '<path d="M9 19c-4.5 1.4-4.5-2.1-6.3-2.8"/><path d="M15 22v-3.3a3.3 3.3 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-6.6a5.2 5.2 0 0 0-1.4-3.6 4.9 4.9 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.8 12.8 0 0 0-6.7 0C5.7 2 4.6 2.3 4.6 2.3a4.9 4.9 0 0 0-.1 3.6 5.2 5.2 0 0 0-1.4 3.6c0 5 3.1 6.2 6.1 6.6a3.3 3.3 0 0 0-.9 2.6V22"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 2.5 12.4 0 18"/><path d="M12 3c-2.5 2.6-2.5 12.4 0 18"/>',
+  'collapse-all': '<path d="M7 14l5-5 5 5"/><path d="M7 19l5-5 5 5"/>',
+  'expand-all': '<path d="M7 10l5 5 5-5"/><path d="M7 5l5 5 5-5"/>',
 };
 
 function createSvgIcon(path: string): SVGElement {

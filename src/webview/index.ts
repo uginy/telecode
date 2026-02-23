@@ -6,10 +6,11 @@
 import api from './vscode-api';
 import { cmd } from './commands';
 import { el, setStatus, setControlState, setTab } from './ui-state';
-import { replaceOutput } from './log';
+import { replaceOutput, collapseAllGroups, expandAllGroups } from './log';
 import { readForm } from './settings';
 import { handleMessage } from './messages';
 import { makeIcon } from './icon-service';
+import { applyTooltipTranslations, initTooltips } from './tooltip-service';
 
 type PersistedState = {
   output?: string;
@@ -18,6 +19,23 @@ type PersistedState = {
   tab?: 'logs' | 'settings';
   view?: 'grouped';
 };
+
+function deriveAllowOutOfWorkspaceByProfile(profile: string): boolean {
+  return profile === 'power';
+}
+
+function syncSafeModeControls(profile: string): void {
+  const effective = profile || 'balanced';
+  const inline = document.getElementById('safeModeProfileInline') as HTMLSelectElement | null;
+  if (inline) inline.value = effective;
+  const allowOut = document.getElementById('allowOutOfWorkspace') as HTMLInputElement | null;
+  if (allowOut) {
+    allowOut.checked = deriveAllowOutOfWorkspaceByProfile(effective);
+    allowOut.disabled = effective !== 'power';
+  }
+  const settingsSelect = document.getElementById('safeModeProfile') as HTMLSelectElement | null;
+  if (settingsSelect) settingsSelect.value = effective;
+}
 
 function updateComposerMeta(): void {
   const provider = (document.getElementById('provider') as HTMLInputElement | null)?.value?.trim() || '-';
@@ -38,13 +56,42 @@ function initStaticIcons(): void {
   sendBtn.appendChild(makeIcon('send', 'send-icon'));
 
   const aboutIcons = Array.from(document.querySelectorAll('[data-about-icon]')) as HTMLElement[];
+  const allowed = new Set(['github', 'globe', 'run', 'task', 'channel', 'tool']);
   for (const holder of aboutIcons) {
     const id = holder.dataset.aboutIcon;
     holder.innerHTML = '';
-    if (id === 'github' || id === 'globe') {
-      holder.appendChild(makeIcon(id, 'about-link-icon'));
+    if (id && allowed.has(id)) {
+      holder.appendChild(makeIcon(id as 'github' | 'globe' | 'run' | 'task' | 'channel' | 'tool', 'about-link-icon'));
     }
   }
+
+  updateGroupsToggleButton(true);
+}
+
+function updateGroupsToggleButton(collapseAction: boolean): void {
+  const btn = document.getElementById('toggleAllGroupsBtn') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.dataset.action = collapseAction ? 'collapse' : 'expand';
+  const key = collapseAction ? 'btn_collapse_all' : 'btn_expand_all';
+  const t = (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations || {};
+  const text = t[key] || (collapseAction ? 'Collapse all' : 'Expand all');
+  btn.dataset.tooltipKey = key;
+  btn.dataset.tooltip = text;
+  btn.setAttribute('aria-label', text);
+  btn.innerHTML = '';
+  btn.appendChild(makeIcon(collapseAction ? 'collapse-all' : 'expand-all', 'log-action-icon'));
+}
+
+function bindSafeModeStrip(): void {
+  const inline = document.getElementById('safeModeProfileInline') as HTMLSelectElement | null;
+  inline?.addEventListener('change', () => {
+    const profile = inline.value || 'balanced';
+    const settings = readForm();
+    settings.safeModeProfile = profile;
+    settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(profile);
+    cmd.saveSettings(settings);
+    syncSafeModeControls(profile);
+  });
 }
 
 function saveState(): void {
@@ -120,6 +167,7 @@ function bindLogFilters(): void {
   const buttons = Array.from(document.querySelectorAll('.log-filter-btn')) as HTMLButtonElement[];
   const input = document.getElementById('logFilterQuery') as HTMLInputElement | null;
   const clear = document.getElementById('logFilterClear') as HTMLButtonElement | null;
+  const toggleAll = document.getElementById('toggleAllGroupsBtn') as HTMLButtonElement | null;
 
   for (const button of buttons) {
     button.addEventListener('click', () => {
@@ -147,6 +195,17 @@ function bindLogFilters(): void {
     if (input) input.value = '';
     updateFilterButtons();
     applyGroupedFilters();
+  });
+
+  toggleAll?.addEventListener('click', () => {
+    const action = toggleAll.dataset.action || 'collapse';
+    if (action === 'collapse') {
+      collapseAllGroups();
+      updateGroupsToggleButton(false);
+    } else {
+      expandAllGroups();
+      updateGroupsToggleButton(true);
+    }
   });
 }
 
@@ -178,8 +237,15 @@ el.prompt().addEventListener('keydown', (e: KeyboardEvent) => {
 
 // ── Settings form ─────────────────────────────────────────────────────────────
 el.saveSettingsBtn().addEventListener('click', () => {
-  cmd.saveSettings(readForm());
+  const settings = readForm();
+  settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(settings.safeModeProfile || 'balanced');
+  cmd.saveSettings(settings);
   updateComposerMeta();
+});
+
+const safeModeSelect = document.getElementById('safeModeProfile') as HTMLSelectElement | null;
+safeModeSelect?.addEventListener('change', () => {
+  syncSafeModeControls(safeModeSelect.value || 'balanced');
 });
 
 el.fetchModelsBtn().addEventListener('click', () => {
@@ -283,6 +349,7 @@ window.addEventListener('translate', (e: Event) => {
 });
 
 function applyTranslations(t: Record<string, string>): void {
+  (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations = t;
   // Translate text content
   const textElements = Array.from(document.querySelectorAll('[data-t]'));
   for (const element of textElements) {
@@ -305,11 +372,21 @@ function applyTranslations(t: Record<string, string>): void {
   toggle.dataset.startTitle = t.btn_start || 'Start';
   toggle.dataset.stopTitle = t.btn_stop || 'Stop';
   setControlState(el.status().textContent ?? '');
+  applyTooltipTranslations(t);
+
+  const toggleAll = document.getElementById('toggleAllGroupsBtn') as HTMLButtonElement | null;
+  updateGroupsToggleButton((toggleAll?.dataset.action || 'collapse') === 'collapse');
 }
 
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
   handleMessage(e.data);
+  const anyExpanded = Array.from(document.querySelectorAll('.grouped-node')).some((node) =>
+    (node as HTMLElement).classList.contains('expanded')
+  );
+  updateGroupsToggleButton(anyExpanded);
+  const safeMode = (document.getElementById('safeModeProfile') as HTMLSelectElement | null)?.value || 'balanced';
+  syncSafeModeControls(safeMode);
   updateComposerMeta();
   applyGroupedFilters();
   saveState();
@@ -331,6 +408,8 @@ bindLogFilters();
 updateFilterButtons();
 applyGroupedFilters();
 initStaticIcons();
+initTooltips();
+bindSafeModeStrip();
 updateComposerMeta();
 setControlState(el.status().textContent ?? '');
 cmd.requestSettings();

@@ -14,6 +14,7 @@ export type Settings = {
   logMaxChars: number;
   telegramMaxLogLines: number;
   statusVerbosity?: string;
+  safeModeProfile?: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;

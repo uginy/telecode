@@ -27,6 +27,7 @@ export interface ChatViewSettings {
   logMaxChars: number;
   telegramMaxLogLines: number;
   statusVerbosity: string;
+  safeModeProfile: string;
   telegramEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
@@ -133,6 +134,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             logMaxChars,
             telegramMaxLogLines,
             statusVerbosity: typeof raw.statusVerbosity === 'string' ? raw.statusVerbosity : 'normal',
+            safeModeProfile: typeof raw.safeModeProfile === 'string' ? raw.safeModeProfile : 'balanced',
             telegramEnabled: raw.telegramEnabled === true,
             telegramBotToken: typeof raw.telegramBotToken === 'string' ? raw.telegramBotToken : '',
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',

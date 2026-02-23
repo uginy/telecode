@@ -14,6 +14,7 @@ export interface AgentSettings {
   logMaxChars: number;
   telegramMaxLogLines: number;
   statusVerbosity: 'minimal' | 'normal' | 'debug';
+  safeModeProfile: 'strict' | 'balanced' | 'power';
 }
 
 export interface TelegramSettings {
@@ -91,6 +92,11 @@ export function readTelecodeSettings(): TelecodeSettings {
     statusVerbosityRaw === 'minimal' || statusVerbosityRaw === 'normal' || statusVerbosityRaw === 'debug'
       ? statusVerbosityRaw
       : 'normal';
+  const safeModeProfileRaw = (config.get<string>('safeModeProfile') || 'balanced').trim();
+  const safeModeProfile =
+    safeModeProfileRaw === 'strict' || safeModeProfileRaw === 'balanced' || safeModeProfileRaw === 'power'
+      ? safeModeProfileRaw
+      : 'balanced';
 
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
   const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
@@ -113,6 +119,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       logMaxChars,
       telegramMaxLogLines,
       statusVerbosity,
+      safeModeProfile,
     },
     telegram: {
       enabled: telegramEnabled,

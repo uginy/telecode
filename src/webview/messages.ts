@@ -31,8 +31,17 @@ export function handleMessage(raw: unknown): void {
       break;
 
     case 'progress':
-      setPhaseText(msg.text ?? '');
-      el.phase().dataset.busy = msg.busy ? '1' : '0';
+      {
+        const text = (msg.text ?? '').trim();
+        const lower = text.toLowerCase();
+        const isIdleLike =
+          lower === 'idle' ||
+          lower === 'ready' ||
+          lower.startsWith('idle •') ||
+          lower.startsWith('ready •');
+        setPhaseText(msg.busy || !isIdleLike ? text : '');
+        el.phase().dataset.busy = msg.busy ? '1' : '0';
+      }
       break;
 
     case 'replaceOutput':
