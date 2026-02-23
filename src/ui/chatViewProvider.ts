@@ -35,6 +35,12 @@ export interface ChatViewSettings {
   telegramChatId: string;
   telegramApiRoot: string;
   telegramForceIPv4: boolean;
+  whatsappEnabled: boolean;
+  whatsappSessionPath: string;
+  whatsappAllowSelfCommands: boolean;
+  whatsappRecoveryOnAuth: boolean;
+  whatsappAccessMode: 'self' | 'allowlist' | 'all';
+  whatsappAllowedPhones: string;
 }
 
 const DEFAULT_OUTPUT_MAX_CHARS = 500_000;
@@ -150,6 +156,15 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             telegramChatId: typeof raw.telegramChatId === 'string' ? raw.telegramChatId : '',
             telegramApiRoot: typeof raw.telegramApiRoot === 'string' ? raw.telegramApiRoot : '',
             telegramForceIPv4: raw.telegramForceIPv4 !== false,
+            whatsappEnabled: raw.whatsappEnabled === true,
+            whatsappSessionPath: typeof raw.whatsappSessionPath === 'string' ? raw.whatsappSessionPath : '~/.telecode-ai/whatsapp-session.json',
+            whatsappAllowSelfCommands: raw.whatsappAllowSelfCommands !== false,
+            whatsappRecoveryOnAuth: raw.whatsappRecoveryOnAuth !== false,
+            whatsappAccessMode:
+              raw.whatsappAccessMode === 'allowlist' || raw.whatsappAccessMode === 'all' || raw.whatsappAccessMode === 'self'
+                ? raw.whatsappAccessMode
+                : 'self',
+            whatsappAllowedPhones: typeof raw.whatsappAllowedPhones === 'string' ? raw.whatsappAllowedPhones : '',
           },
         });
       }

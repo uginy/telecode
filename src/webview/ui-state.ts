@@ -12,12 +12,12 @@ export const el = {
   output:       () => document.getElementById('output')!,
   prompt:       () => document.getElementById('prompt')! as HTMLTextAreaElement,
   agentToggleBtn: () => document.getElementById('agentToggleBtn')! as HTMLButtonElement,
-  channelsToggleBtn: () => document.getElementById('channelsToggleBtn')! as HTMLButtonElement,
   runBtn:       () => document.getElementById('runBtn')! as HTMLButtonElement,
   tabLogs:      () => document.getElementById('tabLogs')!,
   tabSettings:  () => document.getElementById('tabSettings')!,
   logsPane:     () => document.getElementById('logsPane')!,
   settingsPane:    () => document.getElementById('settingsPane')!,
+  settingsToolbar: () => document.getElementById('settingsToolbar')!,
   settingsNote:    () => document.getElementById('settingsNote')!,
   saveSettingsBtn: () => document.getElementById('saveSettingsBtn')!,
   fetchModelsBtn:  () => document.getElementById('fetchModelsBtn')! as HTMLButtonElement,
@@ -31,7 +31,6 @@ export const el = {
 };
 
 let agentActive = false;
-let channelsConnected = false;
 
 function getTranslations(): Record<string, string> {
   return (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations || {};
@@ -69,23 +68,15 @@ function statusMeansAgentActive(statusText: string): boolean {
 function applyAgentToggle(): void {
   const button = el.agentToggleBtn();
   if (agentActive) {
-    setToggleVisual(button, 'on', 'stop', 'tt_toggle_agent_stop', 'Stop agent');
+    setToggleVisual(button, 'on', 'stop', 'tt_toggle_agent_stop', 'Stop TeleCode (agent + channels)');
   } else {
-    setToggleVisual(button, 'off', 'run', 'tt_toggle_agent_start', 'Start agent');
-  }
-}
-
-function applyChannelsToggle(): void {
-  const button = el.channelsToggleBtn();
-  if (channelsConnected) {
-    setToggleVisual(button, 'on', 'stop', 'tt_toggle_channels_disconnect', 'Disconnect channels');
-  } else {
-    setToggleVisual(button, 'off', 'channel', 'tt_toggle_channels_connect', 'Connect channels');
+    setToggleVisual(button, 'off', 'run', 'tt_toggle_agent_start', 'Start TeleCode (agent + channels)');
   }
 }
 
 export function setStatus(text: string): void {
   const s = el.status();
+  s.textContent = text;
   s.title = text; // Show as tooltip
   const lower = text.toLowerCase();
   s.dataset.state =
@@ -111,8 +102,9 @@ export function setAgentToggleState(active: boolean): void {
 }
 
 export function setChannelsToggleState(connected: boolean): void {
-  channelsConnected = connected;
-  applyChannelsToggle();
+  // channels state is still received for telemetry/logging purposes,
+  // but channel toggle is intentionally removed from top controls.
+  void connected;
 }
 
 export function isAgentToggleOn(): boolean {
@@ -120,12 +112,11 @@ export function isAgentToggleOn(): boolean {
 }
 
 export function isChannelsToggleOn(): boolean {
-  return channelsConnected;
+  return false;
 }
 
 export function refreshToggleLabels(): void {
   applyAgentToggle();
-  applyChannelsToggle();
 }
 
 export type Tab = 'logs' | 'settings';
@@ -140,6 +131,7 @@ export function setTab(tab: Tab): void {
   // Only show Save button and note on Settings tab
   el.saveSettingsBtn().classList.toggle('hidden', isLogs);
   el.settingsNote().classList.toggle('hidden', isLogs);
+  el.settingsToolbar().classList.toggle('hidden', isLogs);
   
   // Hide view toggles when not in logs tab
   el.logViewToggles().classList.toggle('hidden', !isLogs);

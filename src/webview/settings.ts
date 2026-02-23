@@ -49,6 +49,12 @@ export function readForm(): Settings {
     telegramChatId:    strVal('telegramChatId'),
     telegramApiRoot:   strVal('telegramApiRoot'),
     telegramForceIPv4: boolVal('telegramForceIPv4'),
+    whatsappEnabled:   boolVal('whatsappEnabled'),
+    whatsappSessionPath: strVal('whatsappSessionPath'),
+    whatsappAllowSelfCommands: boolVal('whatsappAllowSelfCommands'),
+    whatsappRecoveryOnAuth: boolVal('whatsappRecoveryOnAuth'),
+    whatsappAccessMode: (strVal('whatsappAccessMode') as 'self' | 'allowlist' | 'all') || 'self',
+    whatsappAllowedPhones: strVal('whatsappAllowedPhones'),
   };
 }
 
@@ -71,4 +77,10 @@ export function writeForm(s: Settings): void {
   setStr( 'telegramChatId',   s.telegramChatId ?? '');
   setStr( 'telegramApiRoot',  s.telegramApiRoot ?? '');
   setBool('telegramForceIPv4', s.telegramForceIPv4 !== false);
+  setBool('whatsappEnabled', s.whatsappEnabled === true);
+  setStr( 'whatsappSessionPath', s.whatsappSessionPath ?? '~/.telecode-ai/whatsapp-session.json');
+  setBool('whatsappAllowSelfCommands', s.whatsappAllowSelfCommands !== false);
+  setBool('whatsappRecoveryOnAuth', s.whatsappRecoveryOnAuth !== false);
+  setStr( 'whatsappAccessMode', s.whatsappAccessMode ?? 'self');
+  setStr( 'whatsappAllowedPhones', s.whatsappAllowedPhones ?? '');
 }

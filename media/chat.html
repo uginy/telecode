@@ -17,8 +17,7 @@
       <span id="phase" class="phase" data-busy="0"></span>
       <span id="status" class="status-badge" data-state="idle">Idle</span>
       <div class="top-controls" id="topControls">
-        <button id="agentToggleBtn" class="top-icon-btn toggle-agent" type="button" aria-label="Start Agent" data-tooltip-key="tt_toggle_agent_start" data-tooltip="Start Agent" data-tooltip-placement="bottom"></button>
-        <button id="channelsToggleBtn" class="top-icon-btn toggle-channels" type="button" aria-label="Connect Channels" data-tooltip-key="tt_toggle_channels_connect" data-tooltip="Connect Channels" data-tooltip-placement="bottom"></button>
+        <button id="agentToggleBtn" class="top-icon-btn toggle-agent" type="button" aria-label="Start TeleCode (agent + channels)" data-tooltip-key="tt_toggle_agent_start" data-tooltip="Start TeleCode (agent + channels)" data-tooltip-placement="bottom"></button>
       </div>
     </div>
   </header>
@@ -34,9 +33,6 @@
       <button id="viewGroupedBtn" class="toggle-btn active" type="button" data-t="btn_view_grouped">Group</button>
       <button id="viewListBtn" class="toggle-btn" type="button" data-t="btn_view_list">List</button>
     </div>
-
-    <span id="settingsNote" class="settings-note hidden"></span>
-    <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings" data-tooltip-key="tt_save_settings" data-tooltip-placement="bottom">Save Settings</button>
   </nav>
 
   <!-- ── Logs pane ──────────────────────────────────────── -->
@@ -49,6 +45,8 @@
         <button class="log-filter-btn" type="button" data-kind="tool-error">Errors</button>
         <button class="log-filter-btn" type="button" data-kind="status">Status</button>
         <button class="log-filter-btn" type="button" data-kind="channel">Channel</button>
+        <button class="log-filter-btn" type="button" data-source="telegram">Telegram</button>
+        <button class="log-filter-btn" type="button" data-source="whatsapp">WhatsApp</button>
         <button class="log-filter-btn" type="button" data-kind="llm">LLM</button>
         <div class="log-group-actions">
           <button id="toggleAllGroupsBtn" class="log-filter-btn icon-only" type="button" aria-label="Collapse all" data-tooltip-key="btn_collapse_all" data-tooltip-placement="bottom"></button>
@@ -99,11 +97,16 @@
         <button class="settings-nav-item active" type="button" data-cat="general" data-t="settings_general_title">General</button>
         <button class="settings-nav-item" type="button" data-cat="inference" data-t="settings_inference_title">Inference</button>
         <button class="settings-nav-item" type="button" data-cat="telegram" data-t="settings_telegram_title">Telegram</button>
+        <button class="settings-nav-item" type="button" data-cat="whatsapp" data-t="settings_whatsapp_title">WhatsApp</button>
         <button class="settings-nav-item" type="button" data-cat="about" data-t="settings_about_title">About</button>
       </nav>
 
       <!-- Sub-tab content -->
       <div class="settings-content">
+        <div class="settings-toolbar hidden" id="settingsToolbar">
+          <span id="settingsNote" class="settings-note hidden"></span>
+          <button id="saveSettingsBtn" class="btn btn-primary btn-sm hidden" type="button" data-t="btn_save_settings" data-tooltip-key="tt_save_settings" data-tooltip-placement="bottom">Save Settings</button>
+        </div>
         <form id="settingsForm" class="settings-form">
           
           <!-- Category: About -->
@@ -147,7 +150,7 @@
               </div>
               <div class="about-card">
                 <div class="about-card-title"><span class="about-card-icon" data-about-icon="channel"></span> <span data-t="about_card_remote_title">Remote</span></div>
-                <div class="about-card-text" data-t="about_card_remote_text">Telegram channel with lifecycle notifications, status updates, and safe start/stop flow.</div>
+                <div class="about-card-text" data-t="about_card_remote_text">Telegram and WhatsApp channels with unified start/stop and access policies for safe remote control.</div>
               </div>
               <div class="about-card">
                 <div class="about-card-title"><span class="about-card-icon" data-about-icon="tool"></span> <span data-t="about_card_tools_title">Tools</span></div>
@@ -157,7 +160,7 @@
 
             <ul class="about-features">
               <li><span class="dot">◆</span> <span data-t="about_feature_agent">Autonomous agent loop: plans, executes tools, edits code, and iterates until done.</span></li>
-              <li><span class="dot">◆</span> <span data-t="about_feature_remote">Telegram remote control: run tasks from your phone while VS Code stays open.</span></li>
+              <li><span class="dot">◆</span> <span data-t="about_feature_remote">Telegram and WhatsApp remote control: run tasks from your phone while VS Code stays open.</span></li>
               <li><span class="dot">◆</span> <span data-t="about_feature_multimodal">Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.</span></li>
               <li><span class="dot">◆</span> <span data-t="about_feature_files">Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.</span></li>
             </ul>
@@ -310,7 +313,7 @@
             <div class="field field-check">
               <div>
                 <label for="telegramEnabled" data-t="field_telegram_enabled">Enable Telegram Bot</label>
-                <span class="field-hint" data-t="field_telegram_enabled_hint">Start the bot when the agent is running.</span>
+                <span class="field-hint" data-t="field_telegram_enabled_hint">Channel control is here only. Starts with TeleCode.</span>
               </div>
               <input id="telegramEnabled" type="checkbox" />
             </div>
@@ -339,6 +342,63 @@
                 <span class="field-hint" data-t="field_telegram_force_ipv4_hint">Recommended — avoids IPv6 connectivity issues on macOS.</span>
               </div>
               <input id="telegramForceIPv4" type="checkbox" />
+            </div>
+          </div>
+
+          <!-- Category: WhatsApp -->
+          <div id="catWhatsapp" class="settings-cat hidden">
+            <div class="settings-block-header">
+              <span class="settings-block-title" data-t="settings_whatsapp_title">WhatsApp Bot</span>
+              <span class="settings-block-desc" data-t="settings_whatsapp_desc">Receive and respond to tasks via WhatsApp Web.</span>
+            </div>
+
+            <div class="field field-check">
+              <div>
+                <label for="whatsappEnabled" data-t="field_whatsapp_enabled">Enable WhatsApp Bot</label>
+                <span class="field-hint" data-t="field_whatsapp_enabled_hint">Channel control is here only. Starts with TeleCode.</span>
+              </div>
+              <input id="whatsappEnabled" type="checkbox" />
+            </div>
+
+            <div class="field">
+              <label for="whatsappSessionPath" data-t="field_whatsapp_session_path">Session Path</label>
+              <span class="field-hint" data-t="field_whatsapp_session_path_hint">Folder for LocalAuth browser profile/session.</span>
+              <input id="whatsappSessionPath" type="text" placeholder="~/.telecode-ai" />
+            </div>
+
+            <div class="field field-inline" id="whatsappAccessModeField">
+              <div>
+                <label for="whatsappAccessMode" data-t="field_whatsapp_access_mode">Access Mode</label>
+                <span class="field-hint" data-t="field_whatsapp_access_mode_hint">Who can send tasks to WhatsApp bot.</span>
+              </div>
+              <select id="whatsappAccessMode" style="width:170px">
+                <option value="self" data-t="option_whatsapp_access_self">Self only</option>
+                <option value="allowlist" data-t="option_whatsapp_access_allowlist">Allowlist</option>
+                <option value="all" data-t="option_whatsapp_access_all">All chats</option>
+              </select>
+            </div>
+
+            <div class="field" id="whatsappAllowedPhonesField">
+              <label for="whatsappAllowedPhones" data-t="field_whatsapp_allowed_phones">Allowed Phones</label>
+              <span class="field-hint" data-t="field_whatsapp_allowed_phones_hint">Comma-separated phone list in international format.</span>
+              <input id="whatsappAllowedPhones" type="text" placeholder="+XXXXXXXX..., +XXXXXXXX..." />
+              <span id="whatsappAllowedPhonesError" class="field-error hidden" data-t="field_whatsapp_allowed_phones_error">Enter valid phone list for allowlist mode.</span>
+            </div>
+
+            <div class="field field-check">
+              <div>
+                <label for="whatsappAllowSelfCommands" data-t="field_whatsapp_self_commands">Allow Self Commands</label>
+                <span class="field-hint" data-t="field_whatsapp_self_commands_hint">Allow /run, /status, /stop, /help from the same account (safe for self-chat).</span>
+              </div>
+              <input id="whatsappAllowSelfCommands" type="checkbox" />
+            </div>
+
+            <div class="field field-check">
+              <div>
+                <label for="whatsappRecoveryOnAuth" data-t="field_whatsapp_recovery">Recovery On Auth</label>
+                <span class="field-hint" data-t="field_whatsapp_recovery_hint">Auto-recover event listeners if ready event is missing.</span>
+              </div>
+              <input id="whatsappRecoveryOnAuth" type="checkbox" />
             </div>
           </div>
 

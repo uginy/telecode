@@ -96,9 +96,11 @@ export class TelegramChannel implements IChannel {
       this.pushLog(
         `[telegram] starting (chatId=${allowedChatId !== null ? String(allowedChatId) : 'not-set'}, apiRoot=${apiRoot || 'default'}, mode=${preferredMode})`
       );
+      this.pushLog('[telegram:debug] bot created, running connectivity preflight');
 
       try {
-        await this.verifyBotConnectivity(bot);
+        await this.verifyBotConnectivity(botToken, apiRoot, preferredMode);
+        this.pushLog('[telegram:debug] connectivity preflight ok');
       } catch (error) {
         const message = formatError(error);
         this.pushLog(`[telegram:error] token/webhook check failed - ${message}`);
@@ -106,7 +108,8 @@ export class TelegramChannel implements IChannel {
         if (isLikelyNetworkError(error)) {
           this.pushLog(`[telegram] retrying connectivity with mode=${fallbackMode}`);
           bot = this.createBot(botToken, apiRoot, fallbackMode);
-          await this.verifyBotConnectivity(bot);
+          this.pushLog('[telegram:debug] fallback bot created, running connectivity preflight');
+          await this.verifyBotConnectivity(botToken, apiRoot, fallbackMode);
           this.pushLog(`[telegram] connectivity recovered with mode=${fallbackMode}`);
         } else {
           throw error;
@@ -118,6 +121,8 @@ export class TelegramChannel implements IChannel {
       }
 
       bot.use(async (ctx, next) => {
+        const updateType = Object.keys(ctx.update || {}).find((k) => k !== 'update_id') || 'unknown';
+        this.pushLog(`[telegram:debug] update received (type=${updateType})`);
         const text = ctx.message && 'text' in ctx.message ? (ctx.message.text || '').trim() : '';
         const incomingChatId = typeof ctx.chat?.id === 'number' ? String(ctx.chat.id) : '(unknown)';
         this.lastActivityAt = Date.now();
@@ -292,6 +297,7 @@ export class TelegramChannel implements IChannel {
         if (!text || text.startsWith('/')) {
           return;
         }
+        this.pushLog('[telegram:debug] routing plain text message to executeTask');
 
         await this.executeTask(ctx, text);
       });
@@ -334,11 +340,19 @@ export class TelegramChannel implements IChannel {
 
       bot.catch((error) => {
         this.pushLog(`[telegram:error] ${formatError(error)}`);
+        this.pushLog(`[telegram:debug] bot.catch raw=${JSON.stringify({
+          name: (error as { name?: string })?.name || 'unknown',
+          message: (error as { message?: string })?.message || String(error),
+        })}`);
         console.error('TeleCode AI Telegram error:', error);
       });
 
       this.bot = bot;
-      await bot.start({
+      this.active = true;
+      this.lastActivityAt = Date.now();
+      this.setStatus('Idle');
+      this.pushLog('[telegram:debug] handlers registered, starting polling');
+      void bot.start({
         onStart: (botInfo) => {
           if (generation !== this.startGeneration) {
             return;
@@ -347,6 +361,7 @@ export class TelegramChannel implements IChannel {
           this.lastActivityAt = Date.now();
           this.setStatus('Idle');
           this.pushLog(`[telegram] started as @${botInfo.username}`);
+          this.pushLog('[telegram:debug] polling active, waiting for updates');
           console.log(`TeleCode AI Telegram started as @${botInfo.username}`);
           if (allowedChatId !== null) {
             void bot.api
@@ -354,6 +369,20 @@ export class TelegramChannel implements IChannel {
               .catch((error) => this.pushLog(`[telegram:error] startup ping failed - ${formatError(error)}`));
           }
         },
+      }).then(() => {
+        if (generation !== this.startGeneration) {
+          return;
+        }
+        this.pushLog('[telegram:debug] bot.start returned');
+      }).catch((error) => {
+        if (generation !== this.startGeneration) {
+          return;
+        }
+        this.active = false;
+        this.setStatus('Error');
+        const message = formatError(error);
+        this.pushLog(`[telegram:error] failed to start - ${message}`);
+        void this.notifyLifecycleMessage(this.bot, this.resolveNotifyChatId(), this.getT().tg_lifecycle_start_failed.replace('{error}', message));
       });
     } catch (error) {
       if (generation !== this.startGeneration) {
@@ -377,6 +406,10 @@ export class TelegramChannel implements IChannel {
     return new Bot(botToken, {
       client: {
         ...(apiRoot ? { apiRoot } : {}),
+        fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+          const normalized = this.normalizeTelegramFetch(input, init);
+          return fetch(normalized.input, normalized.init);
+        },
         baseFetchConfig: {
           agent: httpsAgent,
         } as Record<string, unknown>,
@@ -384,11 +417,114 @@ export class TelegramChannel implements IChannel {
     });
   }
 
-  private async verifyBotConnectivity(bot: Bot): Promise<void> {
-    const me = await bot.api.getMe();
-    this.pushLog(`[telegram] token ok for @${me.username}`);
-    await bot.api.deleteWebhook({ drop_pending_updates: false });
+  private normalizeTelegramFetch(
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): { input: RequestInfo | URL; init?: RequestInit } {
+    const sanitizedInit = this.stripSignal(init);
+    if (typeof Request !== 'undefined' && input instanceof Request) {
+      const reqInit: RequestInit = {
+        method: sanitizedInit?.method || input.method || 'GET',
+        headers: sanitizedInit?.headers || input.headers,
+      };
+      if (sanitizedInit && 'body' in sanitizedInit) {
+        reqInit.body = sanitizedInit.body;
+      }
+      return { input: input.url, init: reqInit };
+    }
+    return { input, init: sanitizedInit };
+  }
+
+  private stripSignal(init?: RequestInit): RequestInit | undefined {
+    if (!init || typeof init !== 'object') {
+      return init;
+    }
+    const copy = { ...init } as Record<string, unknown>;
+    delete copy.signal;
+    return copy as RequestInit;
+  }
+
+  private async verifyBotConnectivity(
+    botToken: string,
+    apiRoot: string | undefined,
+    mode: NetworkMode
+  ): Promise<void> {
+    const me = await this.callTelegramHealthApi(botToken, apiRoot, mode, 'getMe', {});
+    const username = isRecord(me) && typeof me.username === 'string' ? me.username : '(unknown)';
+    this.pushLog(`[telegram] token ok for @${username}`);
+    await this.callTelegramHealthApi(botToken, apiRoot, mode, 'deleteWebhook', { drop_pending_updates: false });
     this.pushLog('[telegram] webhook cleared');
+  }
+
+  private async callTelegramHealthApi(
+    botToken: string,
+    apiRoot: string | undefined,
+    mode: NetworkMode,
+    method: string,
+    payload: Record<string, unknown>
+  ): Promise<unknown> {
+    const base = (apiRoot || 'https://api.telegram.org').trim().replace(/\/+$/, '');
+    const url = `${base}/bot${botToken}/${method}`;
+
+    this.pushLog(`[telegram:debug] health api ${method} (${mode})`);
+    const responseBody = await new Promise<string>((resolve, reject) => {
+      const urlObj = new URL(url);
+      const requestBody = JSON.stringify(payload);
+      const agent = new https.Agent({
+        keepAlive: true,
+        ...(mode === 'ipv4' ? { family: 4 } : {}),
+      });
+      const req = https.request(
+        {
+          protocol: urlObj.protocol,
+          hostname: urlObj.hostname,
+          port: urlObj.port ? Number(urlObj.port) : undefined,
+          path: `${urlObj.pathname}${urlObj.search}`,
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(requestBody),
+          },
+          agent,
+          timeout: 15000,
+        },
+        (res) => {
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => {
+            if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+              reject(new Error(`HTTP ${res.statusCode || 0}`));
+              return;
+            }
+            this.pushLog(`[telegram:debug] health api ${method} -> HTTP ${res.statusCode}`);
+            resolve(data);
+          });
+        }
+      );
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy(new Error('Request timeout'));
+      });
+      req.write(requestBody);
+      req.end();
+    });
+
+    let parsed: unknown;
+    try {
+      parsed = responseBody ? JSON.parse(responseBody) : {};
+    } catch {
+      throw new Error(`Invalid JSON response for ${method}`);
+    }
+
+    if (!isRecord(parsed) || parsed.ok !== true) {
+      const description =
+        isRecord(parsed) && typeof parsed.description === 'string' ? parsed.description : 'unknown Telegram API error';
+      throw new Error(`${method} failed: ${description}`);
+    }
+    return parsed.result;
   }
 
   public stop(): void {

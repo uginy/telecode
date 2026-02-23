@@ -16,7 +16,7 @@ const notifyPlugin = (label) => ({
   name: 'watch-notify',
   setup(build) {
     build.onStart(async () => {
-      process.stdout.write(`[watch] build started\n`);
+      process.stdout.write(`[watch:${label}] build started\n`);
       return {};
     });
     build.onEnd((result) => {
@@ -25,7 +25,7 @@ const notifyPlugin = (label) => ({
         const where = loc ? `  ${loc.file}:${loc.line}:${loc.column}:\n` : '';
         process.stderr.write(`✘ [ERROR][${label}] ${err.text}\n${where}`);
       }
-      process.stdout.write(`[watch] build finished\n`);
+      process.stdout.write(`[watch:${label}] build finished\n`);
     });
   },
 });
@@ -35,7 +35,7 @@ const extCtx = await esbuild.context({
   entryPoints: ['./src/extension.ts'],
   bundle: true,
   outfile: 'dist/extension.js',
-  external: ['vscode'],
+  external: ['vscode', 'whatsapp-web.js', 'whatsapp-web.js/*', 'qrcode', 'qrcode/*', 'qrcode-terminal'],
   format: 'cjs',
   platform: 'node',
   sourcemap: true,

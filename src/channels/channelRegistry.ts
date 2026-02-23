@@ -9,6 +9,11 @@ import type { IChannel } from './types';
 
 export class ChannelRegistry {
   private readonly channels = new Map<string, IChannel>();
+  private readonly onError?: (message: string) => void;
+
+  constructor(onError?: (message: string) => void) {
+    this.onError = onError;
+  }
 
   /** Register a channel. Replaces any existing channel with the same id. */
   register(channel: IChannel): void {
@@ -35,9 +40,28 @@ export class ChannelRegistry {
 
   /** Start all registered channels. */
   async startAll(): Promise<void> {
-    await Promise.allSettled(
-      [...this.channels.values()].map((ch) => ch.start())
-    );
+    const entries = [...this.channels.entries()];
+    const settled = await Promise.allSettled(entries.map(([, ch]) => ch.start()));
+    settled.forEach((result, idx) => {
+      if (result.status === 'rejected') {
+        const [id] = entries[idx];
+        const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        this.onError?.(`[channels:error] ${id} failed to start: ${reason}`);
+      }
+    });
+  }
+
+  /** Start channels independently without awaiting the slowest one. */
+  startAllNonBlocking(): void {
+    const entries = [...this.channels.entries()];
+    for (const [id, channel] of entries) {
+      void Promise.resolve()
+        .then(() => channel.start())
+        .catch((error) => {
+          const reason = error instanceof Error ? error.message : String(error);
+          this.onError?.(`[channels:error] ${id} failed to start: ${reason}`);
+        });
+    }
   }
 
   /** Stop all registered channels and clear the registry. */

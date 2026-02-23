@@ -18,7 +18,7 @@ import type { AgentSettings } from './config/settings';
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
-const channelRegistry = new ChannelRegistry();
+const channelRegistry = new ChannelRegistry((message) => appendLogLine(message));
 let sessionApiKey = '';
 let runningConfigSignature = '';
 let channelsRefreshTimer: NodeJS.Timeout | null = null;
@@ -313,6 +313,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 
   const signature = createConfigSignature(config, tools);
   if (!forceRestart && taskRunner?.getRuntime && runningConfigSignature === signature) {
+    refreshChannels();
     setStatus('Ready');
     return true;
   }
@@ -352,7 +353,9 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
         appendLogLine(`[agent:prompt] missing=${promptInfo.missing.join(',')}`);
       }
     }
+    refreshChannels();
     setStatus('Ready');
+    appendLogLine('[system] TeleCode started (agent + enabled channels)');
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -411,9 +414,14 @@ function stopAgent(logToOutput: boolean): void {
     taskRunner.abortCurrentRun();
     stoppedSomething = true;
   }
+  if (channelRegistry.size > 0) {
+    channelRegistry.stopAll();
+    syncChannelsStateToChatView();
+    stoppedSomething = true;
+  }
 
   if (logToOutput && stoppedSomething) {
-    appendLogLine('[agent] Stopped runtime');
+    appendLogLine('[system] TeleCode stopped (agent + channels)');
   }
 
   if (stoppedSomething) {
@@ -452,35 +460,41 @@ function refreshChannels(): void {
   const settings = readTelecodeSettings();
   const tools = resolveTools(getEffectiveAgentPolicy(settings.agent).allowedTools);
 
-  const telegramChannel = new TelegramChannel(
-    tools,
-    (line) => {
-      const hasTelegramPrefix =
-        line.startsWith('[telegram]') || /^\[[^\]]+\]\s+\[telegram(?::[^\]]+)?\]/i.test(line);
-      appendLogLine(hasTelegramPrefix ? line : `[telegram] ${line}`);
-    },
-    (status) => {
-      setStatus(status);
-      syncChannelsStateToChatView();
-    }
-  );
-  
-  channelRegistry.register(telegramChannel);
-  const whatsappChannel = new WhatsAppChannel(
-    tools,
-    (line) => {
-      const hasPrefix = line.startsWith('[whatsapp]') || /^\[[^\]]+\]\s+\[whatsapp(?::[^\]]+)?\]/i.test(line);
-      appendLogLine(hasPrefix ? line : `[whatsapp] ${line}`);
-    },
-    (status) => {
-      setStatus(status);
-      syncChannelsStateToChatView();
-    }
-  );
-  channelRegistry.register(whatsappChannel);
-  void channelRegistry.startAll().finally(() => {
-    syncChannelsStateToChatView();
-  });
+  if (settings.telegram.enabled) {
+    const telegramChannel = new TelegramChannel(
+      tools,
+      (line) => {
+        const hasTelegramPrefix =
+          line.startsWith('[telegram]') || /^\[[^\]]+\]\s+\[telegram(?::[^\]]+)?\]/i.test(line);
+        appendLogLine(hasTelegramPrefix ? line : `[telegram] ${line}`);
+      },
+      (status) => {
+        setStatus(status);
+        syncChannelsStateToChatView();
+      }
+    );
+    channelRegistry.register(telegramChannel);
+  }
+
+  if (settings.whatsapp.enabled) {
+    const whatsappChannel = new WhatsAppChannel(
+      tools,
+      (line) => {
+        const hasPrefix = line.startsWith('[whatsapp]') || /^\[[^\]]+\]\s+\[whatsapp(?::[^\]]+)?\]/i.test(line);
+        appendLogLine(hasPrefix ? line : `[whatsapp] ${line}`);
+      },
+      (status) => {
+        setStatus(status);
+        syncChannelsStateToChatView();
+      }
+    );
+    channelRegistry.register(whatsappChannel);
+  }
+  if (channelRegistry.size === 0) {
+    appendLogLine('[channels] no enabled channels (enable Telegram or WhatsApp in Settings)');
+  }
+  channelRegistry.startAllNonBlocking();
+  syncChannelsStateToChatView();
 }
 
 function syncChannelsStateToChatView(): void {
@@ -520,6 +534,12 @@ async function saveSettingsFromChatView(settings: ChatViewSettings): Promise<voi
     await config.update('telegram.chatId', settings.telegramChatId, target);
     await config.update('telegram.apiRoot', settings.telegramApiRoot, target);
     await config.update('telegram.forceIPv4', settings.telegramForceIPv4, target);
+    await config.update('whatsapp.enabled', settings.whatsappEnabled, target);
+    await config.update('whatsapp.sessionPath', settings.whatsappSessionPath, target);
+    await config.update('whatsapp.allowSelfCommands', settings.whatsappAllowSelfCommands, target);
+    await config.update('whatsapp.recoveryOnAuth', settings.whatsappRecoveryOnAuth, target);
+    await config.update('whatsapp.accessMode', settings.whatsappAccessMode, target);
+    await config.update('whatsapp.allowedPhones', settings.whatsappAllowedPhones, target);
 
     syncSettingsToChatView();
     notifySettingsViews('saved to user settings');
@@ -787,6 +807,12 @@ function syncSettingsToChatView(): void {
     telegramChatId: settings.telegram.chatId || '',
     telegramApiRoot: settings.telegram.apiRoot || 'https://api.telegram.org',
     telegramForceIPv4: settings.telegram.forceIPv4,
+    whatsappEnabled: settings.whatsapp.enabled,
+    whatsappSessionPath: settings.whatsapp.sessionPath || '~/.telecode-ai/whatsapp-session.json',
+    whatsappAllowSelfCommands: settings.whatsapp.allowSelfCommands,
+    whatsappRecoveryOnAuth: settings.whatsapp.recoveryOnAuth,
+    whatsappAccessMode: settings.whatsapp.accessMode,
+    whatsappAllowedPhones: settings.whatsapp.allowedPhones.join(','),
   };
 
   chatProvider?.setSettings(payload);
@@ -839,6 +865,7 @@ function installLlmFetchLogger(): void {
 
   globalThis.fetch = (async (input: unknown, init?: unknown) => {
     const { url, method } = extractRequestInfo(input, init);
+    const isTelegram = url.toLowerCase().includes('api.telegram.org');
     const shouldLog = shouldLogLlmRequest(url);
     let attempt = 0;
     const maxAttempts = shouldLog ? 4 : 1; 
@@ -848,7 +875,10 @@ function installLlmFetchLogger(): void {
       const startedAt = Date.now();
       
       try {
-        const response = await originalFetch(input as never, init as never);
+        const fetchArgs = isTelegram
+          ? buildTelegramFetchArgs(input, init, url, method)
+          : { input, init };
+        const response = await originalFetch(fetchArgs.input as never, fetchArgs.init as never);
         if (shouldLog) {
           const elapsed = Date.now() - startedAt;
           
@@ -886,6 +916,49 @@ function installLlmFetchLogger(): void {
   restoreFetchLogger = () => {
     globalThis.fetch = originalFetch;
   };
+}
+
+function sanitizeTelegramFetchInit(init?: unknown): unknown {
+  if (!init || typeof init !== 'object') {
+    return init;
+  }
+  const maybeInit = init as Record<string, unknown>;
+  if (!('signal' in maybeInit)) {
+    return init;
+  }
+  // grammY can pass a signal object from a different realm/package.
+  // undici then throws "Expected signal to be an instanceof AbortSignal".
+  // Telegram checks are short requests, so dropping signal here is safe and
+  // prevents startup from failing.
+  const { signal: _ignored, ...rest } = maybeInit;
+  return rest;
+}
+
+function buildTelegramFetchArgs(
+  input: unknown,
+  init: unknown,
+  url: string,
+  method: string
+): { input: unknown; init: unknown } {
+  const sanitizedInit = sanitizeTelegramFetchInit(init);
+  // If fetch was called with Request object, it can carry a cross-realm signal
+  // that undici rejects even when init.signal is removed. For Telegram calls
+  // we normalize to URL + plain init object.
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    const reqInit: Record<string, unknown> = {};
+    reqInit.method = method || input.method || 'GET';
+    if (input.headers) reqInit.headers = input.headers;
+    // Body must come from explicit init (for POST calls from grammY this is present).
+    if (sanitizedInit && typeof sanitizedInit === 'object' && 'body' in (sanitizedInit as Record<string, unknown>)) {
+      reqInit.body = (sanitizedInit as Record<string, unknown>).body;
+    }
+    const merged =
+      sanitizedInit && typeof sanitizedInit === 'object'
+        ? { ...reqInit, ...(sanitizedInit as Record<string, unknown>) }
+        : reqInit;
+    return { input: url, init: merged };
+  }
+  return { input, init: sanitizedInit };
 }
 
 function extractRequestInfo(input: unknown, init?: unknown): { url: string; method: string } {

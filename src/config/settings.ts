@@ -28,10 +28,16 @@ export interface TelegramSettings {
 export interface TelecodeSettings {
   agent: AgentSettings;
   telegram: TelegramSettings;
-  whatsapp: {
-    enabled: boolean;
-    sessionPath: string;
-  };
+  whatsapp: WhatsAppSettings;
+}
+
+export interface WhatsAppSettings {
+  enabled: boolean;
+  sessionPath: string;
+  allowSelfCommands: boolean;
+  recoveryOnAuth: boolean;
+  accessMode: 'self' | 'allowlist' | 'all';
+  allowedPhones: string[];
 }
 
 const DEFAULT_ALLOWED_TOOLS = [
@@ -109,6 +115,18 @@ export function readTelecodeSettings(): TelecodeSettings {
   const telegramForceIPv4 = config.get<boolean>('telegram.forceIPv4', true) !== false;
   const whatsappEnabled = config.get<boolean>('whatsapp.enabled') === true;
   const whatsappSessionPath = (config.get<string>('whatsapp.sessionPath') || '~/.telecode-ai/whatsapp-session.json').trim();
+  const whatsappAllowSelfCommands = config.get<boolean>('whatsapp.allowSelfCommands', true) !== false;
+  const whatsappRecoveryOnAuth = config.get<boolean>('whatsapp.recoveryOnAuth', true) !== false;
+  const whatsappAccessModeRaw = (config.get<string>('whatsapp.accessMode') || 'self').trim().toLowerCase();
+  const whatsappAccessMode =
+    whatsappAccessModeRaw === 'self' || whatsappAccessModeRaw === 'allowlist' || whatsappAccessModeRaw === 'all'
+      ? whatsappAccessModeRaw
+      : 'self';
+  const whatsappAllowedPhonesRaw = (config.get<string>('whatsapp.allowedPhones') || '').trim();
+  const whatsappAllowedPhones = whatsappAllowedPhonesRaw
+    .split(',')
+    .map((item) => item.replace(/[^\d+]/g, '').replace(/^\+/, '').trim())
+    .filter((item) => item.length >= 7 && item.length <= 15);
 
   return {
     agent: {
@@ -137,6 +155,10 @@ export function readTelecodeSettings(): TelecodeSettings {
     whatsapp: {
       enabled: whatsappEnabled,
       sessionPath: whatsappSessionPath,
+      allowSelfCommands: whatsappAllowSelfCommands,
+      recoveryOnAuth: whatsappRecoveryOnAuth,
+      accessMode: whatsappAccessMode,
+      allowedPhones: whatsappAllowedPhones,
     },
   };
 }

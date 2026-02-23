@@ -5,7 +5,7 @@
 
 import api from './vscode-api';
 import { cmd } from './commands';
-import { el, setStatus, setControlState, setTab, isAgentToggleOn, isChannelsToggleOn, refreshToggleLabels } from './ui-state';
+import { el, setStatus, setControlState, setTab, isAgentToggleOn, refreshToggleLabels } from './ui-state';
 import { replaceOutput, collapseAllGroups, expandAllGroups } from './log';
 import { readForm } from './settings';
 import { handleMessage } from './messages';
@@ -110,7 +110,7 @@ function saveState(): void {
     status: el.status().textContent,
     view: viewState,
     tab: el.tabLogs().classList.contains('active') ? 'logs' : 'settings',
-    filterKinds: pinFilters ? Array.from(enabledKinds) : [],
+    filterKinds: pinFilters ? [...Array.from(enabledKinds), ...Array.from(enabledSources)] : [],
     filterQuery: pinFilters ? filterQuery : '',
     pinFilters,
   });
@@ -130,8 +130,10 @@ type LogKind =
   | 'status'
   | 'channel'
   | 'llm';
+type LogSource = 'telegram' | 'whatsapp';
 
 const enabledKinds = new Set<LogKind>();
+const enabledSources = new Set<LogSource>();
 let filterQuery = '';
 let pinFilters = true;
 
@@ -152,22 +154,25 @@ function applyGroupedFilters(): void {
   const output = el.output();
   const query = filterQuery.trim().toLowerCase();
   const hasKindFilters = enabledKinds.size > 0;
+  const hasSourceFilters = enabledSources.size > 0;
   const hasQuery = query.length > 0;
 
   const lines = Array.from(output.querySelectorAll('.grouped-body .log-line')) as HTMLElement[];
   for (const line of lines) {
     const kind = (line.dataset.kind || 'text') as LogKind | string;
+    const source = (line.dataset.source || '') as LogSource | '';
     const text = (line.textContent || '').toLowerCase();
     const kindMatch = !hasKindFilters || enabledKinds.has(kind as LogKind);
+    const sourceMatch = !hasSourceFilters || (source !== '' && enabledSources.has(source));
     const queryMatch = !hasQuery || text.includes(query);
-    line.style.display = kindMatch && queryMatch ? '' : 'none';
+    line.style.display = kindMatch && sourceMatch && queryMatch ? '' : 'none';
   }
 
   const nodes = Array.from(output.querySelectorAll('.grouped-node')) as HTMLElement[];
   for (const node of nodes) {
     const nodeLines = Array.from(node.querySelectorAll('.grouped-body .log-line')) as HTMLElement[];
     const visibleLines = nodeLines.filter((line) => line.style.display !== 'none');
-    const shouldHide = (hasKindFilters || hasQuery) && nodeLines.length > 0 && visibleLines.length === 0;
+    const shouldHide = (hasKindFilters || hasSourceFilters || hasQuery) && nodeLines.length > 0 && visibleLines.length === 0;
     node.style.display = shouldHide ? 'none' : '';
   }
 }
@@ -175,7 +180,12 @@ function applyGroupedFilters(): void {
 function updateFilterButtons(): void {
   const buttons = Array.from(document.querySelectorAll('.log-filter-btn')) as HTMLButtonElement[];
   for (const button of buttons) {
-    if (!button.dataset.kind) {
+    if (!button.dataset.kind && !button.dataset.source) {
+      continue;
+    }
+    if (button.dataset.source) {
+      const source = button.dataset.source as LogSource;
+      button.classList.toggle('active', enabledSources.has(source));
       continue;
     }
     const kind = (button.dataset.kind || 'all') as LogKind | 'all';
@@ -195,13 +205,23 @@ function bindLogFilters(): void {
   const pinBtn = document.getElementById('pinFiltersBtn') as HTMLButtonElement | null;
 
   for (const button of buttons) {
-    if (!button.dataset.kind) {
+    if (!button.dataset.kind && !button.dataset.source) {
       continue;
     }
     button.addEventListener('click', () => {
+      if (button.dataset.source) {
+        const source = button.dataset.source as LogSource;
+        if (enabledSources.has(source)) enabledSources.delete(source);
+        else enabledSources.add(source);
+        updateFilterButtons();
+        applyGroupedFilters();
+        saveState();
+        return;
+      }
       const kind = (button.dataset.kind || 'all') as LogKind | 'all';
       if (kind === 'all') {
         enabledKinds.clear();
+        enabledSources.clear();
       } else if (enabledKinds.has(kind)) {
         enabledKinds.delete(kind);
       } else {
@@ -221,6 +241,7 @@ function bindLogFilters(): void {
 
   clear?.addEventListener('click', () => {
     enabledKinds.clear();
+    enabledSources.clear();
     filterQuery = '';
     if (input) input.value = '';
     updateFilterButtons();
@@ -245,6 +266,7 @@ function bindLogFilters(): void {
     updatePinFiltersButton();
     if (!pinFilters) {
       enabledKinds.clear();
+      enabledSources.clear();
       filterQuery = '';
       if (input) input.value = '';
       updateFilterButtons();
@@ -275,20 +297,13 @@ function bindLogFilters(): void {
 el.tabLogs().addEventListener('click',     () => { setTab('logs');     api.setState({ ...(api.getState() as object), tab: 'logs' }); });
 el.tabSettings().addEventListener('click', () => { setTab('settings'); api.setState({ ...(api.getState() as object), tab: 'settings' }); });
 
-// ── Agent + channels controls ───────────────────────────────────────────────
+// ── Agent control ───────────────────────────────────────────────────────────
 el.agentToggleBtn().addEventListener('click', () => {
   if (isAgentToggleOn()) {
     cmd.stopAgent();
     return;
   }
   cmd.startAgent();
-});
-el.channelsToggleBtn().addEventListener('click', () => {
-  if (isChannelsToggleOn()) {
-    cmd.disconnectChannels();
-    return;
-  }
-  cmd.connectChannels();
 });
 
 // ── Task prompt ───────────────────────────────────────────────────────────────
@@ -304,7 +319,66 @@ el.prompt().addEventListener('keydown', (e: KeyboardEvent) => {
 });
 
 // ── Settings form ─────────────────────────────────────────────────────────────
+function normalizePhoneCandidate(raw: string): string | null {
+  const normalized = raw.replace(/[^\d+]/g, '').replace(/^\+/, '');
+  if (!normalized) return null;
+  if (normalized.length < 7 || normalized.length > 15) return null;
+  return normalized;
+}
+
+function setWhatsappAllowlistValidationError(message: string | null): void {
+  const input = document.getElementById('whatsappAllowedPhones') as HTMLInputElement | null;
+  const error = document.getElementById('whatsappAllowedPhonesError') as HTMLElement | null;
+  if (!input || !error) return;
+  const hasError = !!message;
+  input.classList.toggle('is-invalid', hasError);
+  error.classList.toggle('hidden', !hasError);
+  if (hasError) {
+    error.textContent = message;
+  }
+}
+
+function syncWhatsappAccessFields(): void {
+  const mode = (document.getElementById('whatsappAccessMode') as HTMLSelectElement | null)?.value || 'self';
+  const field = document.getElementById('whatsappAllowedPhonesField') as HTMLElement | null;
+  if (field) {
+    field.classList.toggle('hidden', mode !== 'allowlist');
+  }
+  if (mode !== 'allowlist') {
+    setWhatsappAllowlistValidationError(null);
+  }
+}
+
+function validateWhatsappSettingsBeforeSave(): boolean {
+  const mode = (document.getElementById('whatsappAccessMode') as HTMLSelectElement | null)?.value || 'self';
+  if (mode !== 'allowlist') {
+    setWhatsappAllowlistValidationError(null);
+    return true;
+  }
+  const raw = (document.getElementById('whatsappAllowedPhones') as HTMLInputElement | null)?.value || '';
+  const tokens = raw.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
+  const t = (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations || {};
+  if (tokens.length === 0) {
+    setWhatsappAllowlistValidationError(
+      t.field_whatsapp_allowed_phones_error_required || 'Add at least one phone for allowlist mode.'
+    );
+    return false;
+  }
+  const invalid = tokens.find((item) => normalizePhoneCandidate(item) === null);
+  if (invalid) {
+    setWhatsappAllowlistValidationError(
+      t.field_whatsapp_allowed_phones_error || 'Enter valid phone list for allowlist mode.'
+    );
+    return false;
+  }
+  setWhatsappAllowlistValidationError(null);
+  return true;
+}
+
 el.saveSettingsBtn().addEventListener('click', () => {
+  if (!validateWhatsappSettingsBeforeSave()) {
+    return;
+  }
   const settings = readForm();
   settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(settings.safeModeProfile || 'balanced');
   cmd.saveSettings(settings);
@@ -314,6 +388,10 @@ el.saveSettingsBtn().addEventListener('click', () => {
 const safeModeSelect = document.getElementById('safeModeProfile') as HTMLSelectElement | null;
 safeModeSelect?.addEventListener('change', () => {
   syncSafeModeControls(safeModeSelect.value || 'balanced');
+});
+const whatsappAccessModeSelect = document.getElementById('whatsappAccessMode') as HTMLSelectElement | null;
+whatsappAccessModeSelect?.addEventListener('change', () => {
+  syncWhatsappAccessFields();
 });
 
 el.fetchModelsBtn().addEventListener('click', () => {
@@ -457,6 +535,7 @@ window.addEventListener('message', (e: MessageEvent) => {
   updateGroupsToggleButton(anyExpanded);
   const safeMode = (document.getElementById('safeModeProfile') as HTMLSelectElement | null)?.value || 'balanced';
   syncSafeModeControls(safeMode);
+  syncWhatsappAccessFields();
   updateComposerMeta();
   applyGroupedFilters();
   saveState();
@@ -479,8 +558,10 @@ if (saved) {
   }
   if (pinFilters && Array.isArray(saved.filterKinds)) {
     enabledKinds.clear();
+    enabledSources.clear();
     for (const k of saved.filterKinds) {
-      enabledKinds.add(k as LogKind);
+      if (k === 'telegram' || k === 'whatsapp') enabledSources.add(k as LogSource);
+      else enabledKinds.add(k as LogKind);
     }
   }
 }
@@ -493,6 +574,7 @@ applyGroupedFilters();
 initStaticIcons();
 initTooltips();
 bindSafeModeStrip();
+syncWhatsappAccessFields();
 updateComposerMeta();
 setControlState(el.status().textContent ?? '');
 cmd.requestSettings();

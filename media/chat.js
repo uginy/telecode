@@ -71,12 +71,12 @@
     output: /* @__PURE__ */ __name(() => document.getElementById("output"), "output"),
     prompt: /* @__PURE__ */ __name(() => document.getElementById("prompt"), "prompt"),
     agentToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("agentToggleBtn"), "agentToggleBtn"),
-    channelsToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("channelsToggleBtn"), "channelsToggleBtn"),
     runBtn: /* @__PURE__ */ __name(() => document.getElementById("runBtn"), "runBtn"),
     tabLogs: /* @__PURE__ */ __name(() => document.getElementById("tabLogs"), "tabLogs"),
     tabSettings: /* @__PURE__ */ __name(() => document.getElementById("tabSettings"), "tabSettings"),
     logsPane: /* @__PURE__ */ __name(() => document.getElementById("logsPane"), "logsPane"),
     settingsPane: /* @__PURE__ */ __name(() => document.getElementById("settingsPane"), "settingsPane"),
+    settingsToolbar: /* @__PURE__ */ __name(() => document.getElementById("settingsToolbar"), "settingsToolbar"),
     settingsNote: /* @__PURE__ */ __name(() => document.getElementById("settingsNote"), "settingsNote"),
     saveSettingsBtn: /* @__PURE__ */ __name(() => document.getElementById("saveSettingsBtn"), "saveSettingsBtn"),
     fetchModelsBtn: /* @__PURE__ */ __name(() => document.getElementById("fetchModelsBtn"), "fetchModelsBtn"),
@@ -89,7 +89,6 @@
     logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles")
   };
   var agentActive = false;
-  var channelsConnected = false;
   function getTranslations() {
     return window.__tcTranslations || {};
   }
@@ -120,23 +119,15 @@
   function applyAgentToggle() {
     const button = el.agentToggleBtn();
     if (agentActive) {
-      setToggleVisual(button, "on", "stop", "tt_toggle_agent_stop", "Stop agent");
+      setToggleVisual(button, "on", "stop", "tt_toggle_agent_stop", "Stop TeleCode (agent + channels)");
     } else {
-      setToggleVisual(button, "off", "run", "tt_toggle_agent_start", "Start agent");
+      setToggleVisual(button, "off", "run", "tt_toggle_agent_start", "Start TeleCode (agent + channels)");
     }
   }
   __name(applyAgentToggle, "applyAgentToggle");
-  function applyChannelsToggle() {
-    const button = el.channelsToggleBtn();
-    if (channelsConnected) {
-      setToggleVisual(button, "on", "stop", "tt_toggle_channels_disconnect", "Disconnect channels");
-    } else {
-      setToggleVisual(button, "off", "channel", "tt_toggle_channels_connect", "Connect channels");
-    }
-  }
-  __name(applyChannelsToggle, "applyChannelsToggle");
   function setStatus(text) {
     const s = el.status();
+    s.textContent = text;
     s.title = text;
     const lower = text.toLowerCase();
     s.dataset.state = lower.includes("error") ? "error" : lower.includes("idle") ? "idle" : "running";
@@ -159,21 +150,14 @@
   }
   __name(setAgentToggleState, "setAgentToggleState");
   function setChannelsToggleState(connected) {
-    channelsConnected = connected;
-    applyChannelsToggle();
   }
   __name(setChannelsToggleState, "setChannelsToggleState");
   function isAgentToggleOn() {
     return agentActive;
   }
   __name(isAgentToggleOn, "isAgentToggleOn");
-  function isChannelsToggleOn() {
-    return channelsConnected;
-  }
-  __name(isChannelsToggleOn, "isChannelsToggleOn");
   function refreshToggleLabels() {
     applyAgentToggle();
-    applyChannelsToggle();
   }
   __name(refreshToggleLabels, "refreshToggleLabels");
   function setTab(tab) {
@@ -184,6 +168,7 @@
     el.settingsPane().classList.toggle("hidden", isLogs);
     el.saveSettingsBtn().classList.toggle("hidden", isLogs);
     el.settingsNote().classList.toggle("hidden", isLogs);
+    el.settingsToolbar().classList.toggle("hidden", isLogs);
     el.logViewToggles().classList.toggle("hidden", !isLogs);
   }
   __name(setTab, "setTab");
@@ -256,6 +241,7 @@
       const normalized = normalizeStructuredLine(line);
       const match = normalized.match(/^\[(telegram|whatsapp)(?::([^\]]+))?\](.*)$/i);
       const source = (match?.[1] || "channel").toUpperCase();
+      const sourceId = source === "TELEGRAM" ? "telegram" : source === "WHATSAPP" ? "whatsapp" : void 0;
       const tag = (match?.[2] || "").toLowerCase();
       let bodyRaw = match?.[3] || "";
       if (bodyRaw.startsWith(" ")) {
@@ -269,6 +255,7 @@
           message: body2.length > 0 ? body2 : normalized,
           icon: meta.icon,
           label: source,
+          source: sourceId,
           variant
         };
       }
@@ -277,7 +264,8 @@
         kind,
         message: body.length > 0 ? body : normalized,
         icon: meta.icon,
-        label: source
+        label: source,
+        source: sourceId
       };
     }
     const message = kind === "text" ? line.trim() : stripPrefix(line);
@@ -294,6 +282,9 @@
     const div = document.createElement("div");
     div.className = "log-line";
     div.dataset.kind = parsed.kind;
+    if (parsed.source) {
+      div.dataset.source = parsed.source;
+    }
     if (parsed.variant) {
       div.dataset.variant = parsed.variant;
       div.classList.add(`variant-${parsed.variant}`);
@@ -644,7 +635,13 @@
       telegramBotToken: strVal("telegramBotToken"),
       telegramChatId: strVal("telegramChatId"),
       telegramApiRoot: strVal("telegramApiRoot"),
-      telegramForceIPv4: boolVal("telegramForceIPv4")
+      telegramForceIPv4: boolVal("telegramForceIPv4"),
+      whatsappEnabled: boolVal("whatsappEnabled"),
+      whatsappSessionPath: strVal("whatsappSessionPath"),
+      whatsappAllowSelfCommands: boolVal("whatsappAllowSelfCommands"),
+      whatsappRecoveryOnAuth: boolVal("whatsappRecoveryOnAuth"),
+      whatsappAccessMode: strVal("whatsappAccessMode") || "self",
+      whatsappAllowedPhones: strVal("whatsappAllowedPhones")
     };
   }
   __name(readForm, "readForm");
@@ -667,6 +664,12 @@
     setStr("telegramChatId", s.telegramChatId ?? "");
     setStr("telegramApiRoot", s.telegramApiRoot ?? "");
     setBool("telegramForceIPv4", s.telegramForceIPv4 !== false);
+    setBool("whatsappEnabled", s.whatsappEnabled === true);
+    setStr("whatsappSessionPath", s.whatsappSessionPath ?? "~/.telecode-ai/whatsapp-session.json");
+    setBool("whatsappAllowSelfCommands", s.whatsappAllowSelfCommands !== false);
+    setBool("whatsappRecoveryOnAuth", s.whatsappRecoveryOnAuth !== false);
+    setStr("whatsappAccessMode", s.whatsappAccessMode ?? "self");
+    setStr("whatsappAllowedPhones", s.whatsappAllowedPhones ?? "");
   }
   __name(writeForm, "writeForm");
 
@@ -919,7 +922,7 @@
       status: el.status().textContent,
       view: viewState,
       tab: el.tabLogs().classList.contains("active") ? "logs" : "settings",
-      filterKinds: pinFilters ? Array.from(enabledKinds) : [],
+      filterKinds: pinFilters ? [...Array.from(enabledKinds), ...Array.from(enabledSources)] : [],
       filterQuery: pinFilters ? filterQuery : "",
       pinFilters
     });
@@ -931,6 +934,7 @@
     saveState();
   });
   var enabledKinds = /* @__PURE__ */ new Set();
+  var enabledSources = /* @__PURE__ */ new Set();
   var filterQuery = "";
   var pinFilters = true;
   function updatePinFiltersButton() {
@@ -950,20 +954,23 @@
     const output = el.output();
     const query = filterQuery.trim().toLowerCase();
     const hasKindFilters = enabledKinds.size > 0;
+    const hasSourceFilters = enabledSources.size > 0;
     const hasQuery = query.length > 0;
     const lines = Array.from(output.querySelectorAll(".grouped-body .log-line"));
     for (const line of lines) {
       const kind = line.dataset.kind || "text";
+      const source = line.dataset.source || "";
       const text = (line.textContent || "").toLowerCase();
       const kindMatch = !hasKindFilters || enabledKinds.has(kind);
+      const sourceMatch = !hasSourceFilters || source !== "" && enabledSources.has(source);
       const queryMatch = !hasQuery || text.includes(query);
-      line.style.display = kindMatch && queryMatch ? "" : "none";
+      line.style.display = kindMatch && sourceMatch && queryMatch ? "" : "none";
     }
     const nodes = Array.from(output.querySelectorAll(".grouped-node"));
     for (const node of nodes) {
       const nodeLines = Array.from(node.querySelectorAll(".grouped-body .log-line"));
       const visibleLines = nodeLines.filter((line) => line.style.display !== "none");
-      const shouldHide = (hasKindFilters || hasQuery) && nodeLines.length > 0 && visibleLines.length === 0;
+      const shouldHide = (hasKindFilters || hasSourceFilters || hasQuery) && nodeLines.length > 0 && visibleLines.length === 0;
       node.style.display = shouldHide ? "none" : "";
     }
   }
@@ -971,7 +978,12 @@
   function updateFilterButtons() {
     const buttons = Array.from(document.querySelectorAll(".log-filter-btn"));
     for (const button of buttons) {
-      if (!button.dataset.kind) {
+      if (!button.dataset.kind && !button.dataset.source) {
+        continue;
+      }
+      if (button.dataset.source) {
+        const source = button.dataset.source;
+        button.classList.toggle("active", enabledSources.has(source));
         continue;
       }
       const kind = button.dataset.kind || "all";
@@ -990,13 +1002,23 @@
     const toggleAll = document.getElementById("toggleAllGroupsBtn");
     const pinBtn = document.getElementById("pinFiltersBtn");
     for (const button of buttons) {
-      if (!button.dataset.kind) {
+      if (!button.dataset.kind && !button.dataset.source) {
         continue;
       }
       button.addEventListener("click", () => {
+        if (button.dataset.source) {
+          const source = button.dataset.source;
+          if (enabledSources.has(source)) enabledSources.delete(source);
+          else enabledSources.add(source);
+          updateFilterButtons();
+          applyGroupedFilters();
+          saveState();
+          return;
+        }
         const kind = button.dataset.kind || "all";
         if (kind === "all") {
           enabledKinds.clear();
+          enabledSources.clear();
         } else if (enabledKinds.has(kind)) {
           enabledKinds.delete(kind);
         } else {
@@ -1014,6 +1036,7 @@
     });
     clear?.addEventListener("click", () => {
       enabledKinds.clear();
+      enabledSources.clear();
       filterQuery = "";
       if (input) input.value = "";
       updateFilterButtons();
@@ -1036,6 +1059,7 @@
       updatePinFiltersButton();
       if (!pinFilters) {
         enabledKinds.clear();
+        enabledSources.clear();
         filterQuery = "";
         if (input) input.value = "";
         updateFilterButtons();
@@ -1076,13 +1100,6 @@
     }
     cmd.startAgent();
   });
-  el.channelsToggleBtn().addEventListener("click", () => {
-    if (isChannelsToggleOn()) {
-      cmd.disconnectChannels();
-      return;
-    }
-    cmd.connectChannels();
-  });
   function runTask() {
     const prompt = el.prompt().value.trim();
     if (!prompt) return;
@@ -1093,7 +1110,66 @@
   el.prompt().addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") runTask();
   });
+  function normalizePhoneCandidate(raw) {
+    const normalized = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
+    if (!normalized) return null;
+    if (normalized.length < 7 || normalized.length > 15) return null;
+    return normalized;
+  }
+  __name(normalizePhoneCandidate, "normalizePhoneCandidate");
+  function setWhatsappAllowlistValidationError(message) {
+    const input = document.getElementById("whatsappAllowedPhones");
+    const error = document.getElementById("whatsappAllowedPhonesError");
+    if (!input || !error) return;
+    const hasError = !!message;
+    input.classList.toggle("is-invalid", hasError);
+    error.classList.toggle("hidden", !hasError);
+    if (hasError) {
+      error.textContent = message;
+    }
+  }
+  __name(setWhatsappAllowlistValidationError, "setWhatsappAllowlistValidationError");
+  function syncWhatsappAccessFields() {
+    const mode = document.getElementById("whatsappAccessMode")?.value || "self";
+    const field = document.getElementById("whatsappAllowedPhonesField");
+    if (field) {
+      field.classList.toggle("hidden", mode !== "allowlist");
+    }
+    if (mode !== "allowlist") {
+      setWhatsappAllowlistValidationError(null);
+    }
+  }
+  __name(syncWhatsappAccessFields, "syncWhatsappAccessFields");
+  function validateWhatsappSettingsBeforeSave() {
+    const mode = document.getElementById("whatsappAccessMode")?.value || "self";
+    if (mode !== "allowlist") {
+      setWhatsappAllowlistValidationError(null);
+      return true;
+    }
+    const raw = document.getElementById("whatsappAllowedPhones")?.value || "";
+    const tokens = raw.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
+    const t = window.__tcTranslations || {};
+    if (tokens.length === 0) {
+      setWhatsappAllowlistValidationError(
+        t.field_whatsapp_allowed_phones_error_required || "Add at least one phone for allowlist mode."
+      );
+      return false;
+    }
+    const invalid = tokens.find((item) => normalizePhoneCandidate(item) === null);
+    if (invalid) {
+      setWhatsappAllowlistValidationError(
+        t.field_whatsapp_allowed_phones_error || "Enter valid phone list for allowlist mode."
+      );
+      return false;
+    }
+    setWhatsappAllowlistValidationError(null);
+    return true;
+  }
+  __name(validateWhatsappSettingsBeforeSave, "validateWhatsappSettingsBeforeSave");
   el.saveSettingsBtn().addEventListener("click", () => {
+    if (!validateWhatsappSettingsBeforeSave()) {
+      return;
+    }
     const settings = readForm();
     settings.allowOutOfWorkspace = deriveAllowOutOfWorkspaceByProfile(settings.safeModeProfile || "balanced");
     cmd.saveSettings(settings);
@@ -1102,6 +1178,10 @@
   var safeModeSelect = document.getElementById("safeModeProfile");
   safeModeSelect?.addEventListener("change", () => {
     syncSafeModeControls(safeModeSelect.value || "balanced");
+  });
+  var whatsappAccessModeSelect = document.getElementById("whatsappAccessMode");
+  whatsappAccessModeSelect?.addEventListener("change", () => {
+    syncWhatsappAccessFields();
   });
   el.fetchModelsBtn().addEventListener("click", () => {
     const settings = readForm();
@@ -1222,6 +1302,7 @@
     updateGroupsToggleButton(anyExpanded);
     const safeMode = document.getElementById("safeModeProfile")?.value || "balanced";
     syncSafeModeControls(safeMode);
+    syncWhatsappAccessFields();
     updateComposerMeta();
     applyGroupedFilters();
     saveState();
@@ -1245,8 +1326,10 @@
     }
     if (pinFilters && Array.isArray(saved.filterKinds)) {
       enabledKinds.clear();
+      enabledSources.clear();
       for (const k of saved.filterKinds) {
-        enabledKinds.add(k);
+        if (k === "telegram" || k === "whatsapp") enabledSources.add(k);
+        else enabledKinds.add(k);
       }
     }
   }
@@ -1257,6 +1340,7 @@
   initStaticIcons();
   initTooltips();
   bindSafeModeStrip();
+  syncWhatsappAccessFields();
   updateComposerMeta();
   setControlState(el.status().textContent ?? "");
   cmd.requestSettings();

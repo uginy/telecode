@@ -20,6 +20,12 @@ export type Settings = {
   telegramChatId: string;
   telegramApiRoot: string;
   telegramForceIPv4: boolean;
+  whatsappEnabled: boolean;
+  whatsappSessionPath: string;
+  whatsappAllowSelfCommands: boolean;
+  whatsappRecoveryOnAuth: boolean;
+  whatsappAccessMode: 'self' | 'allowlist' | 'all';
+  whatsappAllowedPhones: string;
 };
 
 export const cmd = {

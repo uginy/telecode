@@ -25,21 +25,21 @@
 
 **TeleCode AI** is an autonomous coding agent built on `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`.
 It plans, executes tools, edits files, and reports progress in a structured log UI.
-You can control it from VS Code or remotely via Telegram.
+You can control it from VS Code or remotely via Telegram/WhatsApp.
 
-## 🆕 Version 0.1.7 Highlights
+## 🆕 Version 0.1.8 Highlights
 
-- Refined grouped logs UX with collapse/expand-all control and cleaner status noise handling.
-- Safe Mode Profiles (`strict`, `balanced`, `power`) in both composer and Settings.
-- Adaptive tooltip service in webview (auto placement + smooth transitions + RU/EN labels).
-- Quick block above composer: pinned filters, prompt presets, and run summary card.
-- About page redesigned and synchronized with project metadata and links.
-- Landing page and launch messaging synchronized with the current Marketplace release.
+- Unified top control: one Start/Stop toggle now controls TeleCode runtime + enabled channels.
+- WhatsApp access policy controls: `self`, `allowlist`, `all` with allowlist phones in Settings.
+- Telegram startup hardening: non-blocking polling start and safer network preflight path.
+- Grouped logs improvements: channel source filters (`Telegram` / `WhatsApp`) and cleaner channel entries.
+- Settings UX refinements: safer placeholders, aligned Save button, and clearer channel control hints.
+- About + landing content synchronized with latest channel/security capabilities.
 
 ## 🚀 Features
 
 - **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.
-- **Telegram Remote Control**: Authenticate your bot with `@BotFather`, set your Chat ID, and control your coding session from anywhere in the world.
+- **Remote Control Channels**: Use Telegram and WhatsApp channels for remote task execution from your phone.
 - **Multi-Provider AI**: Works with OpenRouter, OpenAI, Anthropic Claude, Google Gemini, MiniMax, Moonshot (Kimi), and self-hosted Ollama models.
 - **Structured Logs UI**:
   - Grouped log view with typed rows (`status`, `tool:start`, `tool:done`, `channel`, `llm`, etc.)
@@ -70,7 +70,7 @@ You can control it from VS Code or remotely via Telegram.
 1. Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai)
 2. Open the **TeleCode AI** panel from the Activity Bar
 3. Configure your provider and API key in Settings (`Cmd/Ctrl + ,` → TeleCode AI)
-4. Click **Start Agent**, type a task in the prompt field, and send it
+4. Click **Start TeleCode**, type a task in the prompt field, and send it
 
 ## ⚙️ Development
 
@@ -105,6 +105,12 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 | `telecode.telegram.chatId`      | Allowed Telegram user/group ID                                              |
 | `telecode.telegram.apiRoot`     | Telegram API root URL                                                       |
 | `telecode.telegram.forceIPv4`   | Force IPv4 mode for Telegram connectivity                                   |
+| `telecode.whatsapp.enabled`     | Enable WhatsApp channel                                                     |
+| `telecode.whatsapp.sessionPath` | Local session/profile path for WhatsApp Web auth                            |
+| `telecode.whatsapp.allowSelfCommands` | Allow self-chat command mode (`/run`, `/status`, `/stop`, `/help`)    |
+| `telecode.whatsapp.recoveryOnAuth` | Enable post-auth recovery when ready event is missing                    |
+| `telecode.whatsapp.accessMode`  | WhatsApp sender policy (`self`, `allowlist`, `all`)                        |
+| `telecode.whatsapp.allowedPhones` | Comma-separated allowlist phones for `allowlist` mode                    |
 
 ## 📄 License
 

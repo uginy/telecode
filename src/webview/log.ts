@@ -16,6 +16,7 @@ interface ParsedLine {
   message: string;
   icon: IconId;
   label: string;
+  source?: 'telegram' | 'whatsapp';
   variant?: 'whatsapp-qr-svg' | 'whatsapp-qr-note';
 }
 
@@ -89,6 +90,7 @@ function parseLine(line: string): ParsedLine {
     const normalized = normalizeStructuredLine(line);
     const match = normalized.match(/^\[(telegram|whatsapp)(?::([^\]]+))?\](.*)$/i);
     const source = (match?.[1] || 'channel').toUpperCase();
+    const sourceId = source === 'TELEGRAM' ? 'telegram' : source === 'WHATSAPP' ? 'whatsapp' : undefined;
     const tag = (match?.[2] || '').toLowerCase();
     let bodyRaw = match?.[3] || '';
     if (bodyRaw.startsWith(' ')) {
@@ -102,6 +104,7 @@ function parseLine(line: string): ParsedLine {
         message: body.length > 0 ? body : normalized,
         icon: meta.icon,
         label: source,
+        source: sourceId,
         variant,
       };
     }
@@ -111,6 +114,7 @@ function parseLine(line: string): ParsedLine {
       message: body.length > 0 ? body : normalized,
       icon: meta.icon,
       label: source,
+      source: sourceId,
     };
   }
 
@@ -128,6 +132,9 @@ function makeLine(text: string): HTMLElement {
   const div = document.createElement('div');
   div.className = 'log-line';
   div.dataset.kind = parsed.kind;
+  if (parsed.source) {
+    div.dataset.source = parsed.source;
+  }
   if (parsed.variant) {
     div.dataset.variant = parsed.variant;
     div.classList.add(`variant-${parsed.variant}`);

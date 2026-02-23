@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "ais: build",
+      "label": "telecode: build",
       "type": "shell",
       "command": "npm run build",
       "group": "build",
@@ -14,7 +14,7 @@
       }
     },
     {
-      "label": "ais: watch",
+      "label": "telecode: watch",
       "type": "shell",
       "command": "npm run watch",
       "group": "build",
@@ -41,8 +41,8 @@
           ],
           "background": {
             "activeOnStart": true,
-            "beginsPattern": "^\\[watch\\] build started",
-            "endsPattern": "^\\[watch\\] build finished"
+            "beginsPattern": "^\\[watch:(ext|webview)\\] build started",
+            "endsPattern": "^\\[watch:(ext|webview)\\] build finished"
           }
         }
       ]

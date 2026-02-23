@@ -124,6 +124,25 @@ export interface Translations {
   field_telegram_api_root_hint: string;
   field_telegram_force_ipv4: string;
   field_telegram_force_ipv4_hint: string;
+  settings_whatsapp_title: string;
+  settings_whatsapp_desc: string;
+  field_whatsapp_enabled: string;
+  field_whatsapp_enabled_hint: string;
+  field_whatsapp_session_path: string;
+  field_whatsapp_session_path_hint: string;
+  field_whatsapp_access_mode: string;
+  field_whatsapp_access_mode_hint: string;
+  option_whatsapp_access_self: string;
+  option_whatsapp_access_allowlist: string;
+  option_whatsapp_access_all: string;
+  field_whatsapp_allowed_phones: string;
+  field_whatsapp_allowed_phones_hint: string;
+  field_whatsapp_allowed_phones_error: string;
+  field_whatsapp_allowed_phones_error_required: string;
+  field_whatsapp_self_commands: string;
+  field_whatsapp_self_commands_hint: string;
+  field_whatsapp_recovery: string;
+  field_whatsapp_recovery_hint: string;
   
   // Telegram phases
   tg_studying_request: string;
@@ -204,8 +223,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     safe_mode_power: 'Мощный',
     tt_tab_logs: 'Логи выполнения',
     tt_tab_settings: 'Настройки TeleCode AI',
-    tt_toggle_agent_start: 'Запустить агента',
-    tt_toggle_agent_stop: 'Остановить агента',
+    tt_toggle_agent_start: 'Запустить TeleCode (агент + каналы)',
+    tt_toggle_agent_stop: 'Остановить TeleCode (агент + каналы)',
     tt_toggle_channels_connect: 'Подключить каналы',
     tt_toggle_channels_disconnect: 'Отключить каналы',
     tt_send_prompt: 'Отправить задачу (Ctrl/Cmd+Enter)',
@@ -236,13 +255,13 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_card_core_title: 'Ядро',
     about_card_core_text: 'Автономный цикл: план → инструменты → правки → проверка для реальных задач.',
     about_card_remote_title: 'Удалённо',
-    about_card_remote_text: 'Telegram-канал с уведомлениями жизненного цикла, статусами и безопасным старт/стоп.',
+    about_card_remote_text: 'Каналы Telegram и WhatsApp с единым старт/стоп и политиками доступа для безопасного удалённого управления.',
     about_card_tools_title: 'Инструменты',
     about_card_tools_text: 'Инструменты workspace для чтения/редактирования, поиска по коду и shell-команд.',
     about_feature_agent: 'Автономный агентный цикл: планирует, использует инструменты и доводит задачу до конца.',
     about_feature_files: 'Нативный coding-toolchain: read/write/edit, glob/grep, bash и контекст workspace.',
     about_feature_terminal: 'Безопасное выполнение команд и прозрачные логи выполнения.',
-    about_feature_remote: 'Удалённое управление через Telegram, пока VS Code открыт на вашей машине.',
+    about_feature_remote: 'Удалённое управление через Telegram и WhatsApp, пока VS Code открыт на вашей машине.',
     about_feature_multimodal: 'Поддержка нескольких LLM-провайдеров: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Полная многоязычность (интерфейс и ответы агента).',
 
@@ -276,7 +295,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_telegram_title: 'Telegram Бот',
     settings_telegram_desc: 'Управление задачами через внешнего бота.',
     field_telegram_enabled: 'Включить Telegram бота',
-    field_telegram_enabled_hint: 'Запускать бота вместе с агентом.',
+    field_telegram_enabled_hint: 'Управление каналом только здесь. Запуск вместе с TeleCode.',
     field_telegram_token: 'Токен бота',
     field_telegram_token_hint: 'Токен от @BotFather.',
     field_telegram_chat_id: 'Chat ID',
@@ -285,6 +304,25 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_telegram_api_root_hint: 'Адрес сервера Telegram (оставьте пустым для стандартного).',
     field_telegram_force_ipv4: 'Форсировать IPv4',
     field_telegram_force_ipv4_hint: 'Рекомендуется для macOS — решает проблемы с IPv6.',
+    settings_whatsapp_title: 'WhatsApp Бот',
+    settings_whatsapp_desc: 'Управление задачами через WhatsApp Web.',
+    field_whatsapp_enabled: 'Включить WhatsApp бота',
+    field_whatsapp_enabled_hint: 'Управление каналом только здесь. Запуск вместе с TeleCode.',
+    field_whatsapp_session_path: 'Путь сессии',
+    field_whatsapp_session_path_hint: 'Папка профиля LocalAuth/Chromium для WhatsApp.',
+    field_whatsapp_access_mode: 'Режим доступа',
+    field_whatsapp_access_mode_hint: 'Кто может отправлять задачи в WhatsApp-бот.',
+    option_whatsapp_access_self: 'Только я',
+    option_whatsapp_access_allowlist: 'Список номеров',
+    option_whatsapp_access_all: 'Все чаты',
+    field_whatsapp_allowed_phones: 'Разрешённые номера',
+    field_whatsapp_allowed_phones_hint: 'Список номеров через запятую в международном формате.',
+    field_whatsapp_allowed_phones_error: 'Неверный формат номеров для режима списка.',
+    field_whatsapp_allowed_phones_error_required: 'Добавьте минимум один номер для режима списка.',
+    field_whatsapp_self_commands: 'Разрешить self-команды',
+    field_whatsapp_self_commands_hint: 'Разрешать /run, /status, /stop, /help из того же аккаунта.',
+    field_whatsapp_recovery: 'Recovery при auth',
+    field_whatsapp_recovery_hint: 'Автовосстановление listeners, если не приходит ready.',
   
     tg_studying_request: 'Изучаю ваш запрос...',
     tg_phase_preparing: 'Готовлюсь к ответу...',
@@ -362,8 +400,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     safe_mode_power: 'Power',
     tt_tab_logs: 'Execution logs',
     tt_tab_settings: 'TeleCode AI settings',
-    tt_toggle_agent_start: 'Start agent',
-    tt_toggle_agent_stop: 'Stop agent',
+    tt_toggle_agent_start: 'Start TeleCode (agent + channels)',
+    tt_toggle_agent_stop: 'Stop TeleCode (agent + channels)',
     tt_toggle_channels_connect: 'Connect channels',
     tt_toggle_channels_disconnect: 'Disconnect channels',
     tt_send_prompt: 'Send task (Ctrl/Cmd+Enter)',
@@ -394,13 +432,13 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_card_core_title: 'Core',
     about_card_core_text: 'Autonomous loop with plan → tools → apply → verify cycle for real coding tasks.',
     about_card_remote_title: 'Remote',
-    about_card_remote_text: 'Telegram channel with lifecycle notifications, status updates, and safe start/stop flow.',
+    about_card_remote_text: 'Telegram and WhatsApp channels with unified start/stop and access policies for safe remote control.',
     about_card_tools_title: 'Tools',
     about_card_tools_text: 'Workspace tools for reading/editing files, searching code, and running shell commands.',
     about_feature_agent: 'Autonomous agent loop: plans, executes tools, edits code, and iterates until done.',
     about_feature_files: 'Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.',
     about_feature_terminal: 'Safe command execution and transparent execution logs.',
-    about_feature_remote: 'Telegram remote control: run tasks from your phone while VS Code stays open.',
+    about_feature_remote: 'Telegram and WhatsApp remote control: run tasks from your phone while VS Code stays open.',
     about_feature_multimodal: 'Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Full multi-language support (UI and responses).',
 
@@ -434,7 +472,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_telegram_title: 'Telegram Bot',
     settings_telegram_desc: 'Receive and respond to tasks via a Telegram bot.',
     field_telegram_enabled: 'Enable Telegram Bot',
-    field_telegram_enabled_hint: 'Start the bot when the agent is running.',
+    field_telegram_enabled_hint: 'Channel control is here only. Starts with TeleCode.',
     field_telegram_token: 'Bot Token',
     field_telegram_token_hint: 'Token from @BotFather.',
     field_telegram_chat_id: 'Chat ID',
@@ -443,6 +481,25 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_telegram_api_root_hint: 'Custom API server URL (leave blank for default).',
     field_telegram_force_ipv4: 'Force IPv4',
     field_telegram_force_ipv4_hint: 'Recommended for macOS — avoids IPv6 issues.',
+    settings_whatsapp_title: 'WhatsApp Bot',
+    settings_whatsapp_desc: 'Receive and respond to tasks via WhatsApp Web.',
+    field_whatsapp_enabled: 'Enable WhatsApp Bot',
+    field_whatsapp_enabled_hint: 'Channel control is here only. Starts with TeleCode.',
+    field_whatsapp_session_path: 'Session Path',
+    field_whatsapp_session_path_hint: 'LocalAuth/Chromium profile folder for WhatsApp.',
+    field_whatsapp_access_mode: 'Access Mode',
+    field_whatsapp_access_mode_hint: 'Who can send tasks to WhatsApp bot.',
+    option_whatsapp_access_self: 'Self only',
+    option_whatsapp_access_allowlist: 'Allowlist',
+    option_whatsapp_access_all: 'All chats',
+    field_whatsapp_allowed_phones: 'Allowed Phones',
+    field_whatsapp_allowed_phones_hint: 'Comma-separated phone list in international format.',
+    field_whatsapp_allowed_phones_error: 'Invalid phone list for allowlist mode.',
+    field_whatsapp_allowed_phones_error_required: 'Add at least one phone for allowlist mode.',
+    field_whatsapp_self_commands: 'Allow Self Commands',
+    field_whatsapp_self_commands_hint: 'Allow /run, /status, /stop, /help from the same account.',
+    field_whatsapp_recovery: 'Recovery On Auth',
+    field_whatsapp_recovery_hint: 'Auto-recover listeners when ready event is missing.',
   
     tg_studying_request: 'Studying your request...',
     tg_phase_preparing: 'Preparing response...',
