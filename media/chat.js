@@ -230,6 +230,7 @@
   var streamText = "";
   var streamListLine = null;
   var streamGroupedLine = null;
+  var currentRunSummary = null;
   function createGroupedNode(type, title, info, desc, icon) {
     const nodeEl = document.createElement("div");
     nodeEl.className = "grouped-node expanded";
@@ -331,6 +332,20 @@
     out.appendChild(lineEl);
     const parsed = parseLine(text);
     const kind = parsed.kind;
+    if ((kind === "request" || kind === "user") && parsed.message.length > 0) {
+      currentRunSummary = {
+        startedAt: Date.now(),
+        tools: 0,
+        errors: 0,
+        prompt: parsed.message.slice(0, 120)
+      };
+    }
+    if (kind === "tool-start" && currentRunSummary) {
+      currentRunSummary.tools += 1;
+    }
+    if (kind === "tool-error" && currentRunSummary) {
+      currentRunSummary.errors += 1;
+    }
     if (kind !== "text") {
       finalizeStreamingText();
     }
@@ -396,6 +411,18 @@
           systemNode.infoSpan.classList.add("done");
           systemNode.infoSpan.textContent = "Ready";
         }
+      }
+      if (kind === "run" && currentRunSummary) {
+        const elapsedMs = Math.max(0, Date.now() - currentRunSummary.startedAt);
+        window.dispatchEvent(new CustomEvent("run-summary", {
+          detail: {
+            tools: currentRunSummary.tools,
+            errors: currentRunSummary.errors,
+            elapsedMs,
+            prompt: currentRunSummary.prompt
+          }
+        }));
+        currentRunSummary = null;
       }
     } else {
       const clone = lineEl.cloneNode(true);
@@ -791,7 +818,10 @@
       prompt: el.prompt().value,
       status: el.status().textContent,
       view: viewState,
-      tab: el.tabLogs().classList.contains("active") ? "logs" : "settings"
+      tab: el.tabLogs().classList.contains("active") ? "logs" : "settings",
+      filterKinds: pinFilters ? Array.from(enabledKinds) : [],
+      filterQuery: pinFilters ? filterQuery : "",
+      pinFilters
     });
   }
   __name(saveState, "saveState");
@@ -802,6 +832,20 @@
   });
   var enabledKinds = /* @__PURE__ */ new Set();
   var filterQuery = "";
+  var pinFilters = true;
+  function updatePinFiltersButton() {
+    const btn = document.getElementById("pinFiltersBtn");
+    if (!btn) return;
+    btn.classList.toggle("active", pinFilters);
+  }
+  __name(updatePinFiltersButton, "updatePinFiltersButton");
+  function updateRunSummaryCard(data) {
+    const card = document.getElementById("runSummaryCard");
+    if (!card) return;
+    const sec = (data.elapsedMs / 1e3).toFixed(1);
+    card.textContent = `"${data.prompt}" \u2022 tools ${data.tools} \u2022 errors ${data.errors} \u2022 ${sec}s`;
+  }
+  __name(updateRunSummaryCard, "updateRunSummaryCard");
   function applyGroupedFilters() {
     const output = el.output();
     const query = filterQuery.trim().toLowerCase();
@@ -827,6 +871,9 @@
   function updateFilterButtons() {
     const buttons = Array.from(document.querySelectorAll(".log-filter-btn"));
     for (const button of buttons) {
+      if (!button.dataset.kind) {
+        continue;
+      }
       const kind = button.dataset.kind || "all";
       if (kind === "all") {
         button.classList.toggle("active", enabledKinds.size === 0);
@@ -841,7 +888,11 @@
     const input = document.getElementById("logFilterQuery");
     const clear = document.getElementById("logFilterClear");
     const toggleAll = document.getElementById("toggleAllGroupsBtn");
+    const pinBtn = document.getElementById("pinFiltersBtn");
     for (const button of buttons) {
+      if (!button.dataset.kind) {
+        continue;
+      }
       button.addEventListener("click", () => {
         const kind = button.dataset.kind || "all";
         if (kind === "all") {
@@ -853,11 +904,13 @@
         }
         updateFilterButtons();
         applyGroupedFilters();
+        saveState();
       });
     }
     input?.addEventListener("input", () => {
       filterQuery = input.value;
       applyGroupedFilters();
+      saveState();
     });
     clear?.addEventListener("click", () => {
       enabledKinds.clear();
@@ -865,6 +918,7 @@
       if (input) input.value = "";
       updateFilterButtons();
       applyGroupedFilters();
+      saveState();
     });
     toggleAll?.addEventListener("click", () => {
       const action = toggleAll.dataset.action || "collapse";
@@ -875,7 +929,36 @@
         expandAllGroups();
         updateGroupsToggleButton(true);
       }
+      saveState();
     });
+    pinBtn?.addEventListener("click", () => {
+      pinFilters = !pinFilters;
+      updatePinFiltersButton();
+      if (!pinFilters) {
+        enabledKinds.clear();
+        filterQuery = "";
+        if (input) input.value = "";
+        updateFilterButtons();
+        applyGroupedFilters();
+      }
+      saveState();
+    });
+    const presets = Array.from(document.querySelectorAll(".preset-btn"));
+    for (const btn of presets) {
+      btn.addEventListener("click", () => {
+        const preset = btn.dataset.preset || "bugfix";
+        const prompt = el.prompt();
+        if (preset === "bugfix") {
+          prompt.value = "Find and fix the bug in the current feature. Keep changes minimal and safe, then verify.";
+        } else if (preset === "refactor") {
+          prompt.value = "Refactor the selected module for clarity and maintainability without changing behavior.";
+        } else {
+          prompt.value = "Add or improve tests for the changed behavior and cover key edge cases.";
+        }
+        prompt.focus();
+        saveState();
+      });
+    }
   }
   __name(bindLogFilters, "bindLogFilters");
   el.tabLogs().addEventListener("click", () => {
@@ -950,6 +1033,9 @@
     if (versionEl && version) {
       versionEl.textContent = version;
     }
+  });
+  window.addEventListener("run-summary", (e) => {
+    updateRunSummaryCard(e.detail);
   });
   function updateModelSuggestions(models) {
     const picker = el.modelPicker();
@@ -1047,9 +1133,22 @@
     if (saved.tab === "settings") setTab("settings");
     el.viewGroupedBtn().classList.add("active");
     el.output().setAttribute("data-view", "grouped");
+    pinFilters = saved.pinFilters !== false;
+    if (pinFilters && saved.filterQuery) {
+      filterQuery = saved.filterQuery;
+      const input = document.getElementById("logFilterQuery");
+      if (input) input.value = filterQuery;
+    }
+    if (pinFilters && Array.isArray(saved.filterKinds)) {
+      enabledKinds.clear();
+      for (const k of saved.filterKinds) {
+        enabledKinds.add(k);
+      }
+    }
   }
   bindLogFilters();
   updateFilterButtons();
+  updatePinFiltersButton();
   applyGroupedFilters();
   initStaticIcons();
   initTooltips();

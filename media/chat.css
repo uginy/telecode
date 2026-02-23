@@ -704,6 +704,49 @@ body {
   color: var(--vscode-foreground);
 }
 
+.quick-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+}
+.quick-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.quick-btn {
+  border: 1px solid var(--vscode-widget-border, rgba(128,128,128,.2));
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.quick-btn:hover {
+  color: var(--vscode-foreground);
+}
+.quick-btn.active {
+  color: var(--vscode-button-foreground, #fff);
+  background: var(--vscode-button-background, #2f8bfd);
+  border-color: transparent;
+}
+.quick-summary {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  min-width: 200px;
+}
+
 .grouped-node {
   margin-bottom: 6px;
   border: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));

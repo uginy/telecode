@@ -60,6 +60,15 @@
       </div>
     </div>
     <div id="output" class="output" data-view="grouped"></div>
+    <div class="quick-block" id="quickBlock">
+      <div class="quick-left">
+        <button id="pinFiltersBtn" class="quick-btn" type="button" data-t="btn_pin_filters">Pin filters</button>
+        <button class="quick-btn preset-btn" type="button" data-preset="bugfix" data-t="preset_bugfix">Bugfix</button>
+        <button class="quick-btn preset-btn" type="button" data-preset="refactor" data-t="preset_refactor">Refactor</button>
+        <button class="quick-btn preset-btn" type="button" data-preset="tests" data-t="preset_tests">Tests</button>
+      </div>
+      <div id="runSummaryCard" class="quick-summary" data-t="run_summary_empty">No runs yet</div>
+    </div>
     <div class="input-area">
       <div class="composer">
         <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="2"></textarea>

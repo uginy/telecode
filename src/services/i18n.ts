@@ -50,6 +50,11 @@ export interface Translations {
   btn_view_list: string;
   btn_collapse_all: string;
   btn_expand_all: string;
+  btn_pin_filters: string;
+  preset_bugfix: string;
+  preset_refactor: string;
+  preset_tests: string;
+  run_summary_empty: string;
 
   // UI - Settings General
   settings_general_title: string;
@@ -208,6 +213,11 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_view_list: 'Список',
     btn_collapse_all: 'Свернуть всё',
     btn_expand_all: 'Развернуть всё',
+    btn_pin_filters: 'Фикс. фильтры',
+    preset_bugfix: 'Багфикс',
+    preset_refactor: 'Рефактор',
+    preset_tests: 'Тесты',
+    run_summary_empty: 'Запусков пока нет',
 
     settings_general_title: 'Общие',
     settings_general_desc: 'Глобальные настройки приложения.',
@@ -359,6 +369,11 @@ const TRANSLATIONS: Record<Language, Translations> = {
     btn_view_list: 'List',
     btn_collapse_all: 'Collapse all',
     btn_expand_all: 'Expand all',
+    btn_pin_filters: 'Pin filters',
+    preset_bugfix: 'Bugfix',
+    preset_refactor: 'Refactor',
+    preset_tests: 'Tests',
+    run_summary_empty: 'No runs yet',
 
     settings_general_title: 'General',
     settings_general_desc: 'Global application preferences.',

@@ -126,12 +126,20 @@ interface GroupedNode {
   titleSpan: HTMLElement;
 }
 
+interface RunSummaryState {
+  startedAt: number;
+  tools: number;
+  errors: number;
+  prompt: string;
+}
+
 let currentTaskNode: GroupedNode | null = null;
 let currentToolNode: GroupedNode | null = null;
 let currentSystemNode: GroupedNode | null = null;
 let streamText = '';
 let streamListLine: HTMLElement | null = null;
 let streamGroupedLine: HTMLElement | null = null;
+let currentRunSummary: RunSummaryState | null = null;
 
 function createGroupedNode(type: GroupedNodeType, title: string, info: string, desc: string, icon: IconId): GroupedNode {
   const nodeEl = document.createElement('div');
@@ -252,6 +260,20 @@ export function appendLine(text: string): void {
   // Grouped view logic
   const parsed = parseLine(text);
   const kind = parsed.kind;
+  if ((kind === 'request' || kind === 'user') && parsed.message.length > 0) {
+    currentRunSummary = {
+      startedAt: Date.now(),
+      tools: 0,
+      errors: 0,
+      prompt: parsed.message.slice(0, 120),
+    };
+  }
+  if (kind === 'tool-start' && currentRunSummary) {
+    currentRunSummary.tools += 1;
+  }
+  if (kind === 'tool-error' && currentRunSummary) {
+    currentRunSummary.errors += 1;
+  }
   if (kind !== 'text') {
     finalizeStreamingText();
   }
@@ -319,6 +341,18 @@ export function appendLine(text: string): void {
         systemNode.infoSpan.classList.add('done');
         systemNode.infoSpan.textContent = 'Ready';
       }
+    }
+    if (kind === 'run' && currentRunSummary) {
+      const elapsedMs = Math.max(0, Date.now() - currentRunSummary.startedAt);
+      window.dispatchEvent(new CustomEvent('run-summary', {
+        detail: {
+          tools: currentRunSummary.tools,
+          errors: currentRunSummary.errors,
+          elapsedMs,
+          prompt: currentRunSummary.prompt,
+        }
+      }));
+      currentRunSummary = null;
     }
   } else {
     // Normal text, LLM chunks, phase, status

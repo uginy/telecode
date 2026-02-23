@@ -27,6 +27,14 @@
 It plans, executes tools, edits files, and reports progress in a structured log UI.
 You can control it from VS Code or remotely via Telegram.
 
+## 🆕 Version 0.1.5 Highlights
+
+- Refined grouped logs UX with collapse/expand-all control and cleaner status noise handling.
+- Safe Mode Profiles (`strict`, `balanced`, `power`) in both composer and Settings.
+- Adaptive tooltip service in webview (auto placement + smooth transitions + RU/EN labels).
+- Quick block above composer: pinned filters, prompt presets, and run summary card.
+- About page redesigned and synchronized with project metadata and links.
+
 ## 🚀 Features
 
 - **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.
@@ -36,6 +44,7 @@ You can control it from VS Code or remotely via Telegram.
   - Grouped log view with typed rows (`status`, `tool:start`, `tool:done`, `channel`, `llm`, etc.)
   - Status verbosity modes: `minimal`, `normal`, `debug`
   - Filter chips and query filter for fast navigation in long runs
+  - Collapse/expand all grouped nodes
 - **Native Coding Toolchain**:
   - `read_file` / `write_file` / `edit_file` (exact-line replace)
   - `glob` for file discovery
@@ -85,6 +94,7 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 | `telecode.language`             | Agent language (`auto`, `ru`, `en`)                                         |
 | `telecode.uiLanguage`           | UI language (`ru`, `en`)                                                    |
 | `telecode.statusVerbosity`      | Runtime status density in logs (`minimal`, `normal`, `debug`)               |
+| `telecode.safeModeProfile`      | Permission profile (`strict`, `balanced`, `power`)                           |
 | `telecode.logMaxChars`          | Maximum in-memory UI log buffer before trimming                             |
 | `telecode.telegramMaxLogLines`  | Maximum Telegram log lines kept in memory                                   |
 | `telecode.allowOutOfWorkspace`  | Allow agent file/command access outside workspace                           |

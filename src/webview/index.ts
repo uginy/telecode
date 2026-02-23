@@ -18,6 +18,9 @@ type PersistedState = {
   status?: string;
   tab?: 'logs' | 'settings';
   view?: 'grouped';
+  filterKinds?: string[];
+  filterQuery?: string;
+  pinFilters?: boolean;
 };
 
 function deriveAllowOutOfWorkspaceByProfile(profile: string): boolean {
@@ -106,6 +109,9 @@ function saveState(): void {
     status: el.status().textContent,
     view: viewState,
     tab: el.tabLogs().classList.contains('active') ? 'logs' : 'settings',
+    filterKinds: pinFilters ? Array.from(enabledKinds) : [],
+    filterQuery: pinFilters ? filterQuery : '',
+    pinFilters,
   });
 }
 
@@ -126,6 +132,20 @@ type LogKind =
 
 const enabledKinds = new Set<LogKind>();
 let filterQuery = '';
+let pinFilters = true;
+
+function updatePinFiltersButton(): void {
+  const btn = document.getElementById('pinFiltersBtn') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.classList.toggle('active', pinFilters);
+}
+
+function updateRunSummaryCard(data: { tools: number; errors: number; elapsedMs: number; prompt: string }): void {
+  const card = document.getElementById('runSummaryCard');
+  if (!card) return;
+  const sec = (data.elapsedMs / 1000).toFixed(1);
+  card.textContent = `"${data.prompt}" • tools ${data.tools} • errors ${data.errors} • ${sec}s`;
+}
 
 function applyGroupedFilters(): void {
   const output = el.output();
@@ -154,6 +174,9 @@ function applyGroupedFilters(): void {
 function updateFilterButtons(): void {
   const buttons = Array.from(document.querySelectorAll('.log-filter-btn')) as HTMLButtonElement[];
   for (const button of buttons) {
+    if (!button.dataset.kind) {
+      continue;
+    }
     const kind = (button.dataset.kind || 'all') as LogKind | 'all';
     if (kind === 'all') {
       button.classList.toggle('active', enabledKinds.size === 0);
@@ -168,8 +191,12 @@ function bindLogFilters(): void {
   const input = document.getElementById('logFilterQuery') as HTMLInputElement | null;
   const clear = document.getElementById('logFilterClear') as HTMLButtonElement | null;
   const toggleAll = document.getElementById('toggleAllGroupsBtn') as HTMLButtonElement | null;
+  const pinBtn = document.getElementById('pinFiltersBtn') as HTMLButtonElement | null;
 
   for (const button of buttons) {
+    if (!button.dataset.kind) {
+      continue;
+    }
     button.addEventListener('click', () => {
       const kind = (button.dataset.kind || 'all') as LogKind | 'all';
       if (kind === 'all') {
@@ -181,12 +208,14 @@ function bindLogFilters(): void {
       }
       updateFilterButtons();
       applyGroupedFilters();
+      saveState();
     });
   }
 
   input?.addEventListener('input', () => {
     filterQuery = input.value;
     applyGroupedFilters();
+    saveState();
   });
 
   clear?.addEventListener('click', () => {
@@ -195,6 +224,7 @@ function bindLogFilters(): void {
     if (input) input.value = '';
     updateFilterButtons();
     applyGroupedFilters();
+    saveState();
   });
 
   toggleAll?.addEventListener('click', () => {
@@ -206,7 +236,38 @@ function bindLogFilters(): void {
       expandAllGroups();
       updateGroupsToggleButton(true);
     }
+    saveState();
   });
+
+  pinBtn?.addEventListener('click', () => {
+    pinFilters = !pinFilters;
+    updatePinFiltersButton();
+    if (!pinFilters) {
+      enabledKinds.clear();
+      filterQuery = '';
+      if (input) input.value = '';
+      updateFilterButtons();
+      applyGroupedFilters();
+    }
+    saveState();
+  });
+
+  const presets = Array.from(document.querySelectorAll('.preset-btn')) as HTMLButtonElement[];
+  for (const btn of presets) {
+    btn.addEventListener('click', () => {
+      const preset = btn.dataset.preset || 'bugfix';
+      const prompt = el.prompt();
+      if (preset === 'bugfix') {
+        prompt.value = 'Find and fix the bug in the current feature. Keep changes minimal and safe, then verify.';
+      } else if (preset === 'refactor') {
+        prompt.value = 'Refactor the selected module for clarity and maintainability without changing behavior.';
+      } else {
+        prompt.value = 'Add or improve tests for the changed behavior and cover key edge cases.';
+      }
+      prompt.focus();
+      saveState();
+    });
+  }
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -289,6 +350,10 @@ window.addEventListener('build-info', (e: Event) => {
   if (versionEl && version) {
     versionEl.textContent = version;
   }
+});
+
+window.addEventListener('run-summary', (e: Event) => {
+  updateRunSummaryCard((e as CustomEvent).detail as { tools: number; errors: number; elapsedMs: number; prompt: string });
 });
 
 function updateModelSuggestions(models: string[]): void {
@@ -401,11 +466,24 @@ if (saved) {
   if (saved.tab === 'settings') setTab('settings');
   el.viewGroupedBtn().classList.add('active');
   el.output().setAttribute('data-view', 'grouped');
+  pinFilters = saved.pinFilters !== false;
+  if (pinFilters && saved.filterQuery) {
+    filterQuery = saved.filterQuery;
+    const input = document.getElementById('logFilterQuery') as HTMLInputElement | null;
+    if (input) input.value = filterQuery;
+  }
+  if (pinFilters && Array.isArray(saved.filterKinds)) {
+    enabledKinds.clear();
+    for (const k of saved.filterKinds) {
+      enabledKinds.add(k as LogKind);
+    }
+  }
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 bindLogFilters();
 updateFilterButtons();
+updatePinFiltersButton();
 applyGroupedFilters();
 initStaticIcons();
 initTooltips();
