@@ -545,7 +545,9 @@ export class WhatsAppChannel implements IChannel {
     if (lang === 'en') {
       return 'TeleCode AI connected. Send /status';
     }
-    return 'TeleCode AI подключен. Отправьте /status\nTeleCode AI connected. Send /status';
+    return settings.agent.uiLanguage === 'en'
+      ? 'TeleCode AI connected. Send /status'
+      : 'TeleCode AI подключен. Отправьте /status';
   }
 
   private async sendStartupGreeting(): Promise<void> {
