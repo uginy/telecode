@@ -354,6 +354,14 @@ export class WhatsAppChannel implements IChannel {
     this.setStatus('Running');
     this.pushLog(`[whatsapp] task from ${chatId}: ${taskText.slice(0, 180)}`);
 
+    // Send "typing..." status so WhatsApp user sees the bot is thinking
+    void this.sock?.sendPresenceUpdate('composing', chatId);
+    const typingInterval = setInterval(() => {
+      if (this.sock && this.active) {
+        void this.sock.sendPresenceUpdate('composing', chatId);
+      }
+    }, 10_000);
+
     const runtime = this.ensureRuntime();
     let output = '';
     const unsub = runtime.onEvent((event) => {
@@ -380,6 +388,8 @@ export class WhatsAppChannel implements IChannel {
       this.pushLog(`[whatsapp:error] ${message}`);
       this.setStatus('Error');
     } finally {
+      clearInterval(typingInterval);
+      void this.sock?.sendPresenceUpdate('paused', chatId);
       unsub();
       this.isProcessing = false;
     }
