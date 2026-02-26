@@ -1,8 +1,9 @@
-const TOOLTIP_SELECTOR = '[data-tooltip]';
+const TOOLTIP_SELECTOR = '[data-tooltip], [data-tooltip-key]';
 const VIEWPORT_GAP = 8;
 
 let tooltipEl: HTMLDivElement | null = null;
 let activeTarget: HTMLElement | null = null;
+let hideTimeout: number | undefined;
 
 function ensureTooltip(): HTMLDivElement {
   if (tooltipEl) return tooltipEl;
@@ -11,6 +12,15 @@ function ensureTooltip(): HTMLDivElement {
   el.setAttribute('role', 'tooltip');
   document.body.appendChild(el);
   tooltipEl = el;
+
+  el.addEventListener('mouseenter', () => {
+    if (hideTimeout) window.clearTimeout(hideTimeout);
+  });
+  el.addEventListener('mouseleave', () => {
+    if (activeTarget && activeTarget.dataset.tooltipClick === 'true') return;
+    hideTimeout = window.setTimeout(hideTooltip, 150);
+  });
+
   return el;
 }
 
@@ -51,11 +61,17 @@ function calcPos(
 }
 
 function showTooltip(target: HTMLElement): void {
+  if (hideTimeout) window.clearTimeout(hideTimeout);
+  
   const text = (target.dataset.tooltip || '').trim();
   if (!text) return;
   const tip = ensureTooltip();
-  activeTarget = target;
-  tip.textContent = text;
+  
+  if (activeTarget !== target) {
+    tip.textContent = text;
+    activeTarget = target;
+  }
+  
   tip.dataset.open = '1';
 
   const preferred = target.dataset.tooltipPlacement || 'top';
@@ -89,10 +105,26 @@ function hideTooltip(): void {
 function bindElement(el: HTMLElement): void {
   if (el.dataset.tooltipBound === '1') return;
   el.dataset.tooltipBound = '1';
-  el.addEventListener('mouseenter', () => showTooltip(el));
-  el.addEventListener('mouseleave', hideTooltip);
-  el.addEventListener('focus', () => showTooltip(el));
-  el.addEventListener('blur', hideTooltip);
+  
+  if (el.dataset.tooltipClick === 'true') {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (tooltipEl?.dataset.open === '1' && activeTarget === el) {
+        hideTooltip();
+      } else {
+        showTooltip(el);
+      }
+    });
+  } else {
+    el.addEventListener('mouseenter', () => showTooltip(el));
+    el.addEventListener('mouseleave', () => {
+      hideTimeout = window.setTimeout(hideTooltip, 150);
+    });
+    el.addEventListener('focus', () => showTooltip(el));
+    el.addEventListener('blur', () => {
+      hideTimeout = window.setTimeout(hideTooltip, 150);
+    });
+  }
 }
 
 export function initTooltips(): void {
@@ -100,10 +132,19 @@ export function initTooltips(): void {
   for (const el of all) bindElement(el);
 
   window.addEventListener('scroll', () => {
-    if (activeTarget) showTooltip(activeTarget);
+    if (activeTarget && tooltipEl?.dataset.open === '1') showTooltip(activeTarget);
   }, true);
   window.addEventListener('resize', () => {
-    if (activeTarget) showTooltip(activeTarget);
+    if (activeTarget && tooltipEl?.dataset.open === '1') showTooltip(activeTarget);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (tooltipEl && tooltipEl.dataset.open === '1') {
+      const t = e.target as Node;
+      if (!tooltipEl.contains(t) && (!activeTarget || !activeTarget.contains(t))) {
+        hideTooltip();
+      }
+    }
   });
 }
 

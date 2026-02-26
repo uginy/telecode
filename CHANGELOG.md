@@ -2,6 +2,10 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.14]
+
+- **Panel Onboarding UX**: Added a multilingual info tooltip next to the main header brand to clarify the agent's primary control interface (WhatsApp & Telegram), with refined, glitch-free hover logic for reading tooltip copy.
+
 ## [0.1.13]
 
 - **WhatsApp Onboarding**: Injected explicit UI hints in the Settings tab to guide users on correctly starting the agent and scanning the QR code inside the "Logs" tab.

@@ -205,11 +205,33 @@ body {
   min-width: 0;
 }
 
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .brand {
   font-size: 13px;
   font-weight: 600;
   letter-spacing: .01em;
   opacity: .9;
+}
+
+.brand-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: help;
+  transition: color 150ms;
+  margin-top: 1px;
+}
+.brand-info-icon:hover {
+  color: var(--accent);
+}
+.brand-info-icon svg {
+  display: block;
 }
 
 /* Status badge */
@@ -1070,7 +1092,6 @@ textarea:focus { border-color: var(--accent); }
 .tc-tooltip {
   position: fixed;
   z-index: 9999;
-  pointer-events: none;
   max-width: 260px;
   padding: 5px 8px;
   border-radius: 6px;
@@ -1080,11 +1101,15 @@ textarea:focus { border-color: var(--accent); }
   font-size: 10px;
   line-height: 1.35;
   opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
   transform: translateY(-2px) scale(0.98);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
 }
 .tc-tooltip[data-open='1'] {
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   transform: translateY(0) scale(1);
 }
 

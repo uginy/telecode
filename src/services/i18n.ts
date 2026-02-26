@@ -39,6 +39,7 @@ export interface Translations {
   safe_mode_power: string;
   tt_tab_logs: string;
   tt_tab_settings: string;
+  tt_brand_info: string;
   tt_toggle_agent_start: string;
   tt_toggle_agent_stop: string;
   tt_toggle_channels_connect: string;
@@ -221,6 +222,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     safe_mode_power: 'Мощный',
     tt_tab_logs: 'Логи выполнения',
     tt_tab_settings: 'Настройки TeleCode AI',
+    tt_brand_info: 'Панель управления ботом. Основные команды и работу с агентом удобнее всего вести через WhatsApp и/или Telegram!',
     tt_toggle_agent_start: 'Запустить TeleCode (агент + каналы)',
     tt_toggle_agent_stop: 'Остановить TeleCode (агент + каналы)',
     tt_toggle_channels_connect: 'Подключить каналы',
@@ -396,6 +398,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     safe_mode_power: 'Power',
     tt_tab_logs: 'Execution logs',
     tt_tab_settings: 'TeleCode AI settings',
+    tt_brand_info: 'Bot control panel. The main workflow and sending commands are designed to be used via WhatsApp and/or Telegram!',
     tt_toggle_agent_start: 'Start TeleCode (agent + channels)',
     tt_toggle_agent_stop: 'Stop TeleCode (agent + channels)',
     tt_toggle_channels_connect: 'Connect channels',

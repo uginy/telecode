@@ -732,10 +732,11 @@
   __name(handleMessage, "handleMessage");
 
   // src/webview/tooltip-service.ts
-  var TOOLTIP_SELECTOR = "[data-tooltip]";
+  var TOOLTIP_SELECTOR = "[data-tooltip], [data-tooltip-key]";
   var VIEWPORT_GAP = 8;
   var tooltipEl = null;
   var activeTarget = null;
+  var hideTimeout;
   function ensureTooltip() {
     if (tooltipEl) return tooltipEl;
     const el2 = document.createElement("div");
@@ -743,6 +744,13 @@
     el2.setAttribute("role", "tooltip");
     document.body.appendChild(el2);
     tooltipEl = el2;
+    el2.addEventListener("mouseenter", () => {
+      if (hideTimeout) window.clearTimeout(hideTimeout);
+    });
+    el2.addEventListener("mouseleave", () => {
+      if (activeTarget && activeTarget.dataset.tooltipClick === "true") return;
+      hideTimeout = window.setTimeout(hideTooltip, 150);
+    });
     return el2;
   }
   __name(ensureTooltip, "ensureTooltip");
@@ -773,11 +781,14 @@
   }
   __name(calcPos, "calcPos");
   function showTooltip(target) {
+    if (hideTimeout) window.clearTimeout(hideTimeout);
     const text = (target.dataset.tooltip || "").trim();
     if (!text) return;
     const tip = ensureTooltip();
-    activeTarget = target;
-    tip.textContent = text;
+    if (activeTarget !== target) {
+      tip.textContent = text;
+      activeTarget = target;
+    }
     tip.dataset.open = "1";
     const preferred = target.dataset.tooltipPlacement || "top";
     tip.style.top = "0px";
@@ -808,20 +819,43 @@
   function bindElement(el2) {
     if (el2.dataset.tooltipBound === "1") return;
     el2.dataset.tooltipBound = "1";
-    el2.addEventListener("mouseenter", () => showTooltip(el2));
-    el2.addEventListener("mouseleave", hideTooltip);
-    el2.addEventListener("focus", () => showTooltip(el2));
-    el2.addEventListener("blur", hideTooltip);
+    if (el2.dataset.tooltipClick === "true") {
+      el2.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (tooltipEl?.dataset.open === "1" && activeTarget === el2) {
+          hideTooltip();
+        } else {
+          showTooltip(el2);
+        }
+      });
+    } else {
+      el2.addEventListener("mouseenter", () => showTooltip(el2));
+      el2.addEventListener("mouseleave", () => {
+        hideTimeout = window.setTimeout(hideTooltip, 150);
+      });
+      el2.addEventListener("focus", () => showTooltip(el2));
+      el2.addEventListener("blur", () => {
+        hideTimeout = window.setTimeout(hideTooltip, 150);
+      });
+    }
   }
   __name(bindElement, "bindElement");
   function initTooltips() {
     const all = Array.from(document.querySelectorAll(TOOLTIP_SELECTOR));
     for (const el2 of all) bindElement(el2);
     window.addEventListener("scroll", () => {
-      if (activeTarget) showTooltip(activeTarget);
+      if (activeTarget && tooltipEl?.dataset.open === "1") showTooltip(activeTarget);
     }, true);
     window.addEventListener("resize", () => {
-      if (activeTarget) showTooltip(activeTarget);
+      if (activeTarget && tooltipEl?.dataset.open === "1") showTooltip(activeTarget);
+    });
+    document.addEventListener("click", (e) => {
+      if (tooltipEl && tooltipEl.dataset.open === "1") {
+        const t = e.target;
+        if (!tooltipEl.contains(t) && (!activeTarget || !activeTarget.contains(t))) {
+          hideTooltip();
+        }
+      }
     });
   }
   __name(initTooltips, "initTooltips");
