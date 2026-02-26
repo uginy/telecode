@@ -27,15 +27,6 @@
 It plans, executes tools, edits files, and reports progress in a structured log UI.
 You can control it from VS Code or remotely via Telegram/WhatsApp.
 
-## 🆕 Version 0.1.8 Highlights
-
-- Unified top control: one Start/Stop toggle now controls TeleCode runtime + enabled channels.
-- WhatsApp access policy controls: `self`, `allowlist`, `all` with allowlist phones in Settings.
-- Telegram startup hardening: non-blocking polling start and safer network preflight path.
-- Grouped logs improvements: channel source filters (`Telegram` / `WhatsApp`) and cleaner channel entries.
-- Settings UX refinements: safer placeholders, aligned Save button, and clearer channel control hints.
-- About + landing content synchronized with latest channel/security capabilities.
-
 ## 🚀 Features
 
 - **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.
@@ -84,33 +75,33 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 
 ## ⚙️ Settings
 
-| Setting                         | Description                                                                 |
-| ------------------------------- | --------------------------------------------------------------------------- |
-| `telecode.provider`             | AI provider (`openrouter`, `openai`, `anthropic`, `google`, `moonshot`, `ollama`, ...) |
-| `telecode.model`                | Model ID (e.g. `openai/gpt-4o`, `arcee-ai/trinity-large-preview:free`)    |
-| `telecode.apiKey`               | API key for the selected provider                                           |
-| `telecode.baseUrl`              | Custom base URL for OpenAI-compatible endpoints                             |
-| `telecode.maxSteps`             | Max agent steps per task (default: `100`)                                   |
-| `telecode.responseStyle`        | Response style (`concise`, `normal`, `detailed`)                            |
-| `telecode.language`             | Agent language (`auto`, `ru`, `en`)                                         |
-| `telecode.uiLanguage`           | UI language (`ru`, `en`)                                                    |
-| `telecode.statusVerbosity`      | Runtime status density in logs (`minimal`, `normal`, `debug`)               |
-| `telecode.safeModeProfile`      | Permission profile (`strict`, `balanced`, `power`)                           |
-| `telecode.logMaxChars`          | Maximum in-memory UI log buffer before trimming                             |
-| `telecode.telegramMaxLogLines`  | Maximum Telegram log lines kept in memory                                   |
-| `telecode.allowOutOfWorkspace`  | Allow agent file/command access outside workspace                           |
-| `telecode.allowedTools`         | Allowed tool list for the agent                                             |
-| `telecode.telegram.enabled`     | Enable Telegram bot                                                         |
-| `telecode.telegram.botToken`    | Token from `@BotFather`                                                     |
-| `telecode.telegram.chatId`      | Allowed Telegram user/group ID                                              |
-| `telecode.telegram.apiRoot`     | Telegram API root URL                                                       |
-| `telecode.telegram.forceIPv4`   | Force IPv4 mode for Telegram connectivity                                   |
-| `telecode.whatsapp.enabled`     | Enable WhatsApp channel                                                     |
-| `telecode.whatsapp.sessionPath` | Local session/profile path for WhatsApp Web auth                            |
-| `telecode.whatsapp.allowSelfCommands` | Allow self-chat command mode (`/run`, `/status`, `/stop`, `/help`)    |
-| `telecode.whatsapp.recoveryOnAuth` | Enable post-auth recovery when ready event is missing                    |
-| `telecode.whatsapp.accessMode`  | WhatsApp sender policy (`self`, `allowlist`, `all`)                        |
-| `telecode.whatsapp.allowedPhones` | Comma-separated allowlist phones for `allowlist` mode                    |
+| Setting                               | Description                                                                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `telecode.provider`                   | AI provider (`openrouter`, `openai`, `anthropic`, `google`, `moonshot`, `ollama`, ...) |
+| `telecode.model`                      | Model ID (e.g. `openai/gpt-4o`, `arcee-ai/trinity-large-preview:free`)                 |
+| `telecode.apiKey`                     | API key for the selected provider                                                      |
+| `telecode.baseUrl`                    | Custom base URL for OpenAI-compatible endpoints                                        |
+| `telecode.maxSteps`                   | Max agent steps per task (default: `100`)                                              |
+| `telecode.responseStyle`              | Response style (`concise`, `normal`, `detailed`)                                       |
+| `telecode.language`                   | Agent language (`auto`, `ru`, `en`)                                                    |
+| `telecode.uiLanguage`                 | UI language (`ru`, `en`)                                                               |
+| `telecode.statusVerbosity`            | Runtime status density in logs (`minimal`, `normal`, `debug`)                          |
+| `telecode.safeModeProfile`            | Permission profile (`strict`, `balanced`, `power`)                                     |
+| `telecode.logMaxChars`                | Maximum in-memory UI log buffer before trimming                                        |
+| `telecode.telegramMaxLogLines`        | Maximum Telegram log lines kept in memory                                              |
+| `telecode.allowOutOfWorkspace`        | Allow agent file/command access outside workspace                                      |
+| `telecode.allowedTools`               | Allowed tool list for the agent                                                        |
+| `telecode.telegram.enabled`           | Enable Telegram bot                                                                    |
+| `telecode.telegram.botToken`          | Token from `@BotFather`                                                                |
+| `telecode.telegram.chatId`            | Allowed Telegram user/group ID                                                         |
+| `telecode.telegram.apiRoot`           | Telegram API root URL                                                                  |
+| `telecode.telegram.forceIPv4`         | Force IPv4 mode for Telegram connectivity                                              |
+| `telecode.whatsapp.enabled`           | Enable WhatsApp channel                                                                |
+| `telecode.whatsapp.sessionPath`       | Local session/profile path for WhatsApp Web auth                                       |
+| `telecode.whatsapp.allowSelfCommands` | Allow self-chat command mode (`/run`, `/status`, `/stop`, `/help`)                     |
+| `telecode.whatsapp.recoveryOnAuth`    | Enable post-auth recovery when ready event is missing                                  |
+| `telecode.whatsapp.accessMode`        | WhatsApp sender policy (`self`, `allowlist`, `all`)                                    |
+| `telecode.whatsapp.allowedPhones`     | Comma-separated allowlist phones for `allowlist` mode                                  |
 
 ## 📄 License
 

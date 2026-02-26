@@ -2,6 +2,16 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.9]
+
+- **Extension Icon**: Fixed SVG geometry and added `viewBox` for correct rendering in the VS Code Activity Bar.
+- **Chat UI Refinement**:
+  - Redesigned chat interface with a clean, minimalist aesthetic.
+  - Introduced compact control variants to improve UI density.
+  - Implemented channel-specific message themes (blue for Telegram, green for WhatsApp).
+- **Architecture**: Refactored and decomposed large modules (Messaging Repository, Routing) into smaller, more maintainable components.
+- **Documentation**: Streamlined `README.md` by moving specific version highlights to the Change Log.
+
 ## [0.1.8]
 
 - Unified top control flow: one Start/Stop toggle now controls runtime + enabled channels.
