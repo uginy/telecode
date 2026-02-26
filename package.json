@@ -333,12 +333,14 @@
         },
         "telecode.uiLanguage": {
           "type": "string",
-          "default": "ru",
+          "default": "auto",
           "enum": [
+            "auto",
             "ru",
             "en"
           ],
           "enumDescriptions": [
+            "Auto (detect from VS Code)",
             "Russian (interface)",
             "English (interface)"
           ],

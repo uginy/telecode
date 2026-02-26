@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CodingAgent } from '../agent/codingAgent';
 import { i18n } from '../services/i18n';
-import { readTelecodeSettings } from '../config/settings';
+import { readTelecodeSettings, resolveUiLanguage } from '../config/settings';
 
 export type ChatViewCommand =
   | { command: 'startAgent' }
@@ -145,7 +145,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             maxSteps,
             responseStyle: typeof raw.responseStyle === 'string' ? raw.responseStyle : 'concise',
             language: typeof raw.language === 'string' ? raw.language : 'ru',
-            uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'ru',
+            uiLanguage: (raw.uiLanguage === 'ru' || raw.uiLanguage === 'en' || raw.uiLanguage === 'auto') ? raw.uiLanguage : 'auto',
             allowOutOfWorkspace: raw.allowOutOfWorkspace === true,
             logMaxChars,
             telegramMaxLogLines,
@@ -227,7 +227,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   setSettings(settings: ChatViewSettings): void {
     this.latestSettings = settings;
     this.post({ type: 'settings', settings });
-    i18n.setLanguage(settings.uiLanguage);
+    i18n.setLanguage(resolveUiLanguage(settings.uiLanguage as 'ru' | 'en' | 'auto'));
     this.post({ type: 'translate', translations: i18n.getTranslations() });
   }
 
@@ -253,7 +253,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       this.post({ type: 'settings', settings: this.latestSettings });
     }
     const settings = readTelecodeSettings();
-    i18n.setLanguage(settings.agent.uiLanguage);
+    i18n.setLanguage(resolveUiLanguage(settings.agent.uiLanguage));
     this.post({ type: 'translate', translations: i18n.getTranslations() });
   }
 

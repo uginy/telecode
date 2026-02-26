@@ -5,7 +5,7 @@ import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { ChannelRegistry } from './channels/channelRegistry';
 import { TelegramChannel } from './channels/telegram';
 import { WhatsAppChannel } from './channels/whatsapp/channel';
-import { providerRequiresApiKey, readTelecodeSettings } from './config/settings';
+import { providerRequiresApiKey, readTelecodeSettings, resolveUiLanguage } from './config/settings';
 import { TaskRunner } from './agent/taskRunner';
 import type { RuntimeConfig, RuntimeEvent } from './engine/types';
 import { getPromptStackSignature } from './prompts/promptStack';
@@ -1084,7 +1084,8 @@ function publishProgress(): void {
 
 function formatRuntimeStatus(message: string): string {
   const settings = readTelecodeSettings();
-  i18n.setLanguage(settings.agent.language);
+  const lang = settings.agent.language === 'auto' ? resolveUiLanguage('auto') : settings.agent.language;
+  i18n.setLanguage(lang as 'ru' | 'en');
   return i18n.formatStatus(message);
 }
 

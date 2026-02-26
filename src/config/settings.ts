@@ -9,7 +9,7 @@ export interface AgentSettings {
   allowedTools: string[];
   responseStyle: 'concise' | 'normal' | 'detailed';
   language: 'ru' | 'en' | 'auto';
-  uiLanguage: 'ru' | 'en';
+  uiLanguage: 'ru' | 'en' | 'auto';
   allowOutOfWorkspace: boolean;
   logMaxChars: number;
   telegramMaxLogLines: number;
@@ -71,6 +71,14 @@ export function providerRequiresApiKey(provider: string): boolean {
   return normalized !== 'ollama';
 }
 
+export function resolveUiLanguage(uiLanguage: 'ru' | 'en' | 'auto'): 'ru' | 'en' {
+  if (uiLanguage === 'auto') {
+    const vscLang = vscode.env.language.toLowerCase();
+    return (vscLang === 'ru' || vscLang.startsWith('ru-')) ? 'ru' : 'en';
+  }
+  return uiLanguage;
+}
+
 export function readTelecodeSettings(): TelecodeSettings {
   const config = vscode.workspace.getConfiguration('telecode');
 
@@ -91,8 +99,8 @@ export function readTelecodeSettings(): TelecodeSettings {
   const languageRaw = config.get<string>('language') || 'auto';
   const language = (languageRaw === 'ru' || languageRaw === 'en' || languageRaw === 'auto') ? languageRaw : 'auto';
 
-  const uiLanguageRaw = config.get<string>('uiLanguage') || 'ru';
-  const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en') ? uiLanguageRaw : 'ru';
+  const uiLanguageRaw = config.get<string>('uiLanguage') || 'auto';
+  const uiLanguage = (uiLanguageRaw === 'ru' || uiLanguageRaw === 'en' || uiLanguageRaw === 'auto') ? uiLanguageRaw : 'auto';
 
   const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
   const logMaxChars = readPositiveNumber(config.get<number>('logMaxChars'), 500_000);
