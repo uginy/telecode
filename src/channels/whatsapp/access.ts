@@ -4,7 +4,12 @@ export type WhatsAppSenderContext = {
   mode: WhatsAppAccessMode;
   allowedPhones: string[];
   fromMe: boolean;
-  msg: unknown;
+  msg: {
+    key?: {
+      remoteJid?: string;
+      participant?: string;
+    };
+  };
   chatId: string;
 };
 
@@ -19,12 +24,26 @@ export function normalizeWhatsappPhone(input: string): string | null {
   return normalized;
 }
 
+/**
+ * Extract the sender phone number from a Baileys message.
+ *
+ * In Baileys the sender identity comes from:
+ *  - `key.participant`  — in group chats (the actual sender inside the group)
+ *  - `key.remoteJid`    — in private chats (the JID of the other party)
+ *
+ * Both are JIDs in the form `<phone>@s.whatsapp.net` (or `@g.us` for groups).
+ */
 export function extractWhatsappSenderPhone(msg: unknown, chatId: string): string | null {
-  const record = typeof msg === 'object' && msg ? (msg as Record<string, unknown>) : {};
-  const author = typeof record.author === 'string' ? record.author : '';
-  const from = typeof record.from === 'string' ? record.from : '';
-  const candidate = author || from || chatId;
-  const bare = candidate.split('@')[0] || '';
+  if (!msg || typeof msg !== 'object') {
+    return normalizeWhatsappPhone(chatId.split('@')[0]);
+  }
+
+  const record = msg as { key?: { remoteJid?: string; participant?: string } };
+  const participant = record.key?.participant;
+  const remoteJid = record.key?.remoteJid || chatId;
+
+  const candidate = participant || remoteJid;
+  const bare = (candidate || '').split('@')[0] || '';
   return normalizeWhatsappPhone(bare);
 }
 

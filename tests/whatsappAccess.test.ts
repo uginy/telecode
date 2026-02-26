@@ -27,13 +27,17 @@ describe('WhatsApp Access Utils', () => {
   });
 
   describe('extractWhatsappSenderPhone', () => {
-    it('uses author when present', () => {
-      expect(extractWhatsappSenderPhone({ author: '972501112233@c.us' }, 'fallback@c.us')).toBe('972501112233');
+    it('uses participant when present', () => {
+      expect(
+        extractWhatsappSenderPhone({ key: { participant: '972501112233@s.whatsapp.net' } }, 'fallback@g.us')
+      ).toBe('972501112233');
     });
 
-    it('falls back to from/chatId', () => {
-      expect(extractWhatsappSenderPhone({ from: '+972509998877@c.us' }, 'fallback@c.us')).toBe('972509998877');
-      expect(extractWhatsappSenderPhone({}, '972533334444@c.us')).toBe('972533334444');
+    it('falls back to remoteJid/chatId', () => {
+      expect(
+        extractWhatsappSenderPhone({ key: { remoteJid: '+972509998877@s.whatsapp.net' } }, 'fallback@g.us')
+      ).toBe('972509998877');
+      expect(extractWhatsappSenderPhone({}, '972533334444@s.whatsapp.net')).toBe('972533334444');
     });
   });
 
@@ -44,8 +48,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'all',
           allowedPhones: [],
           fromMe: false,
-          msg: { from: '111@c.us' },
-          chatId: '111@c.us',
+          msg: { key: { remoteJid: '111@s.whatsapp.net' } },
+          chatId: '111@s.whatsapp.net',
         })
       ).toBe(true);
     });
@@ -56,8 +60,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'self',
           allowedPhones: [],
           fromMe: true,
-          msg: { from: '111@c.us' },
-          chatId: '111@c.us',
+          msg: { key: { remoteJid: '111@s.whatsapp.net' } },
+          chatId: '111@s.whatsapp.net',
         })
       ).toBe(true);
       expect(
@@ -65,8 +69,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'self',
           allowedPhones: [],
           fromMe: false,
-          msg: { from: '111@c.us' },
-          chatId: '111@c.us',
+          msg: { key: { remoteJid: '111@s.whatsapp.net' } },
+          chatId: '111@s.whatsapp.net',
         })
       ).toBe(false);
     });
@@ -77,8 +81,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'allowlist',
           allowedPhones: [],
           fromMe: true,
-          msg: { from: '111@c.us' },
-          chatId: '111@c.us',
+          msg: { key: { remoteJid: '111@s.whatsapp.net' } },
+          chatId: '111@s.whatsapp.net',
         })
       ).toBe(true);
 
@@ -87,8 +91,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'allowlist',
           allowedPhones: ['+972501112233'],
           fromMe: false,
-          msg: { from: '972501112233@c.us' },
-          chatId: '972501112233@c.us',
+          msg: { key: { remoteJid: '972501112233@s.whatsapp.net' } },
+          chatId: '972501112233@s.whatsapp.net',
         })
       ).toBe(true);
 
@@ -97,8 +101,8 @@ describe('WhatsApp Access Utils', () => {
           mode: 'allowlist',
           allowedPhones: ['972501112233'],
           fromMe: false,
-          msg: { from: '972509998877@c.us' },
-          chatId: '972509998877@c.us',
+          msg: { key: { remoteJid: '972509998877@s.whatsapp.net' } },
+          chatId: '972509998877@s.whatsapp.net',
         })
       ).toBe(false);
     });

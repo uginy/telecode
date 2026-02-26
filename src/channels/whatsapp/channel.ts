@@ -2,6 +2,9 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AgentTool } from '@mariozechner/pi-agent-core';
+import * as QRCode from 'qrcode';
+import { DisconnectReason, makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
 import { TaskRunner } from '../../agent/taskRunner';
 import type { RuntimeConfig, AgentRuntime } from '../../engine/types';
 import { readTelecodeSettings } from '../../config/settings';
@@ -34,59 +37,34 @@ async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-type WaClient = {
-  on: (event: string, handler: (...args: any[]) => void) => void;
-  initialize: () => Promise<void>;
-  destroy: () => Promise<void>;
-  sendMessage: (to: string, body: string) => Promise<unknown>;
-  getState?: () => Promise<string | null>;
-  attachEventListeners?: () => Promise<void>;
-  pupPage?: {
-    on?: (event: string, handler: (...args: any[]) => void) => void;
-    evaluate?: <T>(fn: () => T | Promise<T>) => Promise<T>;
-  };
-};
-
-type QrSvgRenderer = {
-  toString: (text: string, options?: Record<string, unknown>) => Promise<string>;
-};
-
-type InjectedStoreModule = {
-  ExposeStore?: () => void;
-};
-
-type InjectedUtilsModule = {
-  LoadUtils?: () => void;
-};
-
-type WhatsAppProbeState = {
-  hasStore: boolean;
-  hasWWebJS: boolean;
-  appState: string | null;
-};
-
 type IncomingCommand = 'help' | 'status' | 'stop' | 'run' | null;
 
-function unwrapModule<T>(mod: T | { default?: T }): T {
-  if (mod && typeof mod === 'object' && 'default' in (mod as object)) {
-    const defaultValue = (mod as { default?: T }).default;
-    if (defaultValue) return defaultValue;
-  }
-  return mod as T;
-}
+/** Minimal shape of a Baileys incoming message. */
+type BaileysMessage = {
+  key: {
+    id?: string;
+    remoteJid?: string;
+    fromMe?: boolean;
+    participant?: string;
+  };
+  message?: {
+    conversation?: string;
+    extendedTextMessage?: {
+      text?: string;
+    };
+  };
+};
 
 export class WhatsAppChannel implements IChannel {
   public readonly id = 'whatsapp';
   public readonly name = 'WhatsApp';
 
-  private client: WaClient | null = null;
-  private qrSvgRenderer: QrSvgRenderer | null = null;
+  private sock: ReturnType<typeof makeWASocket> | null = null;
   private active = false;
   private isProcessing = false;
   private authLogged = false;
   private startupWatchdog: NodeJS.Timeout | null = null;
-  private readyFallbackTimer: NodeJS.Timeout | null = null;
-  private pageDebugHooksAttached = false;
+  private reconnectTimer: NodeJS.Timeout | null = null;
   private destroyInFlight: Promise<void> | null = null;
   private runtimeConfigSignature = '';
   private readonly logs: string[] = [];
@@ -95,6 +73,8 @@ export class WhatsAppChannel implements IChannel {
   private readonly recentOutgoingTexts = new Map<string, number>();
   private startupGreetingSent = false;
   private currentChatId: string | null = null;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 5;
 
   private taskRunner: TaskRunner;
 
@@ -127,6 +107,7 @@ export class WhatsAppChannel implements IChannel {
       await this.destroyInFlight;
     }
     this.startupGreetingSent = false;
+    this.reconnectAttempts = 0;
 
     const settings = readTelecodeSettings();
     if (!settings.whatsapp.enabled) {
@@ -136,167 +117,135 @@ export class WhatsAppChannel implements IChannel {
     }
 
     const sessionPath = expandHome(settings.whatsapp.sessionPath);
-    const sessionDir = path.extname(sessionPath) ? path.dirname(sessionPath) : sessionPath;
+    const sessionDir = path.join(path.extname(sessionPath) ? path.dirname(sessionPath) : sessionPath, 'baileys-auth');
     await ensureDir(sessionDir);
 
-    let wa: any;
     try {
-      wa = unwrapModule(await import('whatsapp-web.js'));
-    } catch {
-      this.pushLog('[whatsapp:error] missing dependency "whatsapp-web.js". Run: npm i whatsapp-web.js');
-      this.setStatus('Error');
-      return;
-    }
+      const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+      const { version } = await fetchLatestBaileysVersion();
 
-    try {
-      this.qrSvgRenderer = unwrapModule(await import('qrcode'));
-    } catch {
-      this.qrSvgRenderer = null;
-      this.pushLog('[whatsapp:error] missing dependency "qrcode". Run: npm i qrcode');
-      this.setStatus('Error');
-      return;
-    }
+      this.sock = makeWASocket({
+        auth: state,
+        version,
+        printQRInTerminal: true,
+        browser: ['TeleCode', 'Chrome', '1.0.0'],
+        logger: require('pino')({ level: 'silent' }) as any,
+      });
 
-    const { Client, LocalAuth } = wa;
+      this.sock.ev.on('creds.update', saveCreds);
 
-    const client: WaClient = new Client({
-      authStrategy: new LocalAuth({
-        clientId: 'telecode-ai',
-        dataPath: sessionDir,
-      }),
-      puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      },
-    });
+      const localSock = this.sock;
 
-    client.on('qr', (qr: string) => {
-      this.clearStartupWatchdog();
-      this.setStatus('Connecting');
-      this.authLogged = false;
-      this.pushLog('[whatsapp] scan QR in your terminal to authorize WhatsApp session');
-      void this.emitQrSvgToLogs(qr);
-    });
+      this.sock.ev.on('connection.update', (update: { connection?: string; lastDisconnect?: { error?: Error }; qr?: string }) => {
+        const { connection, lastDisconnect, qr } = update;
 
-    client.on('ready', () => {
-      this.clearStartupWatchdog();
-      this.clearReadyFallbackTimer();
-      this.active = true;
-      this.setStatus('Ready');
-      this.pushLog('[whatsapp] client ready');
-      setTimeout(() => {
-        void this.sendStartupGreeting();
-      }, 700);
-    });
+        if (this.sock && this.sock !== localSock) return; // ignore events from disposed overlapping instances
 
-    client.on('authenticated', () => {
-      this.clearStartupWatchdog();
-      this.active = true;
-      this.setStatus('Ready');
-      if (this.authLogged) return;
-      this.authLogged = true;
-      this.pushLog('[whatsapp] authenticated');
-      this.scheduleReadyFallback();
-    });
+        if (qr) {
+          this.clearStartupWatchdog();
+          this.setStatus('Connecting');
+          this.authLogged = false;
+          this.pushLog('[whatsapp] scan QR in your terminal to authorize WhatsApp session');
+          void this.emitQrToLogs(qr);
+        }
 
-    client.on('loading_screen', (percent: number, message: string) => {
-      this.pushLog(`[whatsapp] loading ${percent}%${message ? ` (${message})` : ''}`);
-    });
-
-    client.on('change_state', (state: string) => {
-      this.pushLog(`[whatsapp] state ${state}`);
-      const normalized = state.trim().toUpperCase();
-      if (normalized === 'CONNECTED' || normalized === 'OPENING') {
-        this.active = true;
-        this.setStatus('Ready');
-        this.clearReadyFallbackTimer();
-        if (!this.startupGreetingSent && normalized === 'CONNECTED') {
+        if (connection === 'open') {
+          this.clearStartupWatchdog();
+          this.active = true;
+          this.reconnectAttempts = 0;
+          this.setStatus('Ready');
+          this.pushLog('[whatsapp] client ready');
+          if (!this.authLogged) {
+            this.authLogged = true;
+            this.pushLog('[whatsapp] authenticated');
+          }
           setTimeout(() => {
             void this.sendStartupGreeting();
-          }, 900);
+          }, 700);
         }
-      }
-    });
 
-    client.on('remote_session_saved', () => {
-      this.pushLog('[whatsapp] session saved');
-    });
+        if (connection === 'close') {
+          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+          const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-    client.on('auth_failure', (message: string) => {
-      this.clearStartupWatchdog();
-      this.active = false;
-      this.setStatus('Error');
-      this.pushLog(`[whatsapp:error] auth failure: ${message || 'unknown'}`);
-    });
+          this.clearStartupWatchdog();
+          this.active = false;
+          this.setStatus('Idle');
 
-    client.on('disconnected', (reason: string) => {
-      this.clearStartupWatchdog();
-      this.clearReadyFallbackTimer();
-      this.active = false;
-      this.authLogged = false;
-      this.setStatus('Idle');
-      this.pushLog(`[whatsapp] disconnected: ${reason || 'unknown'}`);
-    });
+          // If sock is null, it means stop() was intentionally called.
+          if (!this.sock) {
+            return;
+          }
 
-    client.on('message', (msg: any) => {
-      void this.handleMessage(msg);
-    });
+          if (shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            this.pushLog(`[whatsapp] disconnected: ${lastDisconnect?.error}, reconnecting (attempt ${this.reconnectAttempts})`);
+            this.reconnectTimer = setTimeout(() => {
+              void this.start();
+            }, 3000);
+          } else if (statusCode === DisconnectReason.loggedOut) {
+            this.pushLog('[whatsapp] logged out from WhatsApp');
+          } else {
+            this.pushLog(`[whatsapp] disconnected: ${lastDisconnect?.error || 'unknown'}`);
+          }
+        }
+      });
 
-    client.on('message_create', (msg: any) => {
-      void this.handleMessage(msg);
-    });
+      this.sock.ev.on('messages.upsert', async (upsert: { messages: BaileysMessage[]; type: string }) => {
+        if (this.sock !== localSock) return;
+        const { messages, type } = upsert;
+        if (type === 'notify') {
+          for (const msg of messages) {
+            await this.handleMessage(msg);
+          }
+        }
+      });
 
-    this.client = client;
-    this.attachPageDebugHooks(client);
-    this.setStatus('Connecting');
-    this.pushLog(`[whatsapp] starting (sessionDir=${sessionDir})`);
-    this.pushLog('[whatsapp] initializing web client...');
-    this.startupWatchdog = setTimeout(() => {
-      if (!this.active) {
-        this.pushLog('[whatsapp:warn] still waiting for QR/ready (check Chrome/Puppeteer availability)');
-      }
-    }, 12_000);
-    try {
-      await client.initialize();
-      this.pushLog('[whatsapp] initialize resolved');
+      this.setStatus('Connecting');
+      this.pushLog(`[whatsapp] starting (sessionDir=${sessionDir})`);
+      this.pushLog('[whatsapp] initializing Baileys client...');
+      this.startupWatchdog = setTimeout(() => {
+        if (!this.active) {
+          this.pushLog('[whatsapp:warn] still waiting for QR/ready');
+        }
+      }, 12_000);
+
     } catch (error) {
       this.clearStartupWatchdog();
       const message = error instanceof Error ? error.message : String(error);
       this.pushLog(`[whatsapp:error] initialize failed: ${message}`);
       this.setStatus('Error');
-      this.client = null;
-      void client.destroy().catch(() => {
-        // ignore teardown errors after failed initialize
-      });
+      this.sock = null;
     }
   }
 
   public stop(): void {
-    const current = this.client;
-    this.client = null;
+    const current = this.sock;
+    this.sock = null; // Important: prevents reconnect in 'close' event
     this.active = false;
     this.isProcessing = false;
     this.authLogged = false;
     this.startupGreetingSent = false;
     this.clearStartupWatchdog();
-    this.clearReadyFallbackTimer();
+    this.clearReconnectTimer();
     this.currentChatId = null;
     this.runtimeConfigSignature = '';
     this.taskRunner.abortCurrentRun();
     this.setStatus('Idle');
 
     if (current) {
-      const destroyPromise = current
-        .destroy()
-        .catch(() => {
+      const destroyPromise = (async () => {
+        try {
+          current.end(undefined);
+        } catch {
           // ignore shutdown errors
-        })
-        .finally(() => {
-          if (this.destroyInFlight === destroyPromise) {
-            this.destroyInFlight = null;
-          }
-        });
-      this.destroyInFlight = destroyPromise;
+        }
+      })().finally(() => {
+        if (this.destroyInFlight === destroyPromise) {
+          this.destroyInFlight = null;
+        }
+      });
+      this.destroyInFlight = destroyPromise as Promise<void>;
       this.pushLog('[whatsapp] stopped');
     }
   }
@@ -309,30 +258,41 @@ export class WhatsAppChannel implements IChannel {
     this.pushLog('[whatsapp] current task stopped');
   }
 
-  private async handleMessage(msg: any): Promise<void> {
+  // ---------------------------------------------------------------------------
+  // Message handling
+  // ---------------------------------------------------------------------------
+
+  private async handleMessage(msg: BaileysMessage): Promise<void> {
     const settings = readTelecodeSettings();
-    const chatId = typeof msg?.from === 'string' ? msg.from : null;
-    const body = typeof msg?.body === 'string' ? msg.body.trim() : '';
-    const fromMe = msg?.fromMe === true;
+    const chatId = msg.key?.remoteJid || null;
+    const body =
+      msg.message?.conversation?.trim() ||
+      msg.message?.extendedTextMessage?.text?.trim() ||
+      '';
+    const fromMe = msg.key?.fromMe === true;
     const command = this.parseCommand(body);
     const messageId = this.extractMessageId(msg);
 
     if (!chatId || !body) {
-      this.pushLog('[whatsapp:warn] dropped incoming message (missing chatId/body)');
+      // Baileys sends many protocol/system events without a text body (e.g. read receipts, images, system status).
+      // We quietly ignore non-text messages to prevent log spam.
       return;
     }
+
     if (!isWhatsappSenderAllowed({
       mode: settings.whatsapp.accessMode,
       allowedPhones: settings.whatsapp.allowedPhones,
       fromMe,
-      msg,
+      msg: msg as never,
       chatId,
     })) {
       this.pushLog('[whatsapp] blocked message by access policy');
       return;
     }
+
     this.currentChatId = chatId;
     void this.saveLastChatId(chatId);
+
     if (body.includes(WA_BOT_PREFIX.trim())) {
       return;
     }
@@ -342,7 +302,7 @@ export class WhatsAppChannel implements IChannel {
     if (this.isDuplicateIncomingText(chatId, body)) {
       return;
     }
-    // Critical anti-loop guard: in some WA event paths bot messages can be
+    // Critical anti-loop guard: in some event paths bot messages can be
     // re-emitted as if they were incoming. Ignore anything that matches a
     // recent outgoing message payload.
     if (this.isLikelyOwnOutgoing(body)) {
@@ -404,7 +364,7 @@ export class WhatsAppChannel implements IChannel {
 
     try {
       await this.taskRunner.runTask(taskText);
-      if (!this.client || !this.active) {
+      if (!this.sock || !this.active) {
         this.pushLog('[whatsapp] task aborted');
         return;
       }
@@ -416,7 +376,7 @@ export class WhatsAppChannel implements IChannel {
       this.setStatus('Ready');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await this.client?.sendMessage(chatId, `Task failed: ${message}`);
+      await this.sock?.sendMessage(chatId, { text: `Task failed: ${message}` });
       this.pushLog(`[whatsapp:error] ${message}`);
       this.setStatus('Error');
     } finally {
@@ -424,6 +384,10 @@ export class WhatsAppChannel implements IChannel {
       this.isProcessing = false;
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Runtime
+  // ---------------------------------------------------------------------------
 
   private ensureRuntime(): AgentRuntime {
     const settings = readTelecodeSettings();
@@ -456,6 +420,10 @@ export class WhatsAppChannel implements IChannel {
     return runtime;
   }
 
+  // ---------------------------------------------------------------------------
+  // Logging & status
+  // ---------------------------------------------------------------------------
+
   private pushLog(line: string): void {
     const entry = `[${new Date().toLocaleTimeString()}] ${line}`;
     this.logs.push(entry);
@@ -463,10 +431,14 @@ export class WhatsAppChannel implements IChannel {
     this.onLog?.(entry);
   }
 
-  private async emitQrSvgToLogs(qr: string): Promise<void> {
-    if (!this.qrSvgRenderer) return;
+  private setStatus(status: string): void {
+    this.onStatus?.(status);
+  }
+
+  /** Emit QR data as a base64-encoded SVG into the log stream for UI rendering. */
+  private async emitQrToLogs(qr: string): Promise<void> {
     try {
-      const svg = await this.qrSvgRenderer.toString(qr, {
+      const svg = await QRCode.toString(qr, {
         type: 'svg',
         width: 260,
         margin: 1,
@@ -476,7 +448,6 @@ export class WhatsAppChannel implements IChannel {
         },
       });
       const payload = Buffer.from(svg, 'utf8').toString('base64');
-      this.pushLog('[whatsapp:qrsvg] scan this QR in WhatsApp (Linked Devices)');
       this.pushLog(`[whatsapp:qrsvg] ${payload}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -484,9 +455,9 @@ export class WhatsAppChannel implements IChannel {
     }
   }
 
-  private setStatus(status: string): void {
-    this.onStatus?.(status);
-  }
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
   private parseCommand(body: string): IncomingCommand {
     if (body.startsWith('/help')) return 'help';
@@ -496,10 +467,8 @@ export class WhatsAppChannel implements IChannel {
     return null;
   }
 
-  private extractMessageId(msg: any): string | null {
-    const serialized = msg?.id?._serialized;
-    if (typeof serialized === 'string' && serialized.length > 0) return serialized;
-    const id = msg?.id?.id;
+  private extractMessageId(msg: BaileysMessage): string | null {
+    const id = msg.key?.id;
     if (typeof id === 'string' && id.length > 0) return id;
     return null;
   }
@@ -521,7 +490,7 @@ export class WhatsAppChannel implements IChannel {
   private async sendMessageSafe(chatId: string, text: string, label?: string): Promise<boolean> {
     try {
       const prefixed = `${WA_BOT_PREFIX}${text}`;
-      await this.client?.sendMessage(chatId, prefixed);
+      await this.sock?.sendMessage(chatId, { text: prefixed });
       this.trackOutgoingText(prefixed);
       if (label) {
         this.pushLog(`[whatsapp] ${label} reply sent`);
@@ -533,8 +502,11 @@ export class WhatsAppChannel implements IChannel {
       this.pushLog(`[whatsapp:error] ${label} reply failed: ${message}`);
       return false;
     }
-    return false;
   }
+
+  // ---------------------------------------------------------------------------
+  // Startup greeting
+  // ---------------------------------------------------------------------------
 
   private getStartupMessage(): string {
     const settings = readTelecodeSettings();
@@ -563,6 +535,10 @@ export class WhatsAppChannel implements IChannel {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Chat persistence
+  // ---------------------------------------------------------------------------
+
   private getLastChatFilePath(): string {
     return path.join(os.homedir(), '.telecode-ai', 'whatsapp-last-chat.txt');
   }
@@ -586,6 +562,10 @@ export class WhatsAppChannel implements IChannel {
       // ignore persistence errors
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Dedup & anti-loop
+  // ---------------------------------------------------------------------------
 
   private normalizeMessageText(text: string): string {
     return text.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -636,142 +616,10 @@ export class WhatsAppChannel implements IChannel {
     }
   }
 
-  private scheduleReadyFallback(): void {
-    this.clearReadyFallbackTimer();
-    this.readyFallbackTimer = setTimeout(() => {
-      if (!this.active) return;
-      const settings = readTelecodeSettings();
-      if (!settings.whatsapp.recoveryOnAuth) {
-        this.pushLog('[whatsapp:warn] ready event missing (recovery disabled)');
-        return;
-      }
-      this.pushLog('[whatsapp] ready event missing, attempting recovery');
-      void this.attemptPostAuthRecovery();
-    }, 3_000);
-  }
-
-  private clearReadyFallbackTimer(): void {
-    if (this.readyFallbackTimer) {
-      clearTimeout(this.readyFallbackTimer);
-      this.readyFallbackTimer = null;
-    }
-  }
-
-  private attachPageDebugHooks(client: WaClient): void {
-    if (this.pageDebugHooksAttached) return;
-    const page = client.pupPage;
-    const on = page?.on;
-    if (!on) return;
-    this.pageDebugHooksAttached = true;
-    on.call(page, 'console', (msg: { type?: () => string; text?: () => string }) => {
-      try {
-        const text = msg?.text ? msg.text() : '';
-        const type = msg?.type ? msg.type() : 'log';
-        if (!text) return;
-        if (type === 'error' || /\b(error|exception|failed)\b/i.test(text)) {
-          this.pushLog(`[whatsapp:page:${type}] ${text.slice(0, 260)}`);
-        }
-      } catch {
-        // ignore debug logging failures
-      }
-    });
-    on.call(page, 'pageerror', (err: Error) => {
-      const message = err instanceof Error ? err.message : String(err);
-      this.pushLog(`[whatsapp:page:error] ${message}`);
-    });
-  }
-
-  private async attemptPostAuthRecovery(): Promise<void> {
-    const client = this.client;
-    if (!client) return;
-
-    try {
-      if (typeof client.getState === 'function') {
-        const state = await client.getState();
-        this.pushLog(`[whatsapp] state probe: ${state ?? 'null'}`);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.pushLog(`[whatsapp:warn] getState failed: ${message}`);
-    }
-
-    try {
-      const page = client.pupPage;
-      const evaluate = page?.evaluate;
-      if (!evaluate) return;
-      const probe = await evaluate.call(page, () => {
-        const g = globalThis as Record<string, unknown>;
-        const authStore = (g.AuthStore || {}) as Record<string, unknown>;
-        const appState = (authStore.AppState || {}) as Record<string, unknown>;
-        return {
-          hasStore: typeof g.Store !== 'undefined',
-          hasWWebJS: typeof g.WWebJS !== 'undefined',
-          appState: typeof appState.state === 'string' ? appState.state : null,
-        };
-      }) as WhatsAppProbeState;
-
-      if (!probe.hasStore) {
-        try {
-          const storeMod = unwrapModule(await import('whatsapp-web.js/src/util/Injected/Store.js')) as InjectedStoreModule;
-          if (typeof storeMod.ExposeStore === 'function' && evaluate) {
-            await evaluate.call(page, storeMod.ExposeStore);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.pushLog(`[whatsapp:warn] recovery ExposeStore failed: ${message}`);
-        }
-      }
-
-      const probeAfter = await evaluate.call(page, () => {
-        const g = globalThis as Record<string, unknown>;
-        const authStore = (g.AuthStore || {}) as Record<string, unknown>;
-        const appState = (authStore.AppState || {}) as Record<string, unknown>;
-        return {
-          hasStore: typeof g.Store !== 'undefined',
-          hasWWebJS: typeof g.WWebJS !== 'undefined',
-          appState: typeof appState.state === 'string' ? appState.state : null,
-        };
-      }) as WhatsAppProbeState;
-
-      if (probeAfter.hasStore) {
-        try {
-          const utilsMod = unwrapModule(await import('whatsapp-web.js/src/util/Injected/Utils.js')) as InjectedUtilsModule;
-          if (typeof utilsMod.LoadUtils === 'function') {
-            await evaluate.call(page, utilsMod.LoadUtils);
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.pushLog(`[whatsapp:warn] recovery LoadUtils failed: ${message}`);
-        }
-      }
-
-      const probeFinal = await evaluate.call(page, () => {
-        const g = globalThis as Record<string, unknown>;
-        const authStore = (g.AuthStore || {}) as Record<string, unknown>;
-        const appState = (authStore.AppState || {}) as Record<string, unknown>;
-        return {
-          hasStore: typeof g.Store !== 'undefined',
-          hasWWebJS: typeof g.WWebJS !== 'undefined',
-          appState: typeof appState.state === 'string' ? appState.state : null,
-        };
-      }) as WhatsAppProbeState;
-
-      if (probeFinal.hasStore && probeFinal.hasWWebJS && typeof client.attachEventListeners === 'function') {
-        await client.attachEventListeners();
-        this.pushLog('[whatsapp] recovery complete');
-        if (!this.startupGreetingSent) {
-          setTimeout(() => {
-            void this.sendStartupGreeting();
-          }, 700);
-        }
-      } else {
-        this.pushLog(
-          `[whatsapp:warn] recovery incomplete (store=${probeFinal.hasStore ? '1' : '0'}, wwebjs=${probeFinal.hasWWebJS ? '1' : '0'}, state=${probeFinal.appState ?? 'null'})`
-        );
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.pushLog(`[whatsapp:warn] recovery probe failed: ${message}`);
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 }
