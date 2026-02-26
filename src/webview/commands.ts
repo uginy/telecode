@@ -23,7 +23,6 @@ export type Settings = {
   whatsappEnabled: boolean;
   whatsappSessionPath: string;
   whatsappAllowSelfCommands: boolean;
-  whatsappRecoveryOnAuth: boolean;
   whatsappAccessMode: 'self' | 'allowlist' | 'all';
   whatsappAllowedPhones: string;
 };

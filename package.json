@@ -194,22 +194,17 @@
         "telecode.whatsapp.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Enable WhatsApp bot"
+          "markdownDescription": "Enable the agent to be controlled remotely via WhatsApp Web. After enabling, start the agent and scan the QR code in the **Chat logs** using **Linked Devices** on your phone."
         },
         "telecode.whatsapp.sessionPath": {
           "type": "string",
-          "default": "~/.telecode-ai/whatsapp-session.json",
-          "description": "Path to WhatsApp session file"
+          "default": "~/.telecode-ai/",
+          "markdownDescription": "Local directory where the WhatsApp Web authentication session is stored. Allows reconnecting across VS Code restarts without rescanning. Default: `~/.telecode-ai/`"
         },
         "telecode.whatsapp.allowSelfCommands": {
           "type": "boolean",
           "default": true,
-          "description": "Allow /run, /status, /stop, /help commands from the same WhatsApp account (self-chat mode)"
-        },
-        "telecode.whatsapp.recoveryOnAuth": {
-          "type": "boolean",
-          "default": true,
-          "description": "Attempt automatic WhatsApp listener recovery when authenticated but ready event is missing"
+          "markdownDescription": "Allow the primary linked number to send commands (`/run`, `/stop`, etc.) to itself (useful as a personal remote notepad)."
         },
         "telecode.whatsapp.accessMode": {
           "type": "string",
@@ -219,17 +214,17 @@
             "allowlist",
             "all"
           ],
-          "enumDescriptions": [
-            "Only self-chat messages are accepted",
-            "Only numbers from allowedPhones are accepted",
-            "Accept messages from all chats"
+          "markdownEnumDescriptions": [
+            "**Safest**. The agent only ignores everyone except you.",
+            "Only numbers specified in `Allowed Phones` can command the agent.",
+            "**DANGEROUS**. Any number that texts you can control the agent."
           ],
-          "description": "WhatsApp sender access policy"
+          "markdownDescription": "Control who is allowed to send task commands via WhatsApp."
         },
         "telecode.whatsapp.allowedPhones": {
           "type": "string",
           "default": "",
-          "description": "Comma-separated phone numbers for allowlist access mode (digits only, with or without leading +)"
+          "markdownDescription": "Comma-separated list of phone numbers (e.g. `+12025550111, +447700900000`) allowed to use the agent. Only applies if `accessMode` is set to `allowlist`."
         },
         "telecode.autoApprove": {
           "type": "boolean",

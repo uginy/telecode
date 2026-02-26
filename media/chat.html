@@ -356,21 +356,24 @@
             <div class="field field-check">
               <div>
                 <label for="whatsappEnabled" data-t="field_whatsapp_enabled">Enable WhatsApp Bot</label>
-                <span class="field-hint" data-t="field_whatsapp_enabled_hint">Channel control is here only. Starts with TeleCode.</span>
+                <div class="field-hint" data-t="field_whatsapp_enabled_hint" style="margin-top:4px">
+                  Activates the WhatsApp integration. <br/>
+                  <b>Setup:</b> After checking this and starting the agent, switch to the <b>Logs</b> tab. You will see a QR code. Open WhatsApp on your phone → Settings → Linked Devices → <b>Link a device</b> and scan the code.
+                </div>
               </div>
               <input id="whatsappEnabled" type="checkbox" />
             </div>
 
             <div class="field">
               <label for="whatsappSessionPath" data-t="field_whatsapp_session_path">Session Path</label>
-              <span class="field-hint" data-t="field_whatsapp_session_path_hint">Folder for LocalAuth browser profile/session.</span>
+              <span class="field-hint" data-t="field_whatsapp_session_path_hint">Folder where the WhatsApp local auth session is stored. Default: `~/.telecode-ai/`</span>
               <input id="whatsappSessionPath" type="text" placeholder="~/.telecode-ai" />
             </div>
 
             <div class="field field-inline" id="whatsappAccessModeField">
               <div>
                 <label for="whatsappAccessMode" data-t="field_whatsapp_access_mode">Access Mode</label>
-                <span class="field-hint" data-t="field_whatsapp_access_mode_hint">Who can send tasks to WhatsApp bot.</span>
+                <span class="field-hint" style="color:var(--vscode-errorForeground)" data-t="field_whatsapp_access_mode_hint">⚠️ Security control. Who can send tasks to the agent?</span>
               </div>
               <select id="whatsappAccessMode" style="width:170px">
                 <option value="self" data-t="option_whatsapp_access_self">Self only</option>
@@ -381,7 +384,7 @@
 
             <div class="field" id="whatsappAllowedPhonesField">
               <label for="whatsappAllowedPhones" data-t="field_whatsapp_allowed_phones">Allowed Phones</label>
-              <span class="field-hint" data-t="field_whatsapp_allowed_phones_hint">Comma-separated phone list in international format.</span>
+              <span class="field-hint" data-t="field_whatsapp_allowed_phones_hint">Comma-separated phones allowed to send commands (e.g. +12025550111, 447700900000).</span>
               <input id="whatsappAllowedPhones" type="text" placeholder="+XXXXXXXX..., +XXXXXXXX..." />
               <span id="whatsappAllowedPhonesError" class="field-error hidden" data-t="field_whatsapp_allowed_phones_error">Enter valid phone list for allowlist mode.</span>
             </div>
@@ -389,17 +392,9 @@
             <div class="field field-check">
               <div>
                 <label for="whatsappAllowSelfCommands" data-t="field_whatsapp_self_commands">Allow Self Commands</label>
-                <span class="field-hint" data-t="field_whatsapp_self_commands_hint">Allow /run, /status, /stop, /help from the same account (safe for self-chat).</span>
+                <span class="field-hint" data-t="field_whatsapp_self_commands_hint">Allows you to send messages to "Yourself" in WhatsApp to control the agent (safe & private).</span>
               </div>
               <input id="whatsappAllowSelfCommands" type="checkbox" />
-            </div>
-
-            <div class="field field-check">
-              <div>
-                <label for="whatsappRecoveryOnAuth" data-t="field_whatsapp_recovery">Recovery On Auth</label>
-                <span class="field-hint" data-t="field_whatsapp_recovery_hint">Auto-recover event listeners if ready event is missing.</span>
-              </div>
-              <input id="whatsappRecoveryOnAuth" type="checkbox" />
             </div>
           </div>
 

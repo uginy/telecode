@@ -2,6 +2,12 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.13]
+
+- **WhatsApp Onboarding**: Injected explicit UI hints in the Settings tab to guide users on correctly starting the agent and scanning the QR code inside the "Logs" tab.
+- **Security Awareness**: Highlighted the `Access Mode` field with stark warnings (`Safest` vs `DANGEROUS`) to prevent users from accidentally exposing the autonomous bash execution to arbitrary strangers.
+- **Settings Cleanup**: Removed archaic `Recovery On Auth` flags leftover from the Puppeteer architecture, streamlining configuring and the runtime payload.
+
 ## [0.1.12]
 
 - **WhatsApp Engine Migration**: Completely replaced heavy Puppeteer/Chrome headless initialization with lightweight WebSockets via `@whiskeysockets/baileys`.

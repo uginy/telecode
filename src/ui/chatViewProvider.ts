@@ -38,7 +38,6 @@ export interface ChatViewSettings {
   whatsappEnabled: boolean;
   whatsappSessionPath: string;
   whatsappAllowSelfCommands: boolean;
-  whatsappRecoveryOnAuth: boolean;
   whatsappAccessMode: 'self' | 'allowlist' | 'all';
   whatsappAllowedPhones: string;
 }
@@ -159,7 +158,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
             whatsappEnabled: raw.whatsappEnabled === true,
             whatsappSessionPath: typeof raw.whatsappSessionPath === 'string' ? raw.whatsappSessionPath : '~/.telecode-ai/whatsapp-session.json',
             whatsappAllowSelfCommands: raw.whatsappAllowSelfCommands !== false,
-            whatsappRecoveryOnAuth: raw.whatsappRecoveryOnAuth !== false,
             whatsappAccessMode:
               raw.whatsappAccessMode === 'allowlist' || raw.whatsappAccessMode === 'all' || raw.whatsappAccessMode === 'self'
                 ? raw.whatsappAccessMode

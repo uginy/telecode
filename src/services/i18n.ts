@@ -141,8 +141,6 @@ export interface Translations {
   field_whatsapp_allowed_phones_error_required: string;
   field_whatsapp_self_commands: string;
   field_whatsapp_self_commands_hint: string;
-  field_whatsapp_recovery: string;
-  field_whatsapp_recovery_hint: string;
   
   // Telegram phases
   tg_studying_request: string;
@@ -307,22 +305,20 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_whatsapp_title: 'WhatsApp Бот',
     settings_whatsapp_desc: 'Управление задачами через WhatsApp Web.',
     field_whatsapp_enabled: 'Включить WhatsApp бота',
-    field_whatsapp_enabled_hint: 'Управление каналом только здесь. Запуск вместе с TeleCode.',
+    field_whatsapp_enabled_hint: 'Активирует WhatsApp интеграцию. После включения и запуска агента перейдите во вкладку Логи, там появится QR-код. Откройте WhatsApp на телефоне → Связанные устройства → Привязка устройства и отсканируйте код.',
     field_whatsapp_session_path: 'Путь сессии',
-    field_whatsapp_session_path_hint: 'Папка профиля LocalAuth/Chromium для WhatsApp.',
+    field_whatsapp_session_path_hint: 'Локальная папка для сохранения сессии авторизации WhatsApp. Избавляет от повторного сканирования при рестарте VS Code. По умолчанию: ~/.telecode-ai/',
     field_whatsapp_access_mode: 'Режим доступа',
-    field_whatsapp_access_mode_hint: 'Кто может отправлять задачи в WhatsApp-бот.',
+    field_whatsapp_access_mode_hint: '⚠️ Контроль безопасности. Кто может отправлять задачи в WhatsApp-бот.',
     option_whatsapp_access_self: 'Только я',
     option_whatsapp_access_allowlist: 'Список номеров',
     option_whatsapp_access_all: 'Все чаты',
     field_whatsapp_allowed_phones: 'Разрешённые номера',
-    field_whatsapp_allowed_phones_hint: 'Список номеров через запятую в международном формате.',
+    field_whatsapp_allowed_phones_hint: 'Список номеров через запятую (например, +12025550111), с которых разрешено управлять агентом.',
     field_whatsapp_allowed_phones_error: 'Неверный формат номеров для режима списка.',
     field_whatsapp_allowed_phones_error_required: 'Добавьте минимум один номер для режима списка.',
     field_whatsapp_self_commands: 'Разрешить self-команды',
-    field_whatsapp_self_commands_hint: 'Разрешать /run, /status, /stop, /help из того же аккаунта.',
-    field_whatsapp_recovery: 'Recovery при auth',
-    field_whatsapp_recovery_hint: 'Автовосстановление listeners, если не приходит ready.',
+    field_whatsapp_self_commands_hint: 'Разрешает отправлять команды боту в чат к самому себе ("Вы" в WhatsApp). Это безопасно и удобно.',
   
     tg_studying_request: 'Изучаю ваш запрос...',
     tg_phase_preparing: 'Готовлюсь к ответу...',
@@ -484,22 +480,20 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_whatsapp_title: 'WhatsApp Bot',
     settings_whatsapp_desc: 'Receive and respond to tasks via WhatsApp Web.',
     field_whatsapp_enabled: 'Enable WhatsApp Bot',
-    field_whatsapp_enabled_hint: 'Channel control is here only. Starts with TeleCode.',
+    field_whatsapp_enabled_hint: 'Activates WhatsApp integration. Check this, start the agent, and switch to Logs tab for the QR code. Open WhatsApp on phone → Settings → Linked Devices to scan.',
     field_whatsapp_session_path: 'Session Path',
-    field_whatsapp_session_path_hint: 'LocalAuth/Chromium profile folder for WhatsApp.',
+    field_whatsapp_session_path_hint: 'Local directory to store auth session. Allows reconnecting without rescanning QR. Default: ~/.telecode-ai/',
     field_whatsapp_access_mode: 'Access Mode',
-    field_whatsapp_access_mode_hint: 'Who can send tasks to WhatsApp bot.',
+    field_whatsapp_access_mode_hint: '⚠️ Security control. Who can send tasks to the agent?',
     option_whatsapp_access_self: 'Self only',
     option_whatsapp_access_allowlist: 'Allowlist',
     option_whatsapp_access_all: 'All chats',
     field_whatsapp_allowed_phones: 'Allowed Phones',
-    field_whatsapp_allowed_phones_hint: 'Comma-separated phone list in international format.',
+    field_whatsapp_allowed_phones_hint: 'Comma-separated list of phone numbers (e.g. +12025550111, 447700900000) allowed to use the agent.',
     field_whatsapp_allowed_phones_error: 'Invalid phone list for allowlist mode.',
     field_whatsapp_allowed_phones_error_required: 'Add at least one phone for allowlist mode.',
     field_whatsapp_self_commands: 'Allow Self Commands',
-    field_whatsapp_self_commands_hint: 'Allow /run, /status, /stop, /help from the same account.',
-    field_whatsapp_recovery: 'Recovery On Auth',
-    field_whatsapp_recovery_hint: 'Auto-recover listeners when ready event is missing.',
+    field_whatsapp_self_commands_hint: 'Allows you to send messages to "Yourself" in WhatsApp to control the agent safely.',
   
     tg_studying_request: 'Studying your request...',
     tg_phase_preparing: 'Preparing response...',

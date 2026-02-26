@@ -639,7 +639,6 @@
       whatsappEnabled: boolVal("whatsappEnabled"),
       whatsappSessionPath: strVal("whatsappSessionPath"),
       whatsappAllowSelfCommands: boolVal("whatsappAllowSelfCommands"),
-      whatsappRecoveryOnAuth: boolVal("whatsappRecoveryOnAuth"),
       whatsappAccessMode: strVal("whatsappAccessMode") || "self",
       whatsappAllowedPhones: strVal("whatsappAllowedPhones")
     };
@@ -667,7 +666,6 @@
     setBool("whatsappEnabled", s.whatsappEnabled === true);
     setStr("whatsappSessionPath", s.whatsappSessionPath ?? "~/.telecode-ai/whatsapp-session.json");
     setBool("whatsappAllowSelfCommands", s.whatsappAllowSelfCommands !== false);
-    setBool("whatsappRecoveryOnAuth", s.whatsappRecoveryOnAuth !== false);
     setStr("whatsappAccessMode", s.whatsappAccessMode ?? "self");
     setStr("whatsappAllowedPhones", s.whatsappAllowedPhones ?? "");
   }

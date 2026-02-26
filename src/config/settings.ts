@@ -35,7 +35,6 @@ export interface WhatsAppSettings {
   enabled: boolean;
   sessionPath: string;
   allowSelfCommands: boolean;
-  recoveryOnAuth: boolean;
   accessMode: 'self' | 'allowlist' | 'all';
   allowedPhones: string[];
 }
@@ -124,7 +123,6 @@ export function readTelecodeSettings(): TelecodeSettings {
   const whatsappEnabled = config.get<boolean>('whatsapp.enabled') === true;
   const whatsappSessionPath = (config.get<string>('whatsapp.sessionPath') || '~/.telecode-ai/whatsapp-session.json').trim();
   const whatsappAllowSelfCommands = config.get<boolean>('whatsapp.allowSelfCommands', true) !== false;
-  const whatsappRecoveryOnAuth = config.get<boolean>('whatsapp.recoveryOnAuth', true) !== false;
   const whatsappAccessModeRaw = (config.get<string>('whatsapp.accessMode') || 'self').trim().toLowerCase();
   const whatsappAccessMode =
     whatsappAccessModeRaw === 'self' || whatsappAccessModeRaw === 'allowlist' || whatsappAccessModeRaw === 'all'
@@ -164,7 +162,6 @@ export function readTelecodeSettings(): TelecodeSettings {
       enabled: whatsappEnabled,
       sessionPath: whatsappSessionPath,
       allowSelfCommands: whatsappAllowSelfCommands,
-      recoveryOnAuth: whatsappRecoveryOnAuth,
       accessMode: whatsappAccessMode,
       allowedPhones: whatsappAllowedPhones,
     },
