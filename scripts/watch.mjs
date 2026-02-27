@@ -35,7 +35,7 @@ const extCtx = await esbuild.context({
   entryPoints: ['./src/extension.ts'],
   bundle: true,
   outfile: 'dist/extension.js',
-  external: ['vscode', '@whiskeysockets/baileys', '@whiskeysockets/baileys/*', 'qrcode', 'qrcode/*', 'link-preview-js', 'jimp', 'sharp', 'pino'],
+  external: ['vscode', 'link-preview-js', 'jimp', 'sharp'],
   format: 'cjs',
   platform: 'node',
   sourcemap: true,

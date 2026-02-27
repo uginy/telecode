@@ -352,7 +352,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "npm run build:extension",
-    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:@whiskeysockets/baileys --external:@whiskeysockets/baileys/* --external:qrcode --external:qrcode/* --external:link-preview-js --external:jimp --external:sharp --external:pino --format=cjs --platform=node --minify",
+    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:link-preview-js --external:jimp --external:sharp --format=cjs --platform=node --minify",
     "build:webview": "esbuild ./src/webview/index.ts --bundle --outfile=media/chat.js --format=iife --platform=browser --target=es2020 --minify=false --keep-names",
     "build:all": "npm run build:extension && npm run build:webview",
     "watch": "node scripts/watch.mjs",
