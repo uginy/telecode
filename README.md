@@ -99,7 +99,6 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 | `telecode.whatsapp.enabled`           | Enable WhatsApp channel                                                                |
 | `telecode.whatsapp.sessionPath`       | Local session/profile path for WhatsApp Web auth                                       |
 | `telecode.whatsapp.allowSelfCommands` | Allow self-chat command mode (`/run`, `/status`, `/stop`, `/help`)                     |
-| `telecode.whatsapp.recoveryOnAuth`    | Enable post-auth recovery when ready event is missing                                  |
 | `telecode.whatsapp.accessMode`        | WhatsApp sender policy (`self`, `allowlist`, `all`)                                    |
 | `telecode.whatsapp.allowedPhones`     | Comma-separated allowlist phones for `allowlist` mode                                  |
 

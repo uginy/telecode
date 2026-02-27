@@ -2,13 +2,20 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
-## [0.1.14]
+## [0.1.16]
+
+- **Build Fix**: Resolved extension activation crash (`Cannot find module 'qrcode'`) by explicitly bundling `@whiskeysockets/baileys`, `qrcode`, and `pino` directly into the extension artifact.
+
+## [0.1.15]
 
 - **Panel Onboarding UX**: Added a multilingual info tooltip next to the main header brand to clarify the agent's primary control interface (WhatsApp & Telegram), with refined, glitch-free hover logic for reading tooltip copy.
 
-## [0.1.13]
+## [0.1.14]
 
 - **WhatsApp Onboarding**: Injected explicit UI hints in the Settings tab to guide users on correctly starting the agent and scanning the QR code inside the "Logs" tab.
+
+## [0.1.13]
+
 - **Security Awareness**: Highlighted the `Access Mode` field with stark warnings (`Safest` vs `DANGEROUS`) to prevent users from accidentally exposing the autonomous bash execution to arbitrary strangers.
 - **Settings Cleanup**: Removed archaic `Recovery On Auth` flags leftover from the Puppeteer architecture, streamlining configuring and the runtime payload.
 
