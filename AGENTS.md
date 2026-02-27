@@ -61,3 +61,4 @@ return { content: [{ type: 'text', text: 'Result' }], details: {} };
 - **Error Handling**: Keep tool logic robust. Always return user/agent-friendly error messages instead of throwing unhandled exceptions. If a tool fails, the agent must know _why_ so it can correct its approach.
 - **Code Language**: Write clean, modern TypeScript logic.
 - **Pre-decision Research**: Before making architectural decisions or choosing dependencies, always conduct a brief research on relevance and modern approaches. Look for cool, popular, ready-made solutions and strictly avoid installing outdated packages.
+- **Git Workflow**: Use Git for version control. Commit changes often and use descriptive commit messages. Do not push changes to remote repository until user explicitly requests it.
