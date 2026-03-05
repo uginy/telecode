@@ -223,17 +223,6 @@
     return normalized.slice(closing + 1).trim();
   }
   __name(stripPrefix, "stripPrefix");
-  function parseToolInvocation(line, prefix) {
-    const normalized = normalizeStructuredLine(line);
-    const compatiblePrefix = prefix === "[tool:done]" && normalized.startsWith("[tool:end]") ? "[tool:end]" : prefix;
-    const payload = normalized.replace(compatiblePrefix, "").trim();
-    if (payload.length === 0) {
-      return { name: "tool", details: "" };
-    }
-    const [name, ...rest] = payload.split(/\s+/);
-    return { name, details: rest.join(" ") };
-  }
-  __name(parseToolInvocation, "parseToolInvocation");
   function parseLine(line) {
     const kind = classifyLine(line);
     const meta = LINE_META[kind];
@@ -445,41 +434,14 @@
         currentTaskNode.descSpan.textContent = parsed.message;
       }
       currentToolNode = null;
-    } else if (kind === "tool-start") {
-      const { name, details } = parseToolInvocation(text, "[tool:start]");
-      currentToolNode = createGroupedNode("tool", name, "Running...", details || "Executing tool...", "tool");
+    } else if (kind === "tool-start" || kind === "tool-done" || kind === "tool-error") {
+      currentToolNode = null;
+      const clone = lineEl.cloneNode(true);
       if (currentTaskNode) {
-        currentTaskNode.body.appendChild(currentToolNode.el);
+        currentTaskNode.body.appendChild(clone);
       } else {
-        out.appendChild(currentToolNode.el);
-      }
-    } else if (kind === "tool-done" || kind === "tool-error") {
-      const { name, details } = parseToolInvocation(text, kind === "tool-done" ? "[tool:done]" : "[tool:error]");
-      if (currentToolNode) {
-        currentToolNode.infoSpan.classList.remove("running");
-        if (name.length > 0) {
-          currentToolNode.titleSpan.textContent = name;
-        }
-        if (details.length > 0) {
-          currentToolNode.descSpan.textContent = details;
-        }
-        if (kind === "tool-error") {
-          currentToolNode.el.classList.add("error");
-          currentToolNode.infoSpan.classList.add("error");
-          currentToolNode.infoSpan.textContent = "Error";
-        } else {
-          currentToolNode.el.classList.add("done");
-          currentToolNode.infoSpan.classList.add("done");
-          const duration = details.match(/\b\d+ms\b/)?.[0];
-          currentToolNode.infoSpan.textContent = duration ? `Done ${duration}` : "Done";
-        }
-        currentToolNode.body.appendChild(lineEl.cloneNode(true));
-        if (kind === "tool-done") {
-          currentToolNode.el.classList.remove("expanded");
-        }
-        currentToolNode = null;
-      } else if (currentTaskNode) {
-        currentTaskNode.body.appendChild(lineEl.cloneNode(true));
+        const systemNode = ensureSystemNode(out);
+        systemNode.body.appendChild(clone);
       }
     } else if (kind === "run" || kind === "agent") {
       if (currentTaskNode) {
@@ -615,8 +577,8 @@
     const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
     const logMaxCharsRaw = Number.parseInt(strVal("logMaxChars") || "500000", 10);
     const logMaxChars = Number.isFinite(logMaxCharsRaw) && logMaxCharsRaw > 0 ? logMaxCharsRaw : 5e5;
-    const telegramMaxLogLinesRaw = Number.parseInt(strVal("telegramMaxLogLines") || "300", 10);
-    const telegramMaxLogLines = Number.isFinite(telegramMaxLogLinesRaw) && telegramMaxLogLinesRaw > 0 ? telegramMaxLogLinesRaw : 300;
+    const channelLogLinesRaw = Number.parseInt(strVal("channelLogLines") || "300", 10);
+    const channelLogLines = Number.isFinite(channelLogLinesRaw) && channelLogLinesRaw > 0 ? channelLogLinesRaw : 300;
     return {
       provider: strVal("provider"),
       model: strVal("model"),
@@ -630,7 +592,7 @@
       safeModeProfile: strVal("safeModeProfile"),
       allowOutOfWorkspace: boolVal("allowOutOfWorkspace"),
       logMaxChars,
-      telegramMaxLogLines,
+      channelLogLines,
       telegramEnabled: boolVal("telegramEnabled"),
       telegramBotToken: strVal("telegramBotToken"),
       telegramChatId: strVal("telegramChatId"),
@@ -657,7 +619,7 @@
     setStr("safeModeProfile", s.safeModeProfile ?? "balanced");
     setBool("allowOutOfWorkspace", s.allowOutOfWorkspace === true);
     setStr("logMaxChars", String(s.logMaxChars ?? 5e5));
-    setStr("telegramMaxLogLines", String(s.telegramMaxLogLines ?? 300));
+    setStr("channelLogLines", String(s.channelLogLines ?? 300));
     setBool("telegramEnabled", s.telegramEnabled === true);
     setStr("telegramBotToken", s.telegramBotToken ?? "");
     setStr("telegramChatId", s.telegramChatId ?? "");

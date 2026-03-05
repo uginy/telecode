@@ -27,8 +27,8 @@ export function readForm(): Settings {
   const maxSteps = Number.isFinite(maxStepsRaw) && maxStepsRaw > 0 ? maxStepsRaw : 100;
   const logMaxCharsRaw = Number.parseInt(strVal('logMaxChars') || '500000', 10);
   const logMaxChars = Number.isFinite(logMaxCharsRaw) && logMaxCharsRaw > 0 ? logMaxCharsRaw : 500000;
-  const telegramMaxLogLinesRaw = Number.parseInt(strVal('telegramMaxLogLines') || '300', 10);
-  const telegramMaxLogLines = Number.isFinite(telegramMaxLogLinesRaw) && telegramMaxLogLinesRaw > 0 ? telegramMaxLogLinesRaw : 300;
+  const channelLogLinesRaw = Number.parseInt(strVal('channelLogLines') || '300', 10);
+  const channelLogLines = Number.isFinite(channelLogLinesRaw) && channelLogLinesRaw > 0 ? channelLogLinesRaw : 300;
 
   return {
     provider:          strVal('provider'),
@@ -43,7 +43,7 @@ export function readForm(): Settings {
     safeModeProfile:   strVal('safeModeProfile'),
     allowOutOfWorkspace: boolVal('allowOutOfWorkspace'),
     logMaxChars,
-    telegramMaxLogLines,
+    channelLogLines,
     telegramEnabled:   boolVal('telegramEnabled'),
     telegramBotToken:  strVal('telegramBotToken'),
     telegramChatId:    strVal('telegramChatId'),
@@ -70,7 +70,7 @@ export function writeForm(s: Settings): void {
   setStr( 'safeModeProfile',  s.safeModeProfile ?? 'balanced');
   setBool('allowOutOfWorkspace', s.allowOutOfWorkspace === true);
   setStr( 'logMaxChars',      String(s.logMaxChars ?? 500000));
-  setStr( 'telegramMaxLogLines', String(s.telegramMaxLogLines ?? 300));
+  setStr( 'channelLogLines', String(s.channelLogLines ?? 300));
   setBool('telegramEnabled',  s.telegramEnabled === true);
   setStr( 'telegramBotToken', s.telegramBotToken ?? '');
   setStr( 'telegramChatId',   s.telegramChatId ?? '');

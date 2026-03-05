@@ -12,7 +12,7 @@ export type Settings = {
   uiLanguage?: string;
   allowOutOfWorkspace: boolean;
   logMaxChars: number;
-  telegramMaxLogLines: number;
+  channelLogLines: number;
   statusVerbosity?: string;
   safeModeProfile?: string;
   telegramEnabled: boolean;

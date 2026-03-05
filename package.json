@@ -226,10 +226,10 @@
 					"default": 500000,
 					"description": "Maximum in-memory UI log buffer size before trimming old lines"
 				},
-				"telecode.telegramMaxLogLines": {
+				"telecode.channelLogLines": {
 					"type": "number",
 					"default": 300,
-					"description": "Maximum number of Telegram log lines kept in memory"
+					"description": "Maximum number of per-channel log lines kept in memory"
 				},
 				"telecode.statusVerbosity": {
 					"type": "string",

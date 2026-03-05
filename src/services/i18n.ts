@@ -109,8 +109,8 @@ export interface Translations {
   field_max_steps_hint: string;
   field_log_max_chars: string;
   field_log_max_chars_hint: string;
-  field_tg_log_lines: string;
-  field_tg_log_lines_hint: string;
+  field_channel_log_lines: string;
+  field_channel_log_lines_hint: string;
 
   // UI - Settings Telegram
   settings_telegram_title: string;
@@ -289,8 +289,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_max_steps_hint: 'Максимальное количество вызовов инструментов (1–1000).',
     field_log_max_chars: 'Буфер логов (симв.)',
     field_log_max_chars_hint: 'Максимальный размер логов в UI в памяти перед обрезкой старых строк.',
-    field_tg_log_lines: 'Линии Telegram-логов',
-    field_tg_log_lines_hint: 'Максимальное число строк Telegram-логов в памяти.',
+    field_channel_log_lines: 'Линии логов каналов',
+    field_channel_log_lines_hint: 'Максимальное число строк логов в памяти для каждого канала.',
 
     settings_telegram_title: 'Telegram Бот',
     settings_telegram_desc: 'Управление задачами через внешнего бота.',
@@ -465,8 +465,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_max_steps_hint: 'Max tool calls allowed per task (1–1000).',
     field_log_max_chars: 'Log Buffer (chars)',
     field_log_max_chars_hint: 'Maximum in-memory UI log buffer size before trimming old lines.',
-    field_tg_log_lines: 'Telegram Log Lines',
-    field_tg_log_lines_hint: 'Maximum number of Telegram log lines kept in memory.',
+    field_channel_log_lines: 'Channel Log Lines',
+    field_channel_log_lines_hint: 'Maximum number of log lines kept in memory for each channel.',
 
     settings_telegram_title: 'Telegram Bot',
     settings_telegram_desc: 'Receive and respond to tasks via a Telegram bot.',

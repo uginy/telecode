@@ -1086,7 +1086,7 @@ export class TelegramChannel implements IChannel {
 		this.logs.push(entry);
 		const maxLines = Math.max(
 			50,
-			readTelecodeSettings().agent.telegramMaxLogLines || 300,
+			readTelecodeSettings().agent.channelLogLines || 300,
 		);
 		while (this.logs.length > maxLines) this.logs.shift();
 		if (this.onLog) this.onLog(entry);

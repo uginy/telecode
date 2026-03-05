@@ -32,7 +32,7 @@ export interface ChatViewSettings {
 	uiLanguage: string;
 	allowOutOfWorkspace: boolean;
 	logMaxChars: number;
-	telegramMaxLogLines: number;
+	channelLogLines: number;
 	statusVerbosity: string;
 	safeModeProfile: string;
 	telegramEnabled: boolean;
@@ -161,13 +161,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 					Number.isFinite(logMaxCharsRaw) && logMaxCharsRaw > 0
 						? Math.floor(logMaxCharsRaw)
 						: DEFAULT_OUTPUT_MAX_CHARS;
-				const telegramMaxLogLinesRaw =
-					typeof raw.telegramMaxLogLines === "number"
-						? raw.telegramMaxLogLines
-						: Number(raw.telegramMaxLogLines);
-				const telegramMaxLogLines =
-					Number.isFinite(telegramMaxLogLinesRaw) && telegramMaxLogLinesRaw > 0
-						? Math.floor(telegramMaxLogLinesRaw)
+				const channelLogLinesRaw =
+					typeof raw.channelLogLines === "number"
+						? raw.channelLogLines
+						: Number(raw.channelLogLines);
+				const channelLogLines =
+					Number.isFinite(channelLogLinesRaw) && channelLogLinesRaw > 0
+						? Math.floor(channelLogLinesRaw)
 						: 300;
 
 				this.commandEmitter.fire({
@@ -191,7 +191,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 								: "auto",
 						allowOutOfWorkspace: raw.allowOutOfWorkspace === true,
 						logMaxChars,
-						telegramMaxLogLines,
+						channelLogLines,
 						statusVerbosity:
 							typeof raw.statusVerbosity === "string"
 								? raw.statusVerbosity

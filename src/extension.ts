@@ -204,6 +204,7 @@ export function activate(context: vscode.ExtensionContext): void {
 						event.affectsConfiguration("telecode.baseUrl") ||
 						event.affectsConfiguration("telecode.maxSteps") ||
 						event.affectsConfiguration("telecode.logMaxChars") ||
+						event.affectsConfiguration("telecode.channelLogLines") ||
 						event.affectsConfiguration("telecode.telegramMaxLogLines") ||
 						event.affectsConfiguration("telecode.statusVerbosity") ||
 						event.affectsConfiguration("telecode.safeModeProfile") ||
@@ -587,11 +588,7 @@ async function saveSettingsFromChatView(
 		await config.update("baseUrl", settings.baseUrl, target);
 		await config.update("maxSteps", settings.maxSteps, target);
 		await config.update("logMaxChars", settings.logMaxChars, target);
-		await config.update(
-			"telegramMaxLogLines",
-			settings.telegramMaxLogLines,
-			target,
-		);
+		await config.update("channelLogLines", settings.channelLogLines, target);
 		await config.update("statusVerbosity", settings.statusVerbosity, target);
 		await config.update("safeModeProfile", settings.safeModeProfile, target);
 		await config.update("responseStyle", settings.responseStyle, target);
@@ -903,7 +900,7 @@ function syncSettingsToChatView(): void {
 		baseUrl: settings.agent.baseUrl || "",
 		maxSteps: settings.agent.maxSteps,
 		logMaxChars: settings.agent.logMaxChars,
-		telegramMaxLogLines: settings.agent.telegramMaxLogLines,
+		channelLogLines: settings.agent.channelLogLines,
 		statusVerbosity: settings.agent.statusVerbosity,
 		safeModeProfile: settings.agent.safeModeProfile,
 		responseStyle: settings.agent.responseStyle,

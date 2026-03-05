@@ -12,7 +12,7 @@ export interface AgentSettings {
   uiLanguage: 'ru' | 'en' | 'auto';
   allowOutOfWorkspace: boolean;
   logMaxChars: number;
-  telegramMaxLogLines: number;
+  channelLogLines: number;
   statusVerbosity: 'minimal' | 'normal' | 'debug';
   safeModeProfile: 'strict' | 'balanced' | 'power';
 }
@@ -103,7 +103,10 @@ export function readTelecodeSettings(): TelecodeSettings {
 
   const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
   const logMaxChars = readPositiveNumber(config.get<number>('logMaxChars'), 500_000);
-  const telegramMaxLogLines = readPositiveNumber(config.get<number>('telegramMaxLogLines'), 300);
+  const channelLogLines = readPositiveNumber(
+    config.get<number>('channelLogLines', config.get<number>('telegramMaxLogLines')),
+    300,
+  );
   const statusVerbosityRaw = (config.get<string>('statusVerbosity') || 'normal').trim();
   const statusVerbosity =
     statusVerbosityRaw === 'minimal' || statusVerbosityRaw === 'normal' || statusVerbosityRaw === 'debug'
@@ -147,7 +150,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       uiLanguage,
       allowOutOfWorkspace,
       logMaxChars,
-      telegramMaxLogLines,
+      channelLogLines,
       statusVerbosity,
       safeModeProfile,
     },
