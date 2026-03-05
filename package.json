@@ -2,7 +2,7 @@
 	"name": "telecode-ai",
 	"displayName": "TeleCode AI",
 	"description": "The first remote-controlled autonomous coding agent in your IDE.",
-	"version": "0.1.17",
+	"version": "0.1.18",
 	"publisher": "Uginy",
 	"license": "MIT",
 	"repository": {
@@ -12,9 +12,22 @@
 	"engines": {
 		"vscode": "^1.107.0"
 	},
-	"categories": ["Machine Learning", "Programming Languages", "Other"],
-	"keywords": ["ai", "coding", "agent", "telegram", "whatsapp", "autonomous"],
-	"activationEvents": ["onStartupFinished"],
+	"categories": [
+		"Machine Learning",
+		"Programming Languages",
+		"Other"
+	],
+	"keywords": [
+		"ai",
+		"coding",
+		"agent",
+		"telegram",
+		"whatsapp",
+		"autonomous"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
 	"main": "./dist/extension.js",
 	"icon": "media/icon.png",
 	"contributes": {
@@ -198,7 +211,11 @@
 				"telecode.whatsapp.accessMode": {
 					"type": "string",
 					"default": "self",
-					"enum": ["self", "allowlist", "all"],
+					"enum": [
+						"self",
+						"allowlist",
+						"all"
+					],
 					"markdownEnumDescriptions": [
 						"**Safest**. The agent only ignores everyone except you.",
 						"Only numbers specified in `Allowed Phones` can command the agent.",
@@ -234,7 +251,11 @@
 				"telecode.statusVerbosity": {
 					"type": "string",
 					"default": "normal",
-					"enum": ["minimal", "normal", "debug"],
+					"enum": [
+						"minimal",
+						"normal",
+						"debug"
+					],
 					"enumDescriptions": [
 						"Only key status phases and tool boundaries",
 						"Balanced status output for daily work",
@@ -245,7 +266,11 @@
 				"telecode.safeModeProfile": {
 					"type": "string",
 					"default": "balanced",
-					"enum": ["strict", "balanced", "power"],
+					"enum": [
+						"strict",
+						"balanced",
+						"power"
+					],
 					"enumDescriptions": [
 						"Read/search focused. No bash and no out-of-workspace access",
 						"Daily coding profile with normal tools, workspace-only scope",
@@ -276,7 +301,11 @@
 				"telecode.responseStyle": {
 					"type": "string",
 					"default": "concise",
-					"enum": ["concise", "normal", "detailed"],
+					"enum": [
+						"concise",
+						"normal",
+						"detailed"
+					],
 					"enumDescriptions": [
 						"Concise answers - only the most important parts",
 						"Normal answers - balance between details and brevity",
@@ -287,7 +316,11 @@
 				"telecode.language": {
 					"type": "string",
 					"default": "auto",
-					"enum": ["auto", "ru", "en"],
+					"enum": [
+						"auto",
+						"ru",
+						"en"
+					],
 					"enumDescriptions": [
 						"Auto (detect from user language)",
 						"Russian (RU)",
@@ -298,7 +331,11 @@
 				"telecode.uiLanguage": {
 					"type": "string",
 					"default": "auto",
-					"enum": ["auto", "ru", "en"],
+					"enum": [
+						"auto",
+						"ru",
+						"en"
+					],
 					"enumDescriptions": [
 						"Auto (detect from VS Code)",
 						"Russian (interface)",
