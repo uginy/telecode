@@ -335,43 +335,14 @@ export function appendLine(text: string): void {
       currentTaskNode.descSpan.textContent = parsed.message;
     }
     currentToolNode = null;
-  } else if (kind === 'tool-start') {
-    const { name, details } = parseToolInvocation(text, '[tool:start]');
-    currentToolNode = createGroupedNode('tool', name, 'Running...', details || 'Executing tool...', 'tool');
-
+  } else if (kind === 'tool-start' || kind === 'tool-done' || kind === 'tool-error') {
+    currentToolNode = null;
+    const clone = lineEl.cloneNode(true) as HTMLElement;
     if (currentTaskNode) {
-      currentTaskNode.body.appendChild(currentToolNode.el);
+      currentTaskNode.body.appendChild(clone);
     } else {
-      out.appendChild(currentToolNode.el);
-    }
-  } else if (kind === 'tool-done' || kind === 'tool-error') {
-    const { name, details } = parseToolInvocation(text, kind === 'tool-done' ? '[tool:done]' : '[tool:error]');
-    if (currentToolNode) {
-      currentToolNode.infoSpan.classList.remove('running');
-      if (name.length > 0) {
-        currentToolNode.titleSpan.textContent = name;
-      }
-      if (details.length > 0) {
-        currentToolNode.descSpan.textContent = details;
-      }
-      if (kind === 'tool-error') {
-        currentToolNode.el.classList.add('error');
-        currentToolNode.infoSpan.classList.add('error');
-        currentToolNode.infoSpan.textContent = 'Error';
-      } else {
-        currentToolNode.el.classList.add('done');
-        currentToolNode.infoSpan.classList.add('done');
-        const duration = details.match(/\b\d+ms\b/)?.[0];
-        currentToolNode.infoSpan.textContent = duration ? `Done ${duration}` : 'Done';
-      }
-      currentToolNode.body.appendChild(lineEl.cloneNode(true));
-      // Auto-collapse done tools
-      if (kind === 'tool-done') {
-        currentToolNode.el.classList.remove('expanded');
-      }
-      currentToolNode = null;
-    } else if (currentTaskNode) {
-      currentTaskNode.body.appendChild(lineEl.cloneNode(true));
+      const systemNode = ensureSystemNode(out);
+      systemNode.body.appendChild(clone);
     }
   } else if (kind === 'run' || kind === 'agent') {
     if (currentTaskNode) {

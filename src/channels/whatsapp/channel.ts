@@ -11,7 +11,7 @@ import {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import { TaskRunner } from "../../agent/taskRunner";
-import type { RuntimeConfig, AgentRuntime } from "../../engine/types";
+import type { RuntimeConfig, AgentRuntime, RuntimeEvent } from "../../engine/types";
 import { readTelecodeSettings } from "../../config/settings";
 import { getPromptStackSignature } from "../../prompts/promptStack";
 import type { IChannel } from "../types";
@@ -40,6 +40,70 @@ function expandHome(inputPath: string): string {
 
 async function ensureDir(dir: string): Promise<void> {
 	await fs.mkdir(dir, { recursive: true });
+}
+
+function summarizeToolPayload(value: unknown): string {
+	if (!value || typeof value !== "object") {
+		return "";
+	}
+
+	const record = findSummaryRecord(value as Record<string, unknown>);
+	const parts: string[] = [];
+	pushSummary(parts, "command", record.command ?? record.cmd);
+	pushSummary(parts, "path", record.path);
+	pushSummary(parts, "cwd", record.cwd);
+	pushSummary(parts, "query", record.query);
+	pushSummary(parts, "pattern", record.pattern);
+	pushSummary(parts, "glob", record.glob);
+	pushSummary(parts, "count", record.count);
+	pushSummary(parts, "bytes", record.bytes);
+	pushSummary(parts, "replacements", record.replacements);
+
+	return parts.join(" ");
+}
+
+function findSummaryRecord(
+	record: Record<string, unknown>,
+	depth = 0,
+): Record<string, unknown> {
+	if (
+		record.command !== undefined ||
+		record.cmd !== undefined ||
+		record.path !== undefined ||
+		record.cwd !== undefined ||
+		record.query !== undefined ||
+		record.pattern !== undefined ||
+		record.glob !== undefined
+	) {
+		return record;
+	}
+
+	if (depth >= 3) {
+		return record;
+	}
+
+	for (const key of ["details", "args", "input", "params", "result"]) {
+		const nested = record[key];
+		if (nested && typeof nested === "object") {
+			return findSummaryRecord(nested as Record<string, unknown>, depth + 1);
+		}
+	}
+
+	return record;
+}
+
+function pushSummary(parts: string[], key: string, value: unknown): void {
+	if (value === undefined || value === null) {
+		return;
+	}
+
+	const text = String(value).replace(/\s+/g, " ").trim();
+	if (!text) {
+		return;
+	}
+
+	const compact = text.length > 70 ? `${text.slice(0, 67)}...` : text;
+	parts.push(`${key}=${compact}`);
 }
 
 type IncomingCommand = "help" | "status" | "stop" | "run" | null;
@@ -403,9 +467,26 @@ export class WhatsAppChannel implements IChannel {
 
 		const runtime = this.ensureRuntime();
 		let output = "";
-		const unsub = runtime.onEvent((event) => {
+		const unsub = runtime.onEvent((event: RuntimeEvent) => {
 			if (event.type === "text_delta") {
 				output += event.delta;
+				return;
+			}
+
+			if (event.type === "tool_start") {
+				const details = summarizeToolPayload(event.args);
+				this.pushLog(
+					`[tool:start] ${event.toolName}${details ? ` ${details}` : ""}`,
+				);
+				return;
+			}
+
+			if (event.type === "tool_end") {
+				const state = event.isError ? "error" : "done";
+				const details = summarizeToolPayload(event.result);
+				this.pushLog(
+					`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ""}`,
+				);
 			}
 		});
 
@@ -481,7 +562,8 @@ export class WhatsAppChannel implements IChannel {
 	private pushLog(line: string): void {
 		const entry = `[${new Date().toLocaleTimeString()}] ${line}`;
 		this.logs.push(entry);
-		while (this.logs.length > 300) this.logs.shift();
+		const maxLines = Math.max(50, readTelecodeSettings().agent.channelLogLines || 300);
+		while (this.logs.length > maxLines) this.logs.shift();
 		this.onLog?.(entry);
 	}
 
