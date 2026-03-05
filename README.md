@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Remote-controlled autonomous coding agent in your VS Code.</strong><br>
-  Run tasks locally or from Telegram, with grouped logs, status phases, and a focused coding toolchain.
+  Run tasks locally or from Telegram/WhatsApp, with grouped logs, status phases, and a focused coding toolchain.
 </p>
 
 <p align="center">
@@ -34,6 +34,7 @@ You can control it from VS Code or remotely via Telegram/WhatsApp.
 - **Multi-Provider AI**: Works with OpenRouter, OpenAI, Anthropic Claude, Google Gemini, MiniMax, Moonshot (Kimi), and self-hosted Ollama models.
 - **Structured Logs UI**:
   - Grouped log view with typed rows (`status`, `tool:start`, `tool:done`, `channel`, `llm`, etc.)
+  - Tool invocations are visible in the task timeline, including remote channel runs
   - Status verbosity modes: `minimal`, `normal`, `debug`
   - Filter chips and query filter for fast navigation in long runs
   - Collapse/expand all grouped nodes
@@ -88,7 +89,7 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 | `telecode.statusVerbosity`            | Runtime status density in logs (`minimal`, `normal`, `debug`)                          |
 | `telecode.safeModeProfile`            | Permission profile (`strict`, `balanced`, `power`)                                     |
 | `telecode.logMaxChars`                | Maximum in-memory UI log buffer before trimming                                        |
-| `telecode.telegramMaxLogLines`        | Maximum Telegram log lines kept in memory                                              |
+| `telecode.channelLogLines`            | Maximum per-channel log lines kept in memory                                           |
 | `telecode.allowOutOfWorkspace`        | Allow agent file/command access outside workspace                                      |
 | `telecode.allowedTools`               | Allowed tool list for the agent                                                        |
 | `telecode.telegram.enabled`           | Enable Telegram bot                                                                    |
