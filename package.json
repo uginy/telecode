@@ -1,390 +1,355 @@
 {
-  "name": "telecode-ai",
-  "displayName": "TeleCode AI",
-  "description": "The first remote-controlled autonomous coding agent in your IDE.",
-  "version": "0.1.17",
-  "publisher": "Uginy",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/uginy/telecode.git"
-  },
-  "engines": {
-    "vscode": "^1.107.0"
-  },
-  "categories": [
-    "Machine Learning",
-    "Programming Languages",
-    "Other"
-  ],
-  "keywords": [
-    "ai",
-    "coding",
-    "agent",
-    "telegram",
-    "whatsapp",
-    "autonomous"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./dist/extension.js",
-  "icon": "media/icon.png",
-  "contributes": {
-    "commands": [
-      {
-        "command": "telecode.openChat",
-        "title": "TeleCode AI: Open Chat",
-        "icon": "$(comment-discussion)"
-      },
-      {
-        "command": "telecode.openSettings",
-        "title": "TeleCode AI: Open Settings",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "telecode.startAgent",
-        "title": "TeleCode AI: Start Agent",
-        "icon": "$(play)"
-      },
-      {
-        "command": "telecode.runTask",
-        "title": "TeleCode AI: Run Task",
-        "icon": "$(rocket)"
-      },
-      {
-        "command": "telecode.stopAgent",
-        "title": "TeleCode AI: Stop Agent",
-        "icon": "$(debug-stop)"
-      },
-      {
-        "command": "telecode.resetSession",
-        "title": "TeleCode AI: Reset Session History",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "telecode.setStyleShort",
-        "title": "TeleCode AI: Set Response Style - Short",
-        "icon": "$(comment)"
-      },
-      {
-        "command": "telecode.setStyleNormal",
-        "title": "TeleCode AI: Set Response Style - Normal",
-        "icon": "$(comment-discussion)"
-      },
-      {
-        "command": "telecode.setStyleDetailed",
-        "title": "TeleCode AI: Set Response Style - Detailed",
-        "icon": "$(book)"
-      },
-      {
-        "command": "telecode.setLanguageRu",
-        "title": "TeleCode AI: Set Language - Russian",
-        "icon": "$(globe)"
-      },
-      {
-        "command": "telecode.setLanguageEn",
-        "title": "TeleCode AI: Set Language - English",
-        "icon": "$(globe)"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "telecode-ai",
-          "title": "TeleCode AI",
-          "icon": "media/icon.svg"
-        }
-      ]
-    },
-    "views": {
-      "telecode-ai": [
-        {
-          "type": "webview",
-          "id": "telecode.chatView",
-          "name": "Chat",
-          "icon": "media/icon.png"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "TeleCode AI",
-      "properties": {
-        "telecode.provider": {
-          "type": "string",
-          "default": "openrouter",
-          "enum": [
-            "openrouter",
-            "openai",
-            "anthropic",
-            "google",
-            "minimax",
-            "moonshot",
-            "ollama"
-          ],
-          "enumDescriptions": [
-            "OpenRouter (free models available)",
-            "OpenAI",
-            "Anthropic Claude",
-            "Google Gemini",
-            "MiniMax",
-            "Moonshot (Kimi)",
-            "Ollama (local)"
-          ],
-          "description": "AI provider"
-        },
-        "telecode.model": {
-          "type": "string",
-          "default": "arcee-ai/trinity-large-preview:free",
-          "enum": [
-            "google/gemini-2.0-flash-exp:free",
-            "google/gemini-2.0-flash-thinking-exp:free",
-            "qwen/qwen-2.5-coder-32b-instruct",
-            "anthropic/claude-3-5-sonnet:beta",
-            "openai/gpt-4o",
-            "deepseek/deepseek-chat",
-            "deepseek/deepseek-coder"
-          ],
-          "enumDescriptions": [
-            "arcee-ai/trinity-large-preview:free",
-            "Gemini 2.0 Flash Thinking (Free on OpenRouter)",
-            "Qwen 2.5 Coder 32B (Great for code/OpenRouter)",
-            "Claude 3.5 Sonnet",
-            "GPT-4o",
-            "DeepSeek V3",
-            "DeepSeek Coder"
-          ],
-          "description": "Model ID (e.g., arcee-ai/trinity-large-preview:free). You can type any custom model ID manually in settings.json"
-        },
-        "telecode.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API key for the selected provider"
-        },
-        "telecode.baseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1)"
-        },
-        "telecode.telegram.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable Telegram bot"
-        },
-        "telecode.telegram.botToken": {
-          "type": "string",
-          "default": "",
-          "description": "Telegram bot token from @BotFather"
-        },
-        "telecode.telegram.chatId": {
-          "type": "string",
-          "default": "",
-          "description": "Your Telegram chat ID"
-        },
-        "telecode.telegram.apiRoot": {
-          "type": "string",
-          "default": "https://api.telegram.org",
-          "description": "Telegram Bot API root URL (advanced networking)"
-        },
-        "telecode.telegram.forceIPv4": {
-          "type": "boolean",
-          "default": true,
-          "description": "Force IPv4 for Telegram API requests (helps on broken IPv6 networks)"
-        },
-        "telecode.whatsapp.enabled": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "Enable the agent to be controlled remotely via WhatsApp Web. After enabling, start the agent and scan the QR code in the **Chat logs** using **Linked Devices** on your phone."
-        },
-        "telecode.whatsapp.sessionPath": {
-          "type": "string",
-          "default": "~/.telecode-ai/",
-          "markdownDescription": "Local directory where the WhatsApp Web authentication session is stored. Allows reconnecting across VS Code restarts without rescanning. Default: `~/.telecode-ai/`"
-        },
-        "telecode.whatsapp.allowSelfCommands": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Allow the primary linked number to send commands (`/run`, `/stop`, etc.) to itself (useful as a personal remote notepad)."
-        },
-        "telecode.whatsapp.accessMode": {
-          "type": "string",
-          "default": "self",
-          "enum": [
-            "self",
-            "allowlist",
-            "all"
-          ],
-          "markdownEnumDescriptions": [
-            "**Safest**. The agent only ignores everyone except you.",
-            "Only numbers specified in `Allowed Phones` can command the agent.",
-            "**DANGEROUS**. Any number that texts you can control the agent."
-          ],
-          "markdownDescription": "Control who is allowed to send task commands via WhatsApp."
-        },
-        "telecode.whatsapp.allowedPhones": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Comma-separated list of phone numbers (e.g. `+12025550111, +447700900000`) allowed to use the agent. Only applies if `accessMode` is set to `allowlist`."
-        },
-        "telecode.autoApprove": {
-          "type": "boolean",
-          "default": true,
-          "description": "Auto-approve tool actions"
-        },
-        "telecode.maxSteps": {
-          "type": "number",
-          "default": 100,
-          "description": "Max agent steps per task"
-        },
-        "telecode.logMaxChars": {
-          "type": "number",
-          "default": 500000,
-          "description": "Maximum in-memory UI log buffer size before trimming old lines"
-        },
-        "telecode.telegramMaxLogLines": {
-          "type": "number",
-          "default": 300,
-          "description": "Maximum number of Telegram log lines kept in memory"
-        },
-        "telecode.statusVerbosity": {
-          "type": "string",
-          "default": "normal",
-          "enum": [
-            "minimal",
-            "normal",
-            "debug"
-          ],
-          "enumDescriptions": [
-            "Only key status phases and tool boundaries",
-            "Balanced status output for daily work",
-            "Full verbose runtime status output"
-          ],
-          "description": "How many runtime status lines are shown in Logs"
-        },
-        "telecode.safeModeProfile": {
-          "type": "string",
-          "default": "balanced",
-          "enum": [
-            "strict",
-            "balanced",
-            "power"
-          ],
-          "enumDescriptions": [
-            "Read/search focused. No bash and no out-of-workspace access",
-            "Daily coding profile with normal tools, workspace-only scope",
-            "Maximum capability mode. Full tools and out-of-workspace enabled"
-          ],
-          "description": "Safety/capability profile for agent permissions"
-        },
-        "telecode.allowedTools": {
-          "type": "array",
-          "default": [
-            "Read",
-            "Edit",
-            "Write",
-            "Bash",
-            "Glob",
-            "Grep",
-            "WebFetch",
-            "TodoWrite",
-            "Task"
-          ],
-          "description": "Tools the agent can use"
-        },
-        "telecode.dev.autoReloadWindow": {
-          "type": "boolean",
-          "default": true,
-          "description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
-        },
-        "telecode.responseStyle": {
-          "type": "string",
-          "default": "concise",
-          "enum": [
-            "concise",
-            "normal",
-            "detailed"
-          ],
-          "enumDescriptions": [
-            "Concise answers - only the most important parts",
-            "Normal answers - balance between details and brevity",
-            "Detailed answers - maximum details"
-          ],
-          "description": "Agent response style"
-        },
-        "telecode.language": {
-          "type": "string",
-          "default": "auto",
-          "enum": [
-            "auto",
-            "ru",
-            "en"
-          ],
-          "enumDescriptions": [
-            "Auto (detect from user language)",
-            "Russian (RU)",
-            "English (EN)"
-          ],
-          "description": "Agent's communication language"
-        },
-        "telecode.uiLanguage": {
-          "type": "string",
-          "default": "auto",
-          "enum": [
-            "auto",
-            "ru",
-            "en"
-          ],
-          "enumDescriptions": [
-            "Auto (detect from VS Code)",
-            "Russian (interface)",
-            "English (interface)"
-          ],
-          "description": "Extension UI language"
-        },
-        "telecode.allowOutOfWorkspace": {
-          "type": "boolean",
-          "default": false,
-          "description": "Allow agent to access files and run commands outside the current workspace folder"
-        }
-      }
-    }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run build",
-    "build": "npm run build:extension",
-    "build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:link-preview-js --external:jimp --external:sharp --format=cjs --platform=node --minify",
-    "build:webview": "esbuild ./src/webview/index.ts --bundle --outfile=media/chat.js --format=iife --platform=browser --target=es2020 --minify=false --keep-names",
-    "build:all": "npm run build:extension && npm run build:webview",
-    "watch": "node scripts/watch.mjs",
-    "lint": "eslint src --ext ts",
-    "package": "vsce package",
-    "vsix:build": "mkdir -p builds && npx vsce package --no-dependencies --allow-missing-repository -o builds/",
-    "vsix:rebuild:same": "npm run build:all && npm run vsix:build",
-    "vsix:rebuild:patch": "npm version patch --no-git-tag-version && npm run vsix:rebuild:same",
-    "landing:deploy:prod": "cd landing && npx vercel --prod --yes",
-    "release:patch": "mkdir -p builds && vsce package patch --no-dependencies --allow-missing-repository -o builds/",
-    "release:minor": "mkdir -p builds && vsce package minor --no-dependencies --allow-missing-repository -o builds/",
-    "release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"
-  },
-  "devDependencies": {
-    "@mariozechner/pi-agent-core": "^0.54.0",
-    "@mariozechner/pi-ai": "^0.54.0",
-    "@types/markdown-it": "^14.1.2",
-    "@types/node": "^22.0.0",
-    "@types/qrcode": "^1.5.6",
-    "@types/vscode": "^1.107.0",
-    "@vscode/vsce": "^3.7.1",
-    "esbuild": "^0.24.0",
-    "grammy": "^1.40.0",
-    "markdown-it": "^14.1.1",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.18"
-  },
-  "dependencies": {
-    "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^6.17.16",
-    "pino": "^10.3.1",
-    "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
-  }
+	"name": "telecode-ai",
+	"displayName": "TeleCode AI",
+	"description": "The first remote-controlled autonomous coding agent in your IDE.",
+	"version": "0.1.17",
+	"publisher": "Uginy",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/uginy/telecode.git"
+	},
+	"engines": {
+		"vscode": "^1.107.0"
+	},
+	"categories": ["Machine Learning", "Programming Languages", "Other"],
+	"keywords": ["ai", "coding", "agent", "telegram", "whatsapp", "autonomous"],
+	"activationEvents": ["onStartupFinished"],
+	"main": "./dist/extension.js",
+	"icon": "media/icon.png",
+	"contributes": {
+		"commands": [
+			{
+				"command": "telecode.openChat",
+				"title": "TeleCode AI: Open Chat",
+				"icon": "$(comment-discussion)"
+			},
+			{
+				"command": "telecode.openSettings",
+				"title": "TeleCode AI: Open Settings",
+				"icon": "$(settings-gear)"
+			},
+			{
+				"command": "telecode.startAgent",
+				"title": "TeleCode AI: Start Agent",
+				"icon": "$(play)"
+			},
+			{
+				"command": "telecode.runTask",
+				"title": "TeleCode AI: Run Task",
+				"icon": "$(rocket)"
+			},
+			{
+				"command": "telecode.stopAgent",
+				"title": "TeleCode AI: Stop Agent",
+				"icon": "$(debug-stop)"
+			},
+			{
+				"command": "telecode.resetSession",
+				"title": "TeleCode AI: Reset Session History",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "telecode.setStyleShort",
+				"title": "TeleCode AI: Set Response Style - Short",
+				"icon": "$(comment)"
+			},
+			{
+				"command": "telecode.setStyleNormal",
+				"title": "TeleCode AI: Set Response Style - Normal",
+				"icon": "$(comment-discussion)"
+			},
+			{
+				"command": "telecode.setStyleDetailed",
+				"title": "TeleCode AI: Set Response Style - Detailed",
+				"icon": "$(book)"
+			},
+			{
+				"command": "telecode.setLanguageRu",
+				"title": "TeleCode AI: Set Language - Russian",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "telecode.setLanguageEn",
+				"title": "TeleCode AI: Set Language - English",
+				"icon": "$(globe)"
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "telecode-ai",
+					"title": "TeleCode AI",
+					"icon": "media/icon.svg"
+				}
+			]
+		},
+		"views": {
+			"telecode-ai": [
+				{
+					"type": "webview",
+					"id": "telecode.chatView",
+					"name": "Chat",
+					"icon": "media/icon.png"
+				}
+			]
+		},
+		"configuration": {
+			"title": "TeleCode AI",
+			"properties": {
+				"telecode.provider": {
+					"type": "string",
+					"default": "openrouter",
+					"enum": [
+						"openrouter",
+						"openai",
+						"anthropic",
+						"google",
+						"minimax",
+						"moonshot",
+						"ollama"
+					],
+					"enumDescriptions": [
+						"OpenRouter (free models available)",
+						"OpenAI",
+						"Anthropic Claude",
+						"Google Gemini",
+						"MiniMax",
+						"Moonshot (Kimi)",
+						"Ollama (local)"
+					],
+					"description": "AI provider"
+				},
+				"telecode.model": {
+					"type": "string",
+					"default": "arcee-ai/trinity-large-preview:free",
+					"enum": [
+						"arcee-ai/trinity-large-preview:free",
+						"google/gemini-2.0-flash-exp:free",
+						"google/gemini-2.0-flash-thinking-exp:free",
+						"qwen/qwen-2.5-coder-32b-instruct",
+						"anthropic/claude-3-5-sonnet:beta",
+						"openai/gpt-4o",
+						"deepseek/deepseek-chat",
+						"deepseek/deepseek-coder"
+					],
+					"enumDescriptions": [
+						"Arcee Trinity Large (Free on OpenRouter)",
+						"Gemini 2.0 Flash (Free on OpenRouter)",
+						"Gemini 2.0 Flash Thinking (Free on OpenRouter)",
+						"Qwen 2.5 Coder 32B (Great for code/OpenRouter)",
+						"Claude 3.5 Sonnet",
+						"GPT-4o",
+						"DeepSeek V3",
+						"DeepSeek Coder"
+					],
+					"description": "Model ID (e.g., arcee-ai/trinity-large-preview:free). You can type any custom model ID manually in settings.json"
+				},
+				"telecode.apiKey": {
+					"type": "string",
+					"default": "",
+					"description": "API key for the selected provider"
+				},
+				"telecode.baseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "Custom base URL for OpenAI-compatible APIs (e.g., http://localhost:11434/v1)"
+				},
+				"telecode.telegram.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Enable Telegram bot"
+				},
+				"telecode.telegram.botToken": {
+					"type": "string",
+					"default": "",
+					"description": "Telegram bot token from @BotFather"
+				},
+				"telecode.telegram.chatId": {
+					"type": "string",
+					"default": "",
+					"description": "Your Telegram chat ID"
+				},
+				"telecode.telegram.apiRoot": {
+					"type": "string",
+					"default": "https://api.telegram.org",
+					"description": "Telegram Bot API root URL (advanced networking)"
+				},
+				"telecode.telegram.forceIPv4": {
+					"type": "boolean",
+					"default": true,
+					"description": "Force IPv4 for Telegram API requests (helps on broken IPv6 networks)"
+				},
+				"telecode.whatsapp.enabled": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Enable the agent to be controlled remotely via WhatsApp Web. After enabling, start the agent and scan the QR code in the **Chat logs** using **Linked Devices** on your phone."
+				},
+				"telecode.whatsapp.sessionPath": {
+					"type": "string",
+					"default": "~/.telecode-ai/",
+					"markdownDescription": "Local directory where the WhatsApp Web authentication session is stored. Allows reconnecting across VS Code restarts without rescanning. Default: `~/.telecode-ai/`"
+				},
+				"telecode.whatsapp.allowSelfCommands": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Allow the primary linked number to send commands (`/run`, `/stop`, etc.) to itself (useful as a personal remote notepad)."
+				},
+				"telecode.whatsapp.accessMode": {
+					"type": "string",
+					"default": "self",
+					"enum": ["self", "allowlist", "all"],
+					"markdownEnumDescriptions": [
+						"**Safest**. The agent only ignores everyone except you.",
+						"Only numbers specified in `Allowed Phones` can command the agent.",
+						"**DANGEROUS**. Any number that texts you can control the agent."
+					],
+					"markdownDescription": "Control who is allowed to send task commands via WhatsApp."
+				},
+				"telecode.whatsapp.allowedPhones": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Comma-separated list of phone numbers (e.g. `+12025550111, +447700900000`) allowed to use the agent. Only applies if `accessMode` is set to `allowlist`."
+				},
+				"telecode.autoApprove": {
+					"type": "boolean",
+					"default": true,
+					"description": "Auto-approve tool actions"
+				},
+				"telecode.maxSteps": {
+					"type": "number",
+					"default": 100,
+					"description": "Max agent steps per task"
+				},
+				"telecode.logMaxChars": {
+					"type": "number",
+					"default": 500000,
+					"description": "Maximum in-memory UI log buffer size before trimming old lines"
+				},
+				"telecode.telegramMaxLogLines": {
+					"type": "number",
+					"default": 300,
+					"description": "Maximum number of Telegram log lines kept in memory"
+				},
+				"telecode.statusVerbosity": {
+					"type": "string",
+					"default": "normal",
+					"enum": ["minimal", "normal", "debug"],
+					"enumDescriptions": [
+						"Only key status phases and tool boundaries",
+						"Balanced status output for daily work",
+						"Full verbose runtime status output"
+					],
+					"description": "How many runtime status lines are shown in Logs"
+				},
+				"telecode.safeModeProfile": {
+					"type": "string",
+					"default": "balanced",
+					"enum": ["strict", "balanced", "power"],
+					"enumDescriptions": [
+						"Read/search focused. No bash and no out-of-workspace access",
+						"Daily coding profile with normal tools, workspace-only scope",
+						"Maximum capability mode. Full tools and out-of-workspace enabled"
+					],
+					"description": "Safety/capability profile for agent permissions"
+				},
+				"telecode.allowedTools": {
+					"type": "array",
+					"default": [
+						"Read",
+						"Edit",
+						"Write",
+						"Bash",
+						"Glob",
+						"Grep",
+						"WebFetch",
+						"TodoWrite",
+						"Task"
+					],
+					"description": "Tools the agent can use"
+				},
+				"telecode.dev.autoReloadWindow": {
+					"type": "boolean",
+					"default": true,
+					"description": "Development only: reload Extension Host window automatically when dist/extension.js changes"
+				},
+				"telecode.responseStyle": {
+					"type": "string",
+					"default": "concise",
+					"enum": ["concise", "normal", "detailed"],
+					"enumDescriptions": [
+						"Concise answers - only the most important parts",
+						"Normal answers - balance between details and brevity",
+						"Detailed answers - maximum details"
+					],
+					"description": "Agent response style"
+				},
+				"telecode.language": {
+					"type": "string",
+					"default": "auto",
+					"enum": ["auto", "ru", "en"],
+					"enumDescriptions": [
+						"Auto (detect from user language)",
+						"Russian (RU)",
+						"English (EN)"
+					],
+					"description": "Agent's communication language"
+				},
+				"telecode.uiLanguage": {
+					"type": "string",
+					"default": "auto",
+					"enum": ["auto", "ru", "en"],
+					"enumDescriptions": [
+						"Auto (detect from VS Code)",
+						"Russian (interface)",
+						"English (interface)"
+					],
+					"description": "Extension UI language"
+				},
+				"telecode.allowOutOfWorkspace": {
+					"type": "boolean",
+					"default": false,
+					"description": "Allow agent to access files and run commands outside the current workspace folder"
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run build",
+		"build": "npm run build:extension",
+		"build:extension": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:link-preview-js --external:jimp --external:sharp --format=cjs --platform=node --minify",
+		"build:webview": "esbuild ./src/webview/index.ts --bundle --outfile=media/chat.js --format=iife --platform=browser --target=es2020 --minify=false --keep-names",
+		"build:all": "npm run build:extension && npm run build:webview",
+		"watch": "node scripts/watch.mjs",
+		"lint": "eslint src --ext ts",
+		"package": "vsce package",
+		"vsix:build": "mkdir -p builds && npx vsce package --no-dependencies --allow-missing-repository -o builds/",
+		"vsix:rebuild:same": "npm run build:all && npm run vsix:build",
+		"vsix:rebuild:patch": "npm version patch --no-git-tag-version && npm run vsix:rebuild:same",
+		"landing:deploy:prod": "cd landing && npx vercel --prod --yes",
+		"release:patch": "mkdir -p builds && vsce package patch --no-dependencies --allow-missing-repository -o builds/",
+		"release:minor": "mkdir -p builds && vsce package minor --no-dependencies --allow-missing-repository -o builds/",
+		"release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"
+	},
+	"devDependencies": {
+		"@mariozechner/pi-agent-core": "^0.54.0",
+		"@mariozechner/pi-ai": "^0.54.0",
+		"@types/markdown-it": "^14.1.2",
+		"@types/node": "^22.0.0",
+		"@types/qrcode": "^1.5.6",
+		"@types/vscode": "^1.107.0",
+		"@vscode/vsce": "^3.7.1",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.7.0",
+		"vitest": "^4.0.18"
+	},
+	"dependencies": {
+		"@hapi/boom": "^10.0.1",
+		"@whiskeysockets/baileys": "^6.17.16",
+		"grammy": "^1.40.0",
+		"markdown-it": "^14.1.1",
+		"pino": "^10.3.1",
+		"qrcode": "^1.5.4",
+		"qrcode-terminal": "^0.12.0"
+	}
 }
