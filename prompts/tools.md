@@ -18,6 +18,18 @@
 - Time-box long-running commands.
 - Capture key command outcomes in the final report.
 
+## Web
+
+- `fetch_url`: fetch and read web page content as cleaned text.
+- Use for documentation, README files, API references, package info.
+- No external API required — uses built-in HTTP fetch + HTML-to-text conversion.
+
+## Diagnostics
+
+- `diagnostics`: read TypeScript, ESLint, and other IDE errors/warnings.
+- Reads directly from VS Code — faster than running `tsc` or `eslint`.
+- Filter by file path and severity level (error, warning, info, hint).
+
 ## Telegram Tools
 
 - `telegram_send_file`: send artifacts to the active Telegram chat.

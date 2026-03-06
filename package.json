@@ -2,7 +2,7 @@
 	"name": "telecode-ai",
 	"displayName": "TeleCode AI",
 	"description": "The first remote-controlled autonomous coding agent in your IDE.",
-	"version": "0.1.18",
+	"version": "0.1.19",
 	"publisher": "Uginy",
 	"license": "MIT",
 	"repository": {
@@ -287,6 +287,8 @@
 						"Bash",
 						"Glob",
 						"Grep",
+						"Fetch",
+						"Diagnostics",
 						"WebFetch",
 						"TodoWrite",
 						"Task"

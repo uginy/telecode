@@ -2,6 +2,24 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.19]
+
+- **Native Toolchain Expansion**: Added two powerful zero-dependency tools that significantly expand autonomous capabilities:
+  - `fetch_url`: Empowers the agent to read readable text from any HTTP website without relying on external APIs.
+  - `diagnostics`: Allows the agent to instantly read VS Code TypeScript/ESLint errors without running compilers, dramatically speeding up the debug loop.
+- **Default Tools**: Enabled `Fetch` and `Diagnostics` as default tools for balanced and power mode profiles.
+
+## [0.1.18]
+
+- **WhatsApp Enhancements**: Added logging of WhatsApp tool invocations directly into the task timeline for better traceability.
+- **Log Management**: Renamed channel log retention settings and unified them to be shared across all communication channels.
+- **Maintenance**: Refined runtime/config cleanup processes and standardized TypeScript formatting across the codebase.
+
+## [0.1.17]
+
+- **Compatibility**: Downgraded VS Code engine requirement and `@types/vscode` to `^1.107.0` to ensure full compatibility with AntiGravityIDE.
+- **Documentation**: Updated `AGENTS.md` to include comprehensive Git workflow guidelines for the autonomous agent.
+
 ## [0.1.16]
 
 - **Build Fix**: Resolved extension activation crash (`Cannot find module 'qrcode'`) by explicitly bundling `@whiskeysockets/baileys`, `qrcode`, and `pino` directly into the extension artifact.

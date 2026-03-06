@@ -40,6 +40,8 @@ You can control it from VS Code or remotely via Telegram/WhatsApp.
   - Collapse/expand all grouped nodes
 - **Native Coding Toolchain**:
   - `read_file` / `write_file` / `edit_file` (exact-line replace)
+  - `fetch_url` (read readable text from any HTTP website without external APIs)
+  - `diagnostics` (instantly read VS Code TypeScript/ESLint errors without running compilers)
   - `glob` for file discovery
   - `grep` (ripgrep with Node.js fallback)
   - `bash` with captured stdout/stderr, timeout, and streaming

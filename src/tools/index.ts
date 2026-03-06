@@ -1,8 +1,10 @@
 import type { AgentTool } from '@mariozechner/pi-agent-core';
 import { getWorkspaceRoot } from './core/utils';
+import { createDiagnosticsTools } from './definitions/diagnostics';
 import { createFileTools } from './definitions/file';
 import { createSearchTools } from './definitions/search';
 import { createTerminalTools } from './definitions/terminal';
+import { createWebTools } from './definitions/web';
 import { createWorkspaceManagementTools } from './definitions/workspace';
 
 export function createWorkspaceTools(): AgentTool[] {
@@ -17,6 +19,8 @@ export function createWorkspaceTools(): AgentTool[] {
     ...createFileTools(getContext),
     ...createSearchTools(getContext),
     ...createTerminalTools(getContext),
+    ...createWebTools(),
+    ...createDiagnosticsTools(getContext),
     ...createWorkspaceManagementTools(getContext, setWorkingDirectory),
   ];
 }
@@ -28,6 +32,8 @@ type ToolName =
   | 'glob'
   | 'grep'
   | 'bash'
+  | 'fetch_url'
+  | 'diagnostics'
   | 'list_directory'
   | 'set_working_directory'
   | 'open_workspace'
@@ -40,6 +46,8 @@ const TOOL_NAME_ALIASES: Record<string, string[]> = {
   glob: ['glob'],
   grep: ['grep'],
   bash: ['bash'],
+  fetch_url: ['fetch', 'fetch_url', 'webfetch', 'web_fetch'],
+  diagnostics: ['diagnostics', 'diag', 'lint'],
   list_directory: ['list', 'list_directory'],
   set_working_directory: ['set_cwd', 'set_working_directory'],
   open_workspace: ['open_workspace', 'workspace'],
