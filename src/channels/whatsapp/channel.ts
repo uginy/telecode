@@ -16,23 +16,23 @@ import type { AgentRuntime, RuntimeEvent } from "../../engine/types";
 import { readTelecodeSettings } from "../../config/settings";
 import type { IChannel } from "../types";
 import { ensureChannelRuntime } from "../runtime";
+import {
+	extractWhatsappMessageId,
+	extractWhatsappMessageText,
+	normalizeWhatsappMessageText,
+	parseWhatsappCommand,
+	splitWhatsappText,
+	summarizeWhatsappToolPayload,
+	type BaileysMessage,
+} from "./messageUtils";
+import {
+	renderWhatsappHelp,
+	renderWhatsappStartupMessage,
+	renderWhatsappStatus,
+} from "./presentation";
 import { isWhatsappSenderAllowed } from "./access";
 
-const WA_MESSAGE_LIMIT = 3000;
 const WA_BOT_PREFIX = "[Bot] ";
-
-function splitText(input: string, limit = WA_MESSAGE_LIMIT): string[] {
-	const text = input.trim();
-	if (!text) return ["Done."];
-	if (text.length <= limit) return [text];
-	const out: string[] = [];
-	let i = 0;
-	while (i < text.length) {
-		out.push(text.slice(i, i + limit));
-		i += limit;
-	}
-	return out;
-}
 
 function expandHome(inputPath: string): string {
 	if (!inputPath.startsWith("~")) return inputPath;
@@ -42,88 +42,6 @@ function expandHome(inputPath: string): string {
 async function ensureDir(dir: string): Promise<void> {
 	await fs.mkdir(dir, { recursive: true });
 }
-
-function summarizeToolPayload(value: unknown): string {
-	if (!value || typeof value !== "object") {
-		return "";
-	}
-
-	const record = findSummaryRecord(value as Record<string, unknown>);
-	const parts: string[] = [];
-	pushSummary(parts, "command", record.command ?? record.cmd);
-	pushSummary(parts, "path", record.path);
-	pushSummary(parts, "cwd", record.cwd);
-	pushSummary(parts, "query", record.query);
-	pushSummary(parts, "pattern", record.pattern);
-	pushSummary(parts, "glob", record.glob);
-	pushSummary(parts, "count", record.count);
-	pushSummary(parts, "bytes", record.bytes);
-	pushSummary(parts, "replacements", record.replacements);
-
-	return parts.join(" ");
-}
-
-function findSummaryRecord(
-	record: Record<string, unknown>,
-	depth = 0,
-): Record<string, unknown> {
-	if (
-		record.command !== undefined ||
-		record.cmd !== undefined ||
-		record.path !== undefined ||
-		record.cwd !== undefined ||
-		record.query !== undefined ||
-		record.pattern !== undefined ||
-		record.glob !== undefined
-	) {
-		return record;
-	}
-
-	if (depth >= 3) {
-		return record;
-	}
-
-	for (const key of ["details", "args", "input", "params", "result"]) {
-		const nested = record[key];
-		if (nested && typeof nested === "object") {
-			return findSummaryRecord(nested as Record<string, unknown>, depth + 1);
-		}
-	}
-
-	return record;
-}
-
-function pushSummary(parts: string[], key: string, value: unknown): void {
-	if (value === undefined || value === null) {
-		return;
-	}
-
-	const text = String(value).replace(/\s+/g, " ").trim();
-	if (!text) {
-		return;
-	}
-
-	const compact = text.length > 70 ? `${text.slice(0, 67)}...` : text;
-	parts.push(`${key}=${compact}`);
-}
-
-type IncomingCommand = "help" | "status" | "stop" | "run" | null;
-
-/** Minimal shape of a Baileys incoming message. */
-type BaileysMessage = {
-	key: {
-		id?: string;
-		remoteJid?: string;
-		fromMe?: boolean;
-		participant?: string;
-	};
-	message?: {
-		conversation?: string;
-		extendedTextMessage?: {
-			text?: string;
-		};
-	};
-};
 
 export class WhatsAppChannel implements IChannel {
 	public readonly id = "whatsapp";
@@ -360,13 +278,10 @@ export class WhatsAppChannel implements IChannel {
 	private async handleMessage(msg: BaileysMessage): Promise<void> {
 		const settings = readTelecodeSettings();
 		const chatId = msg.key?.remoteJid || null;
-		const body =
-			msg.message?.conversation?.trim() ||
-			msg.message?.extendedTextMessage?.text?.trim() ||
-			"";
+		const body = extractWhatsappMessageText(msg);
 		const fromMe = msg.key?.fromMe === true;
-		const command = this.parseCommand(body);
-		const messageId = this.extractMessageId(msg);
+		const command = parseWhatsappCommand(body);
+		const messageId = extractWhatsappMessageId(msg);
 
 		if (!chatId || !body) {
 			// Baileys sends many protocol/system events without a text body (e.g. read receipts, images, system status).
@@ -416,18 +331,14 @@ export class WhatsAppChannel implements IChannel {
 		}
 
 		if (command === "help") {
-			await this.sendMessageSafe(
-				chatId,
-				"Commands:\n/status — current state\n/stop — stop current run\n/run <task> — run a task (required in self-chat)",
-				"/help",
-			);
+			await this.sendMessageSafe(chatId, renderWhatsappHelp(), "/help");
 			return;
 		}
 
 		if (command === "status") {
 			await this.sendMessageSafe(
 				chatId,
-				this.isProcessing ? "Agent status: running" : "Agent status: ready",
+				renderWhatsappStatus(this.isProcessing),
 				"/status",
 			);
 			return;
@@ -476,7 +387,7 @@ export class WhatsAppChannel implements IChannel {
 			}
 
 			if (event.type === "tool_start") {
-				const details = summarizeToolPayload(event.args);
+				const details = summarizeWhatsappToolPayload(event.args);
 				this.pushLog(
 					`[tool:start] ${event.toolName}${details ? ` ${details}` : ""}`,
 				);
@@ -485,7 +396,7 @@ export class WhatsAppChannel implements IChannel {
 
 			if (event.type === "tool_end") {
 				const state = event.isError ? "error" : "done";
-				const details = summarizeToolPayload(event.result);
+				const details = summarizeWhatsappToolPayload(event.result);
 				this.pushLog(
 					`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ""}`,
 				);
@@ -498,7 +409,7 @@ export class WhatsAppChannel implements IChannel {
 				this.pushLog("[whatsapp] task aborted");
 				return;
 			}
-			const chunks = splitText(output || "Done.");
+			const chunks = splitWhatsappText(output || "Done.");
 			for (const chunk of chunks) {
 				await this.sendMessageSafe(chatId, chunk);
 			}
@@ -576,20 +487,6 @@ export class WhatsAppChannel implements IChannel {
 	// Helpers
 	// ---------------------------------------------------------------------------
 
-	private parseCommand(body: string): IncomingCommand {
-		if (body.startsWith("/help")) return "help";
-		if (body.startsWith("/status")) return "status";
-		if (body.startsWith("/stop")) return "stop";
-		if (body.startsWith("/run ")) return "run";
-		return null;
-	}
-
-	private extractMessageId(msg: BaileysMessage): string | null {
-		const id = msg.key?.id;
-		if (typeof id === "string" && id.length > 0) return id;
-		return null;
-	}
-
 	private isDuplicateMessage(messageId: string): boolean {
 		const now = Date.now();
 		for (const [id, ts] of this.seenMessageIds.entries()) {
@@ -630,17 +527,7 @@ export class WhatsAppChannel implements IChannel {
 	// ---------------------------------------------------------------------------
 
 	private getStartupMessage(): string {
-		const settings = readTelecodeSettings();
-		const lang = settings.agent.language;
-		if (lang === "ru") {
-			return "TeleCode AI подключен. Отправьте /status";
-		}
-		if (lang === "en") {
-			return "TeleCode AI connected. Send /status";
-		}
-		return settings.agent.uiLanguage === "en"
-			? "TeleCode AI connected. Send /status"
-			: "TeleCode AI подключен. Отправьте /status";
+		return renderWhatsappStartupMessage(readTelecodeSettings().agent);
 	}
 
 	private async sendStartupGreeting(): Promise<void> {
@@ -693,7 +580,7 @@ export class WhatsAppChannel implements IChannel {
 	// ---------------------------------------------------------------------------
 
 	private normalizeMessageText(text: string): string {
-		return text.replace(/\s+/g, " ").trim().toLowerCase();
+		return normalizeWhatsappMessageText(text);
 	}
 
 	private trackOutgoingText(text: string): void {
