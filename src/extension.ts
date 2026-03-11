@@ -40,6 +40,7 @@ const taskReview = new TaskReviewController(
 const runtime = new RuntimeController(
 	uiStatus,
 	() => channels.refresh(),
+	(prompt) => taskReview.markRunStarted(prompt),
 	(options) => taskReview.captureRunResult(options),
 );
 let restoreFetchLogger: (() => void) | null = null;

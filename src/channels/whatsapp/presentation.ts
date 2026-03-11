@@ -25,7 +25,11 @@ export function renderWhatsappStartupMessage(
 
 export function renderWhatsappTaskReview(result: TaskReviewSummary): string {
 	const parts = [
-		result.outcome === "completed" ? "Last task completed" : "Last task failed",
+		result.outcome === "completed"
+			? "Last task completed"
+			: result.outcome === "failed"
+				? "Last task failed"
+				: "Last task interrupted",
 		result.summary,
 		result.branch ? `Branch: ${result.branch}` : "Branch: -",
 		`Prompt: ${result.prompt}`,

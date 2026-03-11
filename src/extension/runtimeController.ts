@@ -26,6 +26,7 @@ export class RuntimeController {
 	constructor(
 		private readonly uiStatus: UiStatusController,
 		private readonly refreshChannels: () => void,
+		private readonly onTaskStarted?: (prompt: string) => Promise<void>,
 		private readonly onTaskSettled?: (options: {
 			prompt: string;
 			outcome: TaskOutcome;
@@ -210,6 +211,7 @@ export class RuntimeController {
 		this.uiStatus.setLocalStatus("Running");
 
 		try {
+			await this.captureTaskStart(prompt);
 			await this.taskRunner?.runTask(prompt);
 			await this.captureTaskResult({
 				prompt,
@@ -240,6 +242,19 @@ export class RuntimeController {
 
 		try {
 			await this.onTaskSettled(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.uiStatus.appendLogLine(`[review:error] ${message}`);
+		}
+	}
+
+	private async captureTaskStart(prompt: string): Promise<void> {
+		if (!this.onTaskStarted) {
+			return;
+		}
+
+		try {
+			await this.onTaskStarted(prompt);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.uiStatus.appendLogLine(`[review:error] ${message}`);

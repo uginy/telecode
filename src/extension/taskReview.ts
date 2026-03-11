@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 
-export type TaskOutcome = "completed" | "failed";
+export type TaskOutcome = "completed" | "failed" | "interrupted";
 export type TaskCheckStatus = "passed" | "failed" | "skipped";
 export type TaskFileStatus =
 	| "modified"
@@ -49,6 +49,7 @@ interface CommandResult {
 
 const LAST_RESULT_DIR = ".telecode";
 const LAST_RESULT_FILE = "last-result.json";
+const ACTIVE_RUN_FILE = "active-run.json";
 const CHECK_SCRIPT_ORDER = ["lint", "build", "test"] as const;
 const CHECK_LABEL: Record<(typeof CHECK_SCRIPT_ORDER)[number], string> = {
 	lint: "Lint",
@@ -73,7 +74,8 @@ export function parseGitStatusPorcelain(output: string): TaskChangedFile[] {
 				rawStatus,
 				status: mapGitStatus(rawStatus),
 			};
-		});
+		})
+		.filter((file) => !isTelecodeMetaFile(file.path));
 }
 
 export function detectPackageScripts(
@@ -114,7 +116,11 @@ export function buildTaskSummaryText(options: {
 	checks: TaskCheckResult[];
 }): string {
 	const outcomeText =
-		options.outcome === "completed" ? "Task completed" : "Task failed";
+		options.outcome === "completed"
+			? "Task completed"
+			: options.outcome === "failed"
+				? "Task failed"
+				: "Task interrupted";
 	const changeText = options.hasChanges
 		? `${options.changedFilesCount} file${
 				options.changedFilesCount === 1 ? "" : "s"
@@ -351,6 +357,32 @@ export async function saveTaskReviewSummary(
 	);
 }
 
+export async function markTaskRunStarted(
+	workspaceRoot: string,
+	prompt: string,
+): Promise<void> {
+	const dir = path.join(workspaceRoot, LAST_RESULT_DIR);
+	await fs.mkdir(dir, { recursive: true });
+	await fs.writeFile(
+		path.join(dir, ACTIVE_RUN_FILE),
+		JSON.stringify(
+			{
+				prompt,
+				startedAt: new Date().toISOString(),
+			},
+			null,
+			2,
+		),
+		"utf8",
+	);
+}
+
+export async function clearTaskRunMarker(workspaceRoot: string): Promise<void> {
+	await fs.rm(path.join(workspaceRoot, LAST_RESULT_DIR, ACTIVE_RUN_FILE), {
+		force: true,
+	});
+}
+
 export async function loadTaskReviewSummary(
 	workspaceRoot: string,
 ): Promise<TaskReviewSummary | null> {
@@ -365,12 +397,35 @@ export async function loadTaskReviewSummary(
 	}
 }
 
+export async function recoverTaskReviewSummary(
+	workspaceRoot: string,
+): Promise<TaskReviewSummary | null> {
+	const activeRun = await loadActiveRun(workspaceRoot);
+	if (!activeRun) {
+		return loadTaskReviewSummary(workspaceRoot);
+	}
+
+	const summary = await collectTaskReviewSummary({
+		workspaceRoot,
+		prompt: activeRun.prompt,
+		outcome: "interrupted",
+		error: "Extension restarted before task completion.",
+	});
+	await saveTaskReviewSummary(workspaceRoot, summary);
+	await clearTaskRunMarker(workspaceRoot);
+	return summary;
+}
+
 function mapGitStatus(rawStatus: string): TaskFileStatus {
 	if (rawStatus === "??") return "untracked";
 	if (rawStatus.includes("R")) return "renamed";
 	if (rawStatus.includes("A")) return "added";
 	if (rawStatus.includes("D")) return "deleted";
 	return "modified";
+}
+
+function isTelecodeMetaFile(filePath: string): boolean {
+	return filePath === ".telecode" || filePath.startsWith(".telecode/");
 }
 
 function extractBranchFromStatus(line: string): string | null {
@@ -385,6 +440,24 @@ function extractBranchFromStatus(line: string): string | null {
 async function readPackageJson(workspaceRoot: string): Promise<string | null> {
 	try {
 		return await fs.readFile(path.join(workspaceRoot, "package.json"), "utf8");
+	} catch {
+		return null;
+	}
+}
+
+async function loadActiveRun(
+	workspaceRoot: string,
+): Promise<{ prompt: string; startedAt: string } | null> {
+	try {
+		const raw = await fs.readFile(
+			path.join(workspaceRoot, LAST_RESULT_DIR, ACTIVE_RUN_FILE),
+			"utf8",
+		);
+		const parsed = JSON.parse(raw) as { prompt?: string; startedAt?: string };
+		if (typeof parsed.prompt !== "string" || typeof parsed.startedAt !== "string") {
+			return null;
+		}
+		return { prompt: parsed.prompt, startedAt: parsed.startedAt };
 	} catch {
 		return null;
 	}

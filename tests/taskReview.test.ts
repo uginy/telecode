@@ -5,11 +5,14 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	buildTaskSummaryText,
+	clearTaskRunMarker,
 	collectTaskReviewSummary,
 	commitTaskFiles,
 	detectPackageScripts,
 	loadTaskReviewSummary,
+	markTaskRunStarted,
 	parseGitStatusPorcelain,
+	recoverTaskReviewSummary,
 	revertTaskFiles,
 	saveTaskReviewSummary,
 	summarizeChecks,
@@ -20,7 +23,14 @@ describe("taskReview", () => {
 	it("parses porcelain git status into changed files", () => {
 		expect(
 			parseGitStatusPorcelain(
-				["## main", " M src/extension.ts", "A  src/new.ts", "?? tests/tmp.ts", "R  old.ts -> new.ts"].join("\n"),
+				[
+					"## main",
+					" M src/extension.ts",
+					"A  src/new.ts",
+					"?? tests/tmp.ts",
+					"?? .telecode/last-result.json",
+					"R  old.ts -> new.ts",
+				].join("\n"),
 			),
 		).toEqual([
 			{ path: "src/extension.ts", rawStatus: " M", status: "modified" },
@@ -59,6 +69,14 @@ describe("taskReview", () => {
 				checks,
 			}),
 		).toBe("Task completed • 2 files changed • 1 passed • 1 failed • 1 skipped");
+		expect(
+			buildTaskSummaryText({
+				outcome: "interrupted",
+				hasChanges: false,
+				changedFilesCount: 0,
+				checks: [],
+			}),
+		).toBe("Task interrupted • no file changes • Checks not run");
 	});
 
 	it("collects task summary and persists it", async () => {
@@ -124,6 +142,21 @@ describe("taskReview", () => {
 		expect(revert.ok).toBe(true);
 		await expect(fs.readFile(trackedPath, "utf8")).resolves.toBe("updated\n");
 		await expect(fs.readFile(untrackedPath, "utf8")).resolves.toBe("draft\n");
+	});
+
+	it("recovers interrupted run marker on startup", async () => {
+		const workspaceRoot = await createGitWorkspace();
+		await fs.writeFile(path.join(workspaceRoot, "notes.txt"), "pending\n", "utf8");
+		await markTaskRunStarted(workspaceRoot, "resume me");
+
+		const recovered = await recoverTaskReviewSummary(workspaceRoot);
+		expect(recovered?.outcome).toBe("interrupted");
+		expect(recovered?.prompt).toBe("resume me");
+		expect(recovered?.error).toContain("restarted");
+		expect(recovered?.changedFiles).toEqual([
+			{ path: "notes.txt", rawStatus: " M", status: "modified" },
+		]);
+		await clearTaskRunMarker(workspaceRoot);
 	});
 });
 

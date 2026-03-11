@@ -66,7 +66,11 @@ export function renderTelegramHelp(t: Translations): string {
 
 export function renderTelegramTaskReview(result: TaskReviewSummary): string {
 	const lines = [
-		result.outcome === "completed" ? "Last task completed" : "Last task failed",
+		result.outcome === "completed"
+			? "Last task completed"
+			: result.outcome === "failed"
+				? "Last task failed"
+				: "Last task interrupted",
 		result.summary,
 		result.branch ? `Branch: ${result.branch}` : "Branch: -",
 		`Prompt: ${result.prompt}`,

@@ -2,9 +2,11 @@ import * as vscode from "vscode";
 import type { ChatViewProvider } from "../ui/chatViewProvider";
 import {
 	buildTaskDiff,
+	clearTaskRunMarker,
 	collectTaskReviewSummary,
 	commitTaskFiles,
-	loadTaskReviewSummary,
+	markTaskRunStarted,
+	recoverTaskReviewSummary,
 	revertTaskFiles,
 	runWorkspaceChecks,
 	saveTaskReviewSummary,
@@ -25,8 +27,12 @@ export class TaskReviewController {
 	) {}
 
 	public async loadPersisted(): Promise<void> {
-		this.latestResult = await loadTaskReviewSummary(this.workspaceRoot);
+		this.latestResult = await recoverTaskReviewSummary(this.workspaceRoot);
 		this.syncToView();
+	}
+
+	public async markRunStarted(prompt: string): Promise<void> {
+		await markTaskRunStarted(this.workspaceRoot, prompt);
 	}
 
 	public async captureRunResult(options: {
@@ -34,6 +40,7 @@ export class TaskReviewController {
 		outcome: TaskOutcome;
 		error?: string;
 	}): Promise<void> {
+		await clearTaskRunMarker(this.workspaceRoot);
 		const checks = this.latestResult?.prompt === options.prompt
 			? this.latestResult.checks
 			: [];

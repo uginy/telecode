@@ -40,7 +40,12 @@ export function renderTaskResultCard(result: TaskReviewSummary | null): void {
   }
 
   card.classList.remove('hidden');
-  el.taskResultTitle().textContent = result.outcome === 'completed' ? 'Last task completed' : 'Last task failed';
+  el.taskResultTitle().textContent =
+    result.outcome === 'completed'
+      ? 'Last task completed'
+      : result.outcome === 'failed'
+        ? 'Last task failed'
+        : 'Last task interrupted';
   el.taskResultSummary().textContent = result.summary;
   el.taskResultMeta().textContent = [
     result.branch ? `branch: ${result.branch}` : 'branch: -',
