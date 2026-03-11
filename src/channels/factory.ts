@@ -19,8 +19,9 @@ function prefixChannelLog(channelId: "telegram" | "whatsapp", line: string): str
 export function createEnabledChannels(options: {
 	settings: TelecodeSettings;
 	tools: AgentTool[];
+	workspaceRoot: string;
 	onLog: (line: string) => void;
-	onStatus: (status: string) => void;
+	onStatus: (channelId: "telegram" | "whatsapp", status: string) => void;
 }): IChannel[] {
 	const channels: IChannel[] = [];
 
@@ -28,8 +29,9 @@ export function createEnabledChannels(options: {
 		channels.push(
 			new TelegramChannel(
 				options.tools,
+				options.workspaceRoot,
 				(line) => options.onLog(prefixChannelLog("telegram", line)),
-				options.onStatus,
+				(status) => options.onStatus("telegram", status),
 			),
 		);
 	}
@@ -38,8 +40,9 @@ export function createEnabledChannels(options: {
 		channels.push(
 			new WhatsAppChannel(
 				options.tools,
+				options.workspaceRoot,
 				(line) => options.onLog(prefixChannelLog("whatsapp", line)),
-				options.onStatus,
+				(status) => options.onStatus("whatsapp", status),
 			),
 		);
 	}

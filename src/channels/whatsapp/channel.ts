@@ -14,6 +14,7 @@ import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "..
 import type { TaskRunner } from "../../agent/taskRunner";
 import type { RuntimeConfig, AgentRuntime, RuntimeEvent } from "../../engine/types";
 import { readTelecodeSettings } from "../../config/settings";
+import { getEffectiveAgentPolicy } from "../../agent/runtimePolicy";
 import type { IChannel } from "../types";
 import { isWhatsappSenderAllowed } from "./access";
 
@@ -149,6 +150,7 @@ export class WhatsAppChannel implements IChannel {
 
 	constructor(
 		private readonly tools: AgentTool[],
+		private readonly workspaceRoot: string,
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
 	) {
@@ -162,7 +164,7 @@ export class WhatsAppChannel implements IChannel {
 				}
 			},
 			watchdogTimeoutMs: 180_000,
-			workspaceRoot: process.cwd(),
+			workspaceRoot: this.workspaceRoot,
 		});
 	}
 
@@ -521,8 +523,11 @@ export class WhatsAppChannel implements IChannel {
 
 	private ensureRuntime(): AgentRuntime {
 		const settings = readTelecodeSettings();
+		const policy = getEffectiveAgentPolicy(settings.agent);
 		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
-			cwd: process.cwd(),
+			cwd: this.workspaceRoot,
+			allowedTools: policy.allowedTools,
+			allowOutOfWorkspace: policy.allowOutOfWorkspace,
 		});
 
 		const signature = createRuntimeSignature(config, this.tools);

@@ -11,3 +11,8 @@ export async function saveOpenSettingsFiles(): Promise<void> {
     }
   }
 }
+
+export function getPrimaryWorkspaceRoot(): string {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  return folder ? folder.uri.fsPath : process.cwd();
+}

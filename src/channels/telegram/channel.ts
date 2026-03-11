@@ -15,6 +15,7 @@ import type {
 import type { IChannel } from "../types";
 import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "../../agent/runtimeSession";
 import type { TaskRunner } from "../../agent/taskRunner";
+import { getEffectiveAgentPolicy } from "../../agent/runtimePolicy";
 import { saveOpenSettingsFiles } from "../../utils/vscodeUtils";
 import { i18n, type Translations } from "../../services/i18n";
 import { TelegramApiService } from "./api";
@@ -65,6 +66,7 @@ export class TelegramChannel implements IChannel {
 
 	constructor(
 		private readonly tools: AgentTool[],
+		private readonly workspaceRoot: string,
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
 	) {
@@ -78,7 +80,7 @@ export class TelegramChannel implements IChannel {
 				}
 			},
 			watchdogTimeoutMs: 180_000,
-			workspaceRoot: getWorkspaceRoot(),
+			workspaceRoot: this.workspaceRoot,
 		});
 	}
 
@@ -912,18 +914,21 @@ export class TelegramChannel implements IChannel {
 	private ensureRuntime(): AgentRuntime {
 		const settings = readTelecodeSettings();
 		const currentTools = this.tools;
+		const policy = getEffectiveAgentPolicy(settings.agent);
 
 		const apiService = new TelegramApiService(this.bot, (l) => this.pushLog(l));
 		const telegramTools = createTelegramTools(
 			apiService,
-			this.currentChatId,
-			getWorkspaceRoot(),
+			() => this.currentChatId,
+			this.workspaceRoot,
 			(l) => this.pushLog(l),
 		);
 		const allTools = [...currentTools, ...telegramTools];
 
 		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
-			cwd: getWorkspaceRoot(),
+			cwd: this.workspaceRoot,
+			allowedTools: policy.allowedTools,
+			allowOutOfWorkspace: policy.allowOutOfWorkspace,
 		});
 
 		const signature = createRuntimeSignature(config, allTools);

@@ -24,7 +24,7 @@ type TelegramApiCallParams = Static<typeof telegramApiCallParams>;
 
 export function createTelegramTools(
   apiService: TelegramApiService,
-  chatId: number | null,
+  getChatId: () => number | null,
   workspaceRoot: string,
   pushLog: (line: string) => void
 ): AgentTool[] {
@@ -36,6 +36,7 @@ export function createTelegramTools(
       label: 'TG: Send File',
       execute: async (_toolCallId, params) => {
         const typed = params as TelegramSendFileParams;
+        const chatId = getChatId();
         if (chatId === null) {
           throw new Error('Telegram chat is not active.');
         }

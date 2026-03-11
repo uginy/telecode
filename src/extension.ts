@@ -19,7 +19,7 @@ import {
 } from "./ui/chatViewProvider";
 import { CodingAgent } from "./agent/codingAgent";
 import { i18n } from "./services/i18n";
-import { saveOpenSettingsFiles } from "./utils/vscodeUtils";
+import { getPrimaryWorkspaceRoot, saveOpenSettingsFiles } from "./utils/vscodeUtils";
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -40,6 +40,7 @@ let uiRefreshTimer: NodeJS.Timeout | null = null;
 let progressTimer: NodeJS.Timeout | null = null;
 let statusStartedAt = 0;
 let activeStatus = "Idle";
+let localStatus = "Idle";
 let toolCountInRun = 0;
 let lastToolStatus = "";
 let pendingDuplicateLogLine = "";
@@ -49,6 +50,7 @@ let restoreFetchLogger: (() => void) | null = null;
 let lastRenderedStatus = "";
 let lastRenderedStatusAt = 0;
 let extensionVersion = "0.0.0";
+const channelStatuses = new Map<string, string>();
 
 const STATUS_SUPPRESSED_PREFIXES_MINIMAL = [
 	"tools_available ",
@@ -220,7 +222,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	setupPromptStackWatcher(context);
 	syncSettingsToChatView();
 	syncBuildInfoToChatView();
-	setStatus("Idle");
+	setLocalStatus("Idle");
 	setupDevAutoReload(context);
 }
 
@@ -357,7 +359,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 		runningConfigSignature === signature
 	) {
 		refreshChannels();
-		setStatus("Ready");
+		setLocalStatus("Ready");
 		return true;
 	}
 
@@ -372,9 +374,9 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 				onEvent: handleRuntimeEvent,
 				onStateChange: (state) => {
 					if (state === "error" && !isBusyStatus(activeStatus)) {
-						setStatus("Error");
+						setLocalStatus("Error");
 					} else if (state === "idle" || state === "stopped") {
-						setStatus("Idle");
+						setLocalStatus("Idle");
 					}
 				},
 				watchdogTimeoutMs: 180_000,
@@ -402,7 +404,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 			}
 		}
 		refreshChannels();
-		setStatus("Ready");
+		setLocalStatus("Ready");
 		appendLogLine("[system] TeleCode started (agent + enabled channels)");
 		return true;
 	} catch (error) {
@@ -411,7 +413,7 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 			`TeleCode AI: failed to start agent - ${message}`,
 		);
 		appendLogLine(`[agent:error] ${message}`);
-		setStatus("Error");
+		setLocalStatus("Error");
 		return false;
 	}
 }
@@ -443,16 +445,16 @@ async function runTask(task: string): Promise<void> {
 		);
 	}
 	appendLogLine(`[user] ${prompt}`);
-	setStatus("Running");
+	setLocalStatus("Running");
 
 	try {
 		await taskRunner?.runTask(prompt);
-		setStatus("Ready");
+		setLocalStatus("Ready");
 		appendLogLine("[run] done");
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		appendLogLine(`[run:error] ${message}`);
-		setStatus("Error");
+		setLocalStatus("Error");
 	}
 }
 
@@ -465,6 +467,7 @@ function stopAgent(logToOutput: boolean): void {
 	}
 	if (channelRegistry.size > 0) {
 		channelRegistry.stopAll();
+		clearChannelStatuses();
 		syncChannelsStateToChatView();
 		stoppedSomething = true;
 	}
@@ -474,7 +477,7 @@ function stopAgent(logToOutput: boolean): void {
 	}
 
 	if (stoppedSomething) {
-		setStatus("Stopped");
+		setLocalStatus("Stopped");
 	}
 }
 
@@ -488,6 +491,7 @@ function connectChannels(logToOutput: boolean): void {
 function disconnectChannels(logToOutput: boolean): void {
 	if (channelRegistry.size > 0) {
 		channelRegistry.stopAll();
+		clearChannelStatuses();
 		syncChannelsStateToChatView();
 		if (logToOutput) {
 			appendLogLine("[channels] Disconnected");
@@ -504,16 +508,19 @@ function refreshChannels(): void {
 	}
 
 	channelRegistry.stopAll();
+	clearChannelStatuses();
 	syncChannelsStateToChatView();
 
 	const settings = readTelecodeSettings();
 	const { tools } = resolveAgentTools(settings.agent);
+	const workspaceRoot = getPrimaryWorkspaceRoot();
 	for (const channel of createEnabledChannels({
 		settings,
 		tools,
+		workspaceRoot,
 		onLog: appendLogLine,
-		onStatus: (status) => {
-			setStatus(status);
+		onStatus: (channelId, status) => {
+			setChannelStatus(channelId, status);
 			syncChannelsStateToChatView();
 		},
 	})) {
@@ -695,7 +702,7 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
 	if (event.type === "done") {
 		lastRenderedStatus = "";
 		lastRenderedStatusAt = 0;
-		setStatus("Ready");
+		setLocalStatus("Ready");
 	}
 }
 
@@ -786,7 +793,7 @@ function flushDuplicateLogSummary(): void {
 	pendingDuplicateLogStartedAt = 0;
 }
 
-function setStatus(status: string): void {
+function applyStatus(status: string): void {
 	activeStatus = status;
 	chatProvider?.setStatus(status);
 	syncProgressState(status);
@@ -795,9 +802,87 @@ function setStatus(status: string): void {
 	}
 }
 
-function getPrimaryWorkspaceRoot(): string {
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	return folder ? folder.uri.fsPath : process.cwd();
+function setLocalStatus(status: string): void {
+	localStatus = status;
+	syncEffectiveStatus();
+}
+
+function setChannelStatus(channelId: string, status: string): void {
+	channelStatuses.set(channelId, status);
+	syncEffectiveStatus();
+}
+
+function clearChannelStatuses(): void {
+	if (channelStatuses.size === 0) {
+		return;
+	}
+	channelStatuses.clear();
+	syncEffectiveStatus();
+}
+
+function syncEffectiveStatus(): void {
+	const nextStatus = getEffectiveStatus();
+	applyStatus(nextStatus);
+}
+
+function getEffectiveStatus(): string {
+	if (shouldPreferLocalStatus(localStatus)) {
+		return localStatus;
+	}
+
+	const aggregatedChannelStatus = getAggregatedChannelStatus();
+	return aggregatedChannelStatus ?? localStatus;
+}
+
+function shouldPreferLocalStatus(status: string): boolean {
+	const normalized = status.trim().toLowerCase();
+	return (
+		isBusyStatus(status) ||
+		normalized.includes("error") ||
+		normalized.includes("stopped")
+	);
+}
+
+function getAggregatedChannelStatus(): string | null {
+	const statuses = [...channelStatuses.values()]
+		.map((status) => status.trim())
+		.filter((status) => status.length > 0);
+
+	if (statuses.length === 0) {
+		return null;
+	}
+
+	const topPriority = Math.max(...statuses.map((status) => getStatusPriority(status)));
+	const topStatuses = statuses.filter(
+		(status) => getStatusPriority(status) === topPriority,
+	);
+	const uniqueTopStatuses = [...new Set(topStatuses)];
+
+	if (topPriority >= 300) {
+		return uniqueTopStatuses.length === 1 ? uniqueTopStatuses[0] : "Channels active";
+	}
+
+	return uniqueTopStatuses[0] ?? null;
+}
+
+function getStatusPriority(status: string): number {
+	const normalized = status.trim().toLowerCase();
+	if (normalized.includes("error")) {
+		return 400;
+	}
+	if (isBusyStatus(status)) {
+		return 300;
+	}
+	if (normalized.includes("ready")) {
+		return 200;
+	}
+	if (normalized.includes("idle")) {
+		return 100;
+	}
+	if (normalized.includes("stopped")) {
+		return 50;
+	}
+	return 0;
 }
 
 function setupDevAutoReload(context: vscode.ExtensionContext): void {
