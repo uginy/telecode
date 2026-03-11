@@ -35,8 +35,10 @@ import { isWhatsappSenderAllowed } from "./access";
 import {
 	collectTaskReviewSummary,
 	commitTaskFiles,
+	loadTaskReviewSummary,
 	revertTaskFiles,
 	runWorkspaceChecks,
+	saveTaskReviewSummary,
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
 
@@ -115,6 +117,7 @@ export class WhatsAppChannel implements IChannel {
 		}
 
 		const sessionPath = expandHome(settings.whatsapp.sessionPath);
+		this.lastTaskReview = await loadTaskReviewSummary(this.workspaceRoot);
 		const sessionDir = path.join(
 			path.extname(sessionPath) ? path.dirname(sessionPath) : sessionPath,
 			"baileys-auth",
@@ -371,15 +374,19 @@ export class WhatsAppChannel implements IChannel {
 			}
 			await this.sendMessageSafe(chatId, "Running checks for last task...", "/checks");
 			const checks = await runWorkspaceChecks(this.workspaceRoot);
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
 				checks,
-			});
+			}));
+			const updatedReview = this.lastTaskReview;
+			if (!updatedReview) {
+				return;
+			}
 			for (const chunk of splitWhatsappText(
-				renderWhatsappTaskReview(this.lastTaskReview),
+				renderWhatsappTaskReview(updatedReview),
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "/checks");
 			}
@@ -433,15 +440,19 @@ export class WhatsAppChannel implements IChannel {
 				await this.sendMessageSafe(chatId, result.message, "/commit");
 				return;
 			}
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
 				checks: this.lastTaskReview.checks,
-			});
+			}));
+			const updatedReview = this.lastTaskReview;
+			if (!updatedReview) {
+				return;
+			}
 			for (const chunk of splitWhatsappText(
-				`${result.message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+				`${result.message}\n\n${renderWhatsappTaskReview(updatedReview)}`,
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "/commit");
 			}
@@ -461,15 +472,19 @@ export class WhatsAppChannel implements IChannel {
 				await this.sendMessageSafe(chatId, result.message, "/revert");
 				return;
 			}
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
 				checks: this.lastTaskReview.checks,
-			});
+			}));
+			const updatedReview = this.lastTaskReview;
+			if (!updatedReview) {
+				return;
+			}
 			for (const chunk of splitWhatsappText(
-				`${result.message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+				`${result.message}\n\n${renderWhatsappTaskReview(updatedReview)}`,
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "/revert");
 			}
@@ -541,17 +556,21 @@ export class WhatsAppChannel implements IChannel {
 				this.pushLog("[whatsapp] task aborted");
 				return;
 			}
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: taskText,
 				outcome: "completed",
-			});
+			}));
 			const chunks = splitWhatsappText(output || "Done.");
 			for (const chunk of chunks) {
 				await this.sendMessageSafe(chatId, chunk);
 			}
+			const completedReview = this.lastTaskReview;
+			if (!completedReview) {
+				return;
+			}
 			for (const chunk of splitWhatsappText(
-				renderWhatsappTaskReview(this.lastTaskReview),
+				renderWhatsappTaskReview(completedReview),
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "review");
 			}
@@ -559,14 +578,19 @@ export class WhatsAppChannel implements IChannel {
 			this.setStatus("Ready");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: taskText,
 				outcome: "failed",
 				error: message,
-			});
+			}));
+			const failedReview = this.lastTaskReview;
+			if (!failedReview) {
+				await this.sendMessageSafe(chatId, `Task failed: ${message}`, "failure");
+				return;
+			}
 			for (const chunk of splitWhatsappText(
-				`Task failed: ${message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+				`Task failed: ${message}\n\n${renderWhatsappTaskReview(failedReview)}`,
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "failure");
 			}
@@ -597,6 +621,11 @@ export class WhatsAppChannel implements IChannel {
 		});
 		this.runtimeConfigSignature = ensured.signature;
 		return ensured.runtime;
+	}
+
+	private async setLastTaskReview(result: TaskReviewSummary): Promise<void> {
+		this.lastTaskReview = result;
+		await saveTaskReviewSummary(this.workspaceRoot, result);
 	}
 
 	// ---------------------------------------------------------------------------

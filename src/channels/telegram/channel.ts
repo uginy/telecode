@@ -30,8 +30,10 @@ import { createTelegramTools } from "./tools";
 import {
 	collectTaskReviewSummary,
 	commitTaskFiles,
+	loadTaskReviewSummary,
 	revertTaskFiles,
 	runWorkspaceChecks,
+	saveTaskReviewSummary,
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
 import {
@@ -117,6 +119,7 @@ export class TelegramChannel implements IChannel {
 		}
 
 		try {
+			this.lastTaskReview = await loadTaskReviewSummary(this.workspaceRoot);
 			const allowedChatId = parseTelegramChatId(chatId);
 			if (chatId && allowedChatId === null) {
 				const message = `TeleCode AI Telegram: invalid chatId "${chatId}". Use numeric id like 123456789 or -1001234567890.`;
@@ -254,7 +257,11 @@ export class TelegramChannel implements IChannel {
 					await ctx.reply("No completed runs yet.");
 					return;
 				}
-				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
+				const updatedReview = this.lastTaskReview;
+				if (!updatedReview) {
+					return;
+				}
+				await ctx.reply(limitText(renderTelegramTaskReview(updatedReview), 4000));
 			});
 
 			bot.command("checks", async (ctx) => {
@@ -264,13 +271,13 @@ export class TelegramChannel implements IChannel {
 				}
 				await ctx.reply("Running checks for last task...");
 				const checks = await runWorkspaceChecks(this.workspaceRoot);
-				this.lastTaskReview = await collectTaskReviewSummary({
+				await this.setLastTaskReview(await collectTaskReviewSummary({
 					workspaceRoot: this.workspaceRoot,
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
 					checks,
-				});
+				}));
 				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
 			});
 
@@ -314,16 +321,20 @@ export class TelegramChannel implements IChannel {
 					await ctx.reply(limitText(result.message, 4000));
 					return;
 				}
-				this.lastTaskReview = await collectTaskReviewSummary({
+				await this.setLastTaskReview(await collectTaskReviewSummary({
 					workspaceRoot: this.workspaceRoot,
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
 					checks: this.lastTaskReview.checks,
-				});
+				}));
+				const updatedReview = this.lastTaskReview;
+				if (!updatedReview) {
+					return;
+				}
 				await ctx.reply(
 					limitText(
-						`${result.message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
+						`${result.message}\n\n${renderTelegramTaskReview(updatedReview)}`,
 						4000,
 					),
 				);
@@ -342,16 +353,20 @@ export class TelegramChannel implements IChannel {
 					await ctx.reply(limitText(result.message, 4000));
 					return;
 				}
-				this.lastTaskReview = await collectTaskReviewSummary({
+				await this.setLastTaskReview(await collectTaskReviewSummary({
 					workspaceRoot: this.workspaceRoot,
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
 					checks: this.lastTaskReview.checks,
-				});
+				}));
+				const updatedReview = this.lastTaskReview;
+				if (!updatedReview) {
+					return;
+				}
 				await ctx.reply(
 					limitText(
-						`${result.message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
+						`${result.message}\n\n${renderTelegramTaskReview(updatedReview)}`,
 						4000,
 					),
 				);
@@ -959,11 +974,11 @@ export class TelegramChannel implements IChannel {
 			await this.taskRunner.runTask(normalizedTask, images);
 
 			this.lastResponse = responseBuffer;
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: normalizedTask,
 				outcome: "completed",
-			});
+			}));
 			this.isProcessing = false;
 			this.setStatus("Idle");
 			cleanupTask();
@@ -973,27 +988,35 @@ export class TelegramChannel implements IChannel {
 				progress.messageId,
 				responseBuffer,
 			);
-			await ctx.reply(
-				limitText(renderTelegramTaskReview(this.lastTaskReview), 4000),
-			);
+			const completedReview = this.lastTaskReview;
+			if (completedReview) {
+				await ctx.reply(
+					limitText(renderTelegramTaskReview(completedReview), 4000),
+				);
+			}
 		} catch (error) {
 			this.isProcessing = false;
 			this.setStatus("Error");
 			cleanupTask();
 			const message = formatError(error);
 			this.pushLog(`[execute:error] ${message}`);
-			this.lastTaskReview = await collectTaskReviewSummary({
+			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: normalizedTask,
 				outcome: "failed",
 				error: message,
-			});
-			await ctx.reply(
-				limitText(
-					`Task failed: ${message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
-					4000,
-				),
-			);
+			}));
+			const failedReview = this.lastTaskReview;
+			if (failedReview) {
+				await ctx.reply(
+					limitText(
+						`Task failed: ${message}\n\n${renderTelegramTaskReview(failedReview)}`,
+						4000,
+					),
+				);
+			} else {
+				await ctx.reply(`Task failed: ${message}`);
+			}
 		}
 	}
 
@@ -1025,6 +1048,11 @@ export class TelegramChannel implements IChannel {
 	private abortRuntime(): void {
 		this.taskRunner.abortCurrentRun();
 		this.runtimeConfigSignature = "";
+	}
+
+	private async setLastTaskReview(result: TaskReviewSummary): Promise<void> {
+		this.lastTaskReview = result;
+		await saveTaskReviewSummary(this.workspaceRoot, result);
 	}
 
 	private async replyMarkdown(ctx: Context, markdown: string): Promise<void> {
