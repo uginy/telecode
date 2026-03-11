@@ -18,6 +18,12 @@ import { saveOpenSettingsFiles } from "../../utils/vscodeUtils";
 import { i18n, type Translations } from "../../services/i18n";
 import { ensureChannelRuntime } from "../runtime";
 import { TelegramApiService } from "./api";
+import {
+	parseTelegramRawApiCommand,
+	renderTelegramHelp,
+	renderTelegramSettings,
+	renderTelegramStatus,
+} from "./presentation";
 import { createTelegramTools } from "./tools";
 import {
 	limitText,
@@ -195,15 +201,24 @@ export class TelegramChannel implements IChannel {
 			});
 
 			bot.command("help", async (ctx) => {
-				await ctx.reply(this.renderHelp(this.getT()));
+				await ctx.reply(renderTelegramHelp(this.getT()));
 			});
 
 			bot.command("status", async (ctx) => {
-				await ctx.reply(this.renderStatus(this.getT()));
+				await ctx.reply(
+					renderTelegramStatus({
+						settings: readTelecodeSettings(),
+						isProcessing: this.isProcessing,
+						currentPhase: this.currentPhase,
+						t: this.getT(),
+					}),
+				);
 			});
 
 			bot.command("settings", async (ctx) => {
-				await ctx.reply(this.renderSettings(this.getT()));
+				await ctx.reply(
+					renderTelegramSettings(readTelecodeSettings(), this.getT()),
+				);
 			});
 
 			bot.command("stop", async (ctx) => {
@@ -279,7 +294,7 @@ export class TelegramChannel implements IChannel {
 					const apiService = new TelegramApiService(bot, (l) =>
 						this.pushLog(l),
 					);
-					const parsed = this.parseRawApiCommand(args);
+					const parsed = parseTelegramRawApiCommand(args);
 					const workspaceRoot = getWorkspaceRoot();
 					const preparedParams = await apiService.prepareParams(
 						parsed.params,
@@ -1021,40 +1036,6 @@ export class TelegramChannel implements IChannel {
 		return i18n.t;
 	}
 
-	private renderStatus(t: Translations): string {
-		const settings = readTelecodeSettings();
-		const statusText = this.isProcessing
-			? t.tg_status_running
-			: this.currentPhase === "Error"
-				? t.tg_status_error
-				: t.tg_status_idle;
-
-		return [
-			`${t.tg_label_status}: ${statusText}`,
-			`${t.tg_label_phase}: ${this.currentPhase}`,
-			`${t.tg_label_provider}: ${settings.agent.provider}`,
-			`${t.tg_label_model}: ${settings.agent.model}`,
-			`${t.tg_label_style}: ${settings.agent.responseStyle}`,
-			`${t.tg_label_language}: ${settings.agent.language}`,
-		].join("\n");
-	}
-
-	private renderSettings(t: Translations): string {
-		const settings = readTelecodeSettings();
-		return [
-			`${t.tab_settings}:`,
-			`- ${t.field_provider}: ${settings.agent.provider}`,
-			`- ${t.field_model}: ${settings.agent.model}`,
-			`- ${t.field_max_steps}: ${settings.agent.maxSteps}`,
-			`- ${t.field_response_style}: ${settings.agent.responseStyle}`,
-			`- ${t.field_language}: ${settings.agent.language}`,
-			`- ${t.field_ui_language}: ${settings.agent.uiLanguage}`,
-			`- Out of Workspace: ${
-				settings.agent.allowOutOfWorkspace ? "YES" : "NO"
-			}`,
-		].join("\n");
-	}
-
 	private pushLog(line: string): void {
 		if (line.startsWith("[telegram:debug]") && !this.shouldEmitDebugLogs()) {
 			return;
@@ -1077,41 +1058,6 @@ export class TelegramChannel implements IChannel {
 		this.currentPhase = status;
 		if (this.onStatus) this.onStatus(status);
 	}
-
-	private renderHelp(t: Translations): string {
-		return [
-			t.tg_help_title,
-			`/status - ${t.tg_cmd_status}`,
-			`/settings - ${t.tg_cmd_settings}`,
-			`/run <task> - ${t.tg_cmd_run}`,
-			`/stop - ${t.tg_cmd_stop}`,
-			`/last - ${t.tg_cmd_last}`,
-			`/logs [N] - ${t.tg_cmd_logs}`,
-			`/changes - ${t.tg_cmd_changes}`,
-			`/diff <file> - ${t.tg_cmd_diff}`,
-			`/rollback - ${t.tg_cmd_rollback}`,
-			`/provider <id> - ${t.tg_cmd_provider}`,
-			`/model <id> - ${t.tg_cmd_model}`,
-			`/help - ${t.tg_cmd_help}`,
-		].join("\n");
-	}
-
-	private parseRawApiCommand(raw: string): {
-		method: string;
-		params: Record<string, unknown>;
-	} {
-		const input = raw.trim();
-		const firstSpace = input.indexOf(" ");
-		if (firstSpace === -1) return { method: input, params: {} };
-		const method = input.slice(0, firstSpace).trim();
-		const rawJson = input.slice(firstSpace + 1).trim();
-			try {
-				const params = rawJson ? JSON.parse(rawJson) : {};
-				return { method, params };
-			} catch (e) {
-				throw new Error(`Invalid JSON params: ${formatError(e)}`, { cause: e });
-			}
-		}
 
 	private cleanupActiveTask(): void {
 		if (this.activeTaskCleanup) {
