@@ -24,6 +24,7 @@ import {
 	renderTelegramSettings,
 	renderTelegramStatus,
 } from "./presentation";
+import { TelegramTaskProgress } from "./taskProgress";
 import { createTelegramTools } from "./tools";
 import {
 	limitText,
@@ -728,49 +729,13 @@ export class TelegramChannel implements IChannel {
 
 		this.isProcessing = true;
 		this.lastActivityAt = Date.now();
-			this.currentChatId = typeof ctx.chat?.id === "number" ? ctx.chat.id : null;
-			this.setStatus("Running");
-			let responseBuffer = "";
-			const statusMessage = await ctx.reply(t.tg_studying_request);
-
-			const STATUS_THROTTLE_MS = 4_000;
-		let lastEditTime = Date.now();
-		let pendingFlush: NodeJS.Timeout | null = null;
-		let pendingText = "";
-
-		const flushStatus = async (): Promise<void> => {
-			if (pendingFlush) {
-				clearTimeout(pendingFlush);
-				pendingFlush = null;
-			}
-			if (!ctx.chat?.id || !pendingText) {
-				return;
-			}
-			try {
-				await ctx.api.editMessageText(
-					ctx.chat.id,
-					statusMessage.message_id,
-					limitText(pendingText),
-				);
-				lastEditTime = Date.now();
-				pendingText = "";
-			} catch {
-				// ignore rate errors
-			}
-		};
-
-		const scheduleUpdate = (text: string): void => {
-			pendingText = text;
-			const gap = Date.now() - lastEditTime;
-			if (gap >= STATUS_THROTTLE_MS) {
-				void flushStatus();
-			} else if (!pendingFlush) {
-				pendingFlush = setTimeout(
-					() => void flushStatus(),
-					STATUS_THROTTLE_MS - gap,
-				);
-			}
-		};
+		this.currentChatId = typeof ctx.chat?.id === "number" ? ctx.chat.id : null;
+		this.setStatus("Running");
+		let responseBuffer = "";
+		const progress = await TelegramTaskProgress.open(
+			ctx,
+			t.tg_studying_request,
+		);
 
 		let unsubscribe: (() => void) | null = null;
 		const toolStartedAt = new Map<string, number>();
@@ -784,41 +749,12 @@ export class TelegramChannel implements IChannel {
 			this.currentPhase = nextPhase;
 			this.pushLog(`[phase] ${nextPhase}`);
 			this.setStatus(`Running: ${nextPhase}`);
-			scheduleUpdate(phaseLabel);
+			progress.schedule(phaseLabel);
 		};
-
-		const sendTyping = async (): Promise<void> => {
-			if (!ctx.chat?.id) {
-				return;
-			}
-			try {
-				await ctx.api.sendChatAction(ctx.chat.id, "typing");
-			} catch {
-				// ignore
-			}
-		};
-
-		void sendTyping();
-		let typingInterval: NodeJS.Timeout | null = setInterval(() => {
-			if (!this.isProcessing) {
-				if (typingInterval) {
-					clearInterval(typingInterval);
-					typingInterval = null;
-				}
-				return;
-			}
-			void sendTyping();
-		}, 4_500);
+		progress.startTyping(() => this.isProcessing);
 
 		const cleanupTask = () => {
-			if (pendingFlush) {
-				clearTimeout(pendingFlush);
-				pendingFlush = null;
-			}
-			if (typingInterval) {
-				clearInterval(typingInterval);
-				typingInterval = null;
-			}
+			progress.dispose();
 			if (unsubscribe) {
 				unsubscribe();
 				unsubscribe = null;
@@ -837,7 +773,7 @@ export class TelegramChannel implements IChannel {
 				`[request] engine=${runtime.engine} provider=${settings.agent.provider} model=${settings.agent.model}`,
 			);
 			this.pushLog(`[request] prompt="${preview}"`);
-			scheduleUpdate(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
+			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
 
 			unsubscribe = runtime.onEvent((event) => {
 				if (event.type === "text_delta") {
@@ -901,7 +837,7 @@ export class TelegramChannel implements IChannel {
 				}
 			});
 
-			scheduleUpdate(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
+			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
 
 			await this.taskRunner.runTask(normalizedTask, images);
 
@@ -912,7 +848,7 @@ export class TelegramChannel implements IChannel {
 
 			await this.editMessageMarkdown(
 				ctx,
-				statusMessage.message_id,
+				progress.messageId,
 				responseBuffer,
 			);
 		} catch (error) {
