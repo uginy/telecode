@@ -10,10 +10,10 @@ import {
 	fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import { TaskRunner } from "../../agent/taskRunner";
+import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "../../agent/runtimeSession";
+import type { TaskRunner } from "../../agent/taskRunner";
 import type { RuntimeConfig, AgentRuntime, RuntimeEvent } from "../../engine/types";
 import { readTelecodeSettings } from "../../config/settings";
-import { getPromptStackSignature } from "../../prompts/promptStack";
 import type { IChannel } from "../types";
 import { isWhatsappSenderAllowed } from "./access";
 
@@ -152,18 +152,18 @@ export class WhatsAppChannel implements IChannel {
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
 	) {
-		this.taskRunner = new TaskRunner(
-			() => {
+		this.taskRunner = createTaskRunner({
+			onEvent: () => {
 				// event streaming is handled per task subscription
 			},
-			(state) => {
+			onStateChange: (state) => {
 				if (state === "error" || state === "idle" || state === "stopped") {
 					this.isProcessing = false;
 				}
 			},
-			180_000,
-			process.cwd(),
-		);
+			watchdogTimeoutMs: 180_000,
+			workspaceRoot: process.cwd(),
+		});
 	}
 
 	public isActive(): boolean {
@@ -521,27 +521,11 @@ export class WhatsAppChannel implements IChannel {
 
 	private ensureRuntime(): AgentRuntime {
 		const settings = readTelecodeSettings();
-		const config: RuntimeConfig = {
-			...settings.agent,
+		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
 			cwd: process.cwd(),
-			language:
-				settings.agent.language === "auto"
-					? undefined
-					: settings.agent.language,
-		};
-
-		const signature = JSON.stringify({
-			provider: config.provider,
-			model: config.model,
-			baseUrl: config.baseUrl || "",
-			maxSteps: config.maxSteps,
-			apiKeySet: config.apiKey.length > 0,
-			allowedTools: config.allowedTools,
-			tools: this.tools.map((tool) => tool.name),
-			language: config.language,
-			responseStyle: config.responseStyle,
-			promptSignature: getPromptStackSignature(config.cwd),
 		});
+
+		const signature = createRuntimeSignature(config, this.tools);
 
 		if (this.taskRunner.runtime && this.runtimeConfigSignature === signature) {
 			return this.taskRunner.runtime;

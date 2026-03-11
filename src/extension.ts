@@ -1,19 +1,17 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { ChannelRegistry } from "./channels/channelRegistry";
-import { TelegramChannel } from "./channels/telegram";
-import { WhatsAppChannel } from "./channels/whatsapp/channel";
+import { createEnabledChannels } from "./channels/factory";
 import {
 	providerRequiresApiKey,
 	readTelecodeSettings,
 	resolveUiLanguage,
 } from "./config/settings";
-import { TaskRunner } from "./agent/taskRunner";
+import type { TaskRunner } from "./agent/taskRunner";
+import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "./agent/runtimeSession";
 import type { RuntimeConfig, RuntimeEvent } from "./engine/types";
-import { getPromptStackSignature } from "./prompts/promptStack";
-import { createWorkspaceTools, filterToolsByAllowed } from "./tools";
+import { resolveAgentTools } from "./agent/runtimePolicy";
 import {
 	type ChatViewCommand,
 	type ChatViewSettings,
@@ -22,7 +20,6 @@ import {
 import { CodingAgent } from "./agent/codingAgent";
 import { i18n } from "./services/i18n";
 import { saveOpenSettingsFiles } from "./utils/vscodeUtils";
-import type { AgentSettings } from "./config/settings";
 
 let taskRunner: TaskRunner | null = null;
 let chatProvider: ChatViewProvider | null = null;
@@ -93,32 +90,6 @@ const RUNTIME_RESTART_CONFIG_KEYS = [
 	"telecode.language",
 	"telecode.allowOutOfWorkspace",
 ] as const;
-
-type SafeModeProfile = "strict" | "balanced" | "power";
-type EffectiveAgentPolicy = {
-	allowedTools: string[];
-	allowOutOfWorkspace: boolean;
-};
-
-function getEffectiveAgentPolicy(agent: AgentSettings): EffectiveAgentPolicy {
-	const profile = agent.safeModeProfile as SafeModeProfile;
-	if (profile === "strict") {
-		return {
-			allowedTools: ["read", "glob", "grep"],
-			allowOutOfWorkspace: false,
-		};
-	}
-	if (profile === "power") {
-		return {
-			allowedTools: [],
-			allowOutOfWorkspace: true,
-		};
-	}
-	return {
-		allowedTools: agent.allowedTools,
-		allowOutOfWorkspace: false,
-	};
-}
 
 function affectsAnyConfiguration(
 	event: vscode.ConfigurationChangeEvent,
@@ -335,8 +306,7 @@ async function handleChatViewCommand(command: ChatViewCommand): Promise<void> {
 
 async function startAgent(forceRestart: boolean): Promise<boolean> {
 	const settings = readTelecodeSettings();
-	const policy = getEffectiveAgentPolicy(settings.agent);
-	const tools = resolveTools(policy.allowedTools);
+	const { policy, tools } = resolveAgentTools(settings.agent);
 
 	let apiKey = settings.agent.apiKey;
 	if (!apiKey && sessionApiKey) {
@@ -372,16 +342,15 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 	}
 
 	const config: RuntimeConfig = {
-		...settings.agent,
-		allowedTools: policy.allowedTools,
-		allowOutOfWorkspace: policy.allowOutOfWorkspace,
+		...buildRuntimeConfig(settings.agent, {
+			cwd: getPrimaryWorkspaceRoot(),
+			allowedTools: policy.allowedTools,
+			allowOutOfWorkspace: policy.allowOutOfWorkspace,
+		}),
 		apiKey,
-		cwd: getPrimaryWorkspaceRoot(),
-		language:
-			settings.agent.language === "auto" ? undefined : settings.agent.language,
 	};
 
-	const signature = createConfigSignature(config, tools);
+	const signature = createRuntimeSignature(config, tools);
 	if (
 		!forceRestart &&
 		taskRunner?.runtime &&
@@ -399,18 +368,18 @@ async function startAgent(forceRestart: boolean): Promise<boolean> {
 
 	try {
 		if (!taskRunner) {
-			taskRunner = new TaskRunner(
-				handleRuntimeEvent,
-				(state) => {
+			taskRunner = createTaskRunner({
+				onEvent: handleRuntimeEvent,
+				onStateChange: (state) => {
 					if (state === "error" && !isBusyStatus(activeStatus)) {
 						setStatus("Error");
 					} else if (state === "idle" || state === "stopped") {
 						setStatus("Idle");
 					}
 				},
-				180_000,
-				getPrimaryWorkspaceRoot(),
-			);
+				watchdogTimeoutMs: 180_000,
+				workspaceRoot: getPrimaryWorkspaceRoot(),
+			});
 		}
 
 		const runtime = taskRunner.initRuntime(config, tools);
@@ -538,42 +507,17 @@ function refreshChannels(): void {
 	syncChannelsStateToChatView();
 
 	const settings = readTelecodeSettings();
-	const tools = resolveTools(
-		getEffectiveAgentPolicy(settings.agent).allowedTools,
-	);
-
-	if (settings.telegram.enabled) {
-		const telegramChannel = new TelegramChannel(
-			tools,
-			(line) => {
-				const hasTelegramPrefix =
-					line.startsWith("[telegram]") ||
-					/^\[[^\]]+\]\s+\[telegram(?::[^\]]+)?\]/i.test(line);
-				appendLogLine(hasTelegramPrefix ? line : `[telegram] ${line}`);
-			},
-			(status) => {
-				setStatus(status);
-				syncChannelsStateToChatView();
-			},
-		);
-		channelRegistry.register(telegramChannel);
-	}
-
-	if (settings.whatsapp.enabled) {
-		const whatsappChannel = new WhatsAppChannel(
-			tools,
-			(line) => {
-				const hasPrefix =
-					line.startsWith("[whatsapp]") ||
-					/^\[[^\]]+\]\s+\[whatsapp(?::[^\]]+)?\]/i.test(line);
-				appendLogLine(hasPrefix ? line : `[whatsapp] ${line}`);
-			},
-			(status) => {
-				setStatus(status);
-				syncChannelsStateToChatView();
-			},
-		);
-		channelRegistry.register(whatsappChannel);
+	const { tools } = resolveAgentTools(settings.agent);
+	for (const channel of createEnabledChannels({
+		settings,
+		tools,
+		onLog: appendLogLine,
+		onStatus: (status) => {
+			setStatus(status);
+			syncChannelsStateToChatView();
+		},
+	})) {
+		channelRegistry.register(channel);
 	}
 	if (channelRegistry.size === 0) {
 		appendLogLine(
@@ -705,14 +649,6 @@ function scheduleConfigApply(): void {
 	}, 300);
 }
 
-function resolveTools(allowedTools: string[]): AgentTool[] {
-	const allTools = createWorkspaceTools();
-	if (!allowedTools || allowedTools.length === 0) {
-		return allTools;
-	}
-	return filterToolsByAllowed(allTools, allowedTools);
-}
-
 function handleRuntimeEvent(event: RuntimeEvent): void {
 	if (event.type === "text_delta") {
 		appendOutput(event.delta);
@@ -796,23 +732,6 @@ function shouldRenderStatus(raw: string): boolean {
 		}
 	}
 	return true;
-}
-
-function createConfigSignature(
-	config: RuntimeConfig,
-	tools: AgentTool[],
-): string {
-	return JSON.stringify({
-		provider: config.provider,
-		model: config.model,
-		baseUrl: config.baseUrl || "",
-		maxSteps: config.maxSteps,
-		apiKeySet: config.apiKey.length > 0,
-		tools: tools.map((tool) => tool.name),
-		responseStyle: config.responseStyle,
-		language: config.language,
-		promptSignature: getPromptStackSignature(config.cwd),
-	});
 }
 
 function appendOutput(text: string): void {

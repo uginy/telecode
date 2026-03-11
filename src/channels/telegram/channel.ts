@@ -12,9 +12,9 @@ import type {
 	RuntimeConfig,
 	ImageContentExt,
 } from "../../engine/types";
-import { getPromptStackSignature } from "../../prompts/promptStack";
 import type { IChannel } from "../types";
-import { TaskRunner } from "../../agent/taskRunner";
+import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "../../agent/runtimeSession";
+import type { TaskRunner } from "../../agent/taskRunner";
 import { saveOpenSettingsFiles } from "../../utils/vscodeUtils";
 import { i18n, type Translations } from "../../services/i18n";
 import { TelegramApiService } from "./api";
@@ -67,19 +67,19 @@ export class TelegramChannel implements IChannel {
 		private readonly tools: AgentTool[],
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
-		) {
-			this.taskRunner = new TaskRunner(
-				() => {
-					// Events will be forwarded in executeTask
-				},
-			(state) => {
+	) {
+		this.taskRunner = createTaskRunner({
+			onEvent: () => {
+				// Events will be forwarded in executeTask
+			},
+			onStateChange: (state) => {
 				if (state === "error" || state === "idle" || state === "stopped") {
 					this.isProcessing = false;
 				}
 			},
-			180_000,
-			getWorkspaceRoot(),
-		);
+			watchdogTimeoutMs: 180_000,
+			workspaceRoot: getWorkspaceRoot(),
+		});
 	}
 
 	public isActive(): boolean {
@@ -922,16 +922,11 @@ export class TelegramChannel implements IChannel {
 		);
 		const allTools = [...currentTools, ...telegramTools];
 
-		const config: RuntimeConfig = {
-			...settings.agent,
+		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
 			cwd: getWorkspaceRoot(),
-			language:
-				settings.agent.language === "auto"
-					? undefined
-					: settings.agent.language,
-		};
+		});
 
-		const signature = this.createRuntimeSignature(config, allTools);
+		const signature = createRuntimeSignature(config, allTools);
 
 		if (this.taskRunner.runtime && this.runtimeConfigSignature === signature) {
 			return this.taskRunner.runtime;
@@ -948,24 +943,6 @@ export class TelegramChannel implements IChannel {
 	private abortRuntime(): void {
 		this.taskRunner.abortCurrentRun();
 		this.runtimeConfigSignature = "";
-	}
-
-	private createRuntimeSignature(
-		config: RuntimeConfig,
-		tools: AgentTool[],
-	): string {
-		return JSON.stringify({
-			provider: config.provider,
-			model: config.model,
-			baseUrl: config.baseUrl || "",
-			maxSteps: config.maxSteps,
-			apiKeySet: config.apiKey.length > 0,
-			allowedTools: config.allowedTools,
-			tools: tools.map((tool) => tool.name),
-			language: config.language,
-			responseStyle: config.responseStyle,
-			promptSignature: getPromptStackSignature(config.cwd),
-		});
 	}
 
 	private async replyMarkdown(ctx: Context, markdown: string): Promise<void> {
