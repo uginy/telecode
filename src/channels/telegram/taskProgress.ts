@@ -11,7 +11,8 @@ export class TelegramTaskProgress {
 	private typingInterval: NodeJS.Timeout | null = null;
 
 	private constructor(
-		private readonly ctx: Context,
+		private readonly client: TelegramProgressClient,
+		private readonly chatId: number,
 		public readonly messageId: number,
 	) {}
 
@@ -19,8 +20,39 @@ export class TelegramTaskProgress {
 		ctx: Context,
 		initialText: string,
 	): Promise<TelegramTaskProgress> {
+		const chatId = ctx.chat?.id;
+		if (!chatId) {
+			throw new Error("Telegram chat id is required for progress updates.");
+		}
 		const statusMessage = await ctx.reply(initialText);
-		return new TelegramTaskProgress(ctx, statusMessage.message_id);
+		return new TelegramTaskProgress(
+			{
+				sendMessage: async (targetChatId, text) => {
+					const message = await ctx.reply(text);
+					if (targetChatId !== chatId) {
+						throw new Error("Context reply cannot target a different chat.");
+					}
+					return message.message_id;
+				},
+				editMessage: async (targetChatId, messageId, text) => {
+					await ctx.api.editMessageText(targetChatId, messageId, text);
+				},
+				sendTyping: async (targetChatId) => {
+					await ctx.api.sendChatAction(targetChatId, "typing");
+				},
+			},
+			chatId,
+			statusMessage.message_id,
+		);
+	}
+
+	public static async openForChat(
+		client: TelegramProgressClient,
+		chatId: number,
+		initialText: string,
+	): Promise<TelegramTaskProgress> {
+		const messageId = await client.sendMessage(chatId, initialText);
+		return new TelegramTaskProgress(client, chatId, messageId);
 	}
 
 	public schedule(text: string): void {
@@ -63,13 +95,13 @@ export class TelegramTaskProgress {
 			clearTimeout(this.pendingFlush);
 			this.pendingFlush = null;
 		}
-		if (!this.ctx.chat?.id || !this.pendingText) {
+		if (!this.pendingText) {
 			return;
 		}
 
 		try {
-			await this.ctx.api.editMessageText(
-				this.ctx.chat.id,
+			await this.client.editMessage(
+				this.chatId,
 				this.messageId,
 				limitText(this.pendingText),
 			);
@@ -81,12 +113,8 @@ export class TelegramTaskProgress {
 	}
 
 	private async sendTyping(): Promise<void> {
-		if (!this.ctx.chat?.id) {
-			return;
-		}
-
 		try {
-			await this.ctx.api.sendChatAction(this.ctx.chat.id, "typing");
+			await this.client.sendTyping(this.chatId);
 		} catch {
 			// Ignore transient typing update failures.
 		}
@@ -98,4 +126,10 @@ export class TelegramTaskProgress {
 			this.typingInterval = null;
 		}
 	}
+}
+
+interface TelegramProgressClient {
+	sendMessage: (chatId: number, text: string) => Promise<number>;
+	editMessage: (chatId: number, messageId: number, text: string) => Promise<void>;
+	sendTyping: (chatId: number) => Promise<void>;
 }

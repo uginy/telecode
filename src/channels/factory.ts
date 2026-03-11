@@ -1,5 +1,6 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { TelecodeSettings } from "../config/settings";
+import { RemoteTaskManager } from "./remoteTasks";
 import { TelegramChannel } from "./telegram";
 import { WhatsAppChannel } from "./whatsapp/channel";
 import type { IChannel } from "./types";
@@ -24,12 +25,17 @@ export function createEnabledChannels(options: {
 	onStatus: (channelId: "telegram" | "whatsapp", status: string) => void;
 }): IChannel[] {
 	const channels: IChannel[] = [];
+	const remoteTasks = new RemoteTaskManager(
+		options.workspaceRoot,
+		(line) => options.onLog(line),
+	);
 
 	if (options.settings.telegram.enabled) {
 		channels.push(
 			new TelegramChannel(
 				options.tools,
 				options.workspaceRoot,
+				remoteTasks,
 				(line) => options.onLog(prefixChannelLog("telegram", line)),
 				(status) => options.onStatus("telegram", status),
 			),
@@ -41,6 +47,7 @@ export function createEnabledChannels(options: {
 			new WhatsAppChannel(
 				options.tools,
 				options.workspaceRoot,
+				remoteTasks,
 				(line) => options.onLog(prefixChannelLog("whatsapp", line)),
 				(status) => options.onStatus("whatsapp", status),
 			),

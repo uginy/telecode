@@ -2,7 +2,7 @@ import type { AgentSettings } from "../../config/settings";
 import type { TaskReviewSummary } from "../../extension/taskReview";
 
 export function renderWhatsappHelp(): string {
-	return "Commands:\n/status — current state\n/review — last task summary\n/checks — run lint/build/test for last task\n/rerun — rerun last task prompt\n/resume — rerun last interrupted task\n/commit <message> — commit files from last task\n/revert — revert files from last task\n/stop — stop current run\n/run <task> — run a task (required in self-chat)";
+	return "Commands:\n/status — current state\n/review — last task summary\n/checks — run lint/build/test for last task\n/queue — show running and queued tasks\n/history [N] — show recent tasks\n/task <id> — show task details\n/cancel <id> — cancel queued or running task\n/logs [N] — show recent channel logs\n/changes — show git status\n/diff <path> — show git diff for file\n/rerun — rerun last task prompt\n/resume — rerun last interrupted task\n/commit <message> — commit files from last task\n/revert — revert files from last task\n/stop — stop current run\n/run <task> — run a task (required in self-chat)";
 }
 
 export function renderWhatsappStatus(isProcessing: boolean): string {

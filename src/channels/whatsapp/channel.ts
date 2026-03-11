@@ -41,6 +41,14 @@ import {
 	saveTaskReviewSummary,
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
+import {
+	type RemoteTaskManager,
+	type RemoteTaskRecord,
+	renderRemoteQueueSnapshot,
+	renderRemoteTaskDetails,
+	renderRemoteTaskHistory,
+} from "../remoteTasks";
+import { runGitCommand } from "../telegram/utils";
 
 const WA_BOT_PREFIX = "[Bot] ";
 
@@ -51,6 +59,24 @@ function expandHome(inputPath: string): string {
 
 async function ensureDir(dir: string): Promise<void> {
 	await fs.mkdir(dir, { recursive: true });
+}
+
+function parseIdCommand(body: string): number | null {
+	const value = body.split(/\s+/, 2)[1];
+	if (!value) {
+		return null;
+	}
+	const id = Number.parseInt(value.trim(), 10);
+	return Number.isFinite(id) ? id : null;
+}
+
+function parseCountCommand(body: string, fallback: number, max: number): number {
+	const value = body.split(/\s+/, 2)[1];
+	if (!value) {
+		return fallback;
+	}
+	const count = Number.parseInt(value.trim(), 10);
+	return Number.isFinite(count) && count > 0 ? Math.min(count, max) : fallback;
 }
 
 export class WhatsAppChannel implements IChannel {
@@ -74,12 +100,15 @@ export class WhatsAppChannel implements IChannel {
 	private reconnectAttempts = 0;
 	private readonly maxReconnectAttempts = 5;
 	private lastTaskReview: TaskReviewSummary | null = null;
+	private activeRemoteTaskId: number | null = null;
+	private stopRequestedTaskId: number | null = null;
 
 	private taskRunner: TaskRunner;
 
 	constructor(
 		private readonly tools: AgentTool[],
 		private readonly workspaceRoot: string,
+		private readonly remoteTasks: RemoteTaskManager,
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
 	) {
@@ -164,6 +193,17 @@ export class WhatsAppChannel implements IChannel {
 					if (connection === "open") {
 						this.clearStartupWatchdog();
 						this.active = true;
+						this.remoteTasks.registerExecutor("whatsapp", {
+							start: async (task) => {
+								await this.runQueuedTask(task);
+							},
+							cancel: (task) => {
+								if (task.id === this.activeRemoteTaskId) {
+									this.stopRequestedTaskId = task.id;
+									this.stopCurrentTask();
+								}
+							},
+						});
 						this.reconnectAttempts = 0;
 						this.setStatus("Ready");
 						this.pushLog("[whatsapp] client ready");
@@ -177,6 +217,7 @@ export class WhatsAppChannel implements IChannel {
 					}
 
 					if (connection === "close") {
+						this.remoteTasks.unregisterExecutor("whatsapp");
 						const statusCode = (lastDisconnect?.error as Boom)?.output
 							?.statusCode;
 						const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
@@ -245,6 +286,7 @@ export class WhatsAppChannel implements IChannel {
 	}
 
 	public stop(): void {
+		this.remoteTasks.unregisterExecutor("whatsapp");
 		const current = this.sock;
 		this.sock = null; // Important: prevents reconnect in 'close' event
 		this.active = false;
@@ -277,6 +319,9 @@ export class WhatsAppChannel implements IChannel {
 
 	public stopCurrentTask(): void {
 		if (!this.isProcessing) return;
+		if (this.activeRemoteTaskId !== null && this.stopRequestedTaskId === null) {
+			this.stopRequestedTaskId = this.activeRemoteTaskId;
+		}
 		this.taskRunner.abortCurrentRun();
 		this.isProcessing = false;
 		this.setStatus("Idle");
@@ -393,15 +438,91 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
+		if (command === "queue") {
+			const snapshot = await this.remoteTasks.getQueueSnapshot();
+			for (const chunk of splitWhatsappText(renderRemoteQueueSnapshot(snapshot))) {
+				await this.sendMessageSafe(chatId, chunk, "/queue");
+			}
+			return;
+		}
+
+		if (command === "history") {
+			const count = parseCountCommand(body, 10, 20);
+			const history = await this.remoteTasks.getHistory(count);
+			for (const chunk of splitWhatsappText(renderRemoteTaskHistory(history))) {
+				await this.sendMessageSafe(chatId, chunk, "/history");
+			}
+			return;
+		}
+
+		if (command === "task") {
+			const taskId = parseIdCommand(body);
+			if (!taskId) {
+				await this.sendMessageSafe(chatId, "Usage: /task <id>", "/task");
+				return;
+			}
+			const task = await this.remoteTasks.getTask(taskId);
+			await this.sendMessageSafe(
+				chatId,
+				task ? renderRemoteTaskDetails(task) : `Task #${taskId} not found.`,
+				"/task",
+			);
+			return;
+		}
+
+		if (command === "cancel") {
+			const taskId = parseIdCommand(body);
+			if (!taskId) {
+				await this.sendMessageSafe(chatId, "Usage: /cancel <id>", "/cancel");
+				return;
+			}
+			const result = await this.remoteTasks.cancelTask(taskId);
+			await this.sendMessageSafe(chatId, result.message, "/cancel");
+			return;
+		}
+
+		if (command === "logs") {
+			const count = parseCountCommand(body, 20, 100);
+			const lines = this.logs.slice(-count);
+			for (const chunk of splitWhatsappText(
+				lines.length > 0 ? lines.join("\n") : "No logs yet.",
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/logs");
+			}
+			return;
+		}
+
+		if (command === "changes") {
+			const { stdout } = await runGitCommand(["status", "--porcelain"]);
+			for (const chunk of splitWhatsappText(
+				stdout.trim().length > 0 ? stdout.trim() : "No working tree changes.",
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/changes");
+			}
+			return;
+		}
+
+		if (command === "diff") {
+			const diffPath = body.replace(/^\/diff\s*/, "").trim();
+			if (!diffPath) {
+				await this.sendMessageSafe(chatId, "Usage: /diff <relative-file-path>", "/diff");
+				return;
+			}
+			const { stdout } = await runGitCommand(["diff", "--", diffPath]);
+			for (const chunk of splitWhatsappText(
+				stdout.trim().length > 0 ? stdout.trim() : `No diff for ${diffPath}`,
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/diff");
+			}
+			return;
+		}
+
 		if (command === "rerun") {
 			if (!this.lastTaskReview?.prompt) {
 				await this.sendMessageSafe(chatId, "No last task to rerun.", "/rerun");
 				return;
 			}
-			await this.handleMessage({
-				key: { remoteJid: chatId, fromMe: false },
-				message: { conversation: this.lastTaskReview.prompt },
-			});
+			await this.enqueueTaskRequest(chatId, this.lastTaskReview.prompt);
 			return;
 		}
 
@@ -414,10 +535,7 @@ export class WhatsAppChannel implements IChannel {
 				await this.sendMessageSafe(chatId, "Last task is not interrupted.", "/resume");
 				return;
 			}
-			await this.handleMessage({
-				key: { remoteJid: chatId, fromMe: false },
-				message: { conversation: this.lastTaskReview.prompt },
-			});
+			await this.enqueueTaskRequest(chatId, this.lastTaskReview.prompt);
 			return;
 		}
 
@@ -497,25 +615,47 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
-		if (this.isProcessing) {
-			await this.sendMessageSafe(
-				chatId,
-				"Agent is busy. Wait for completion or send /stop.",
-				"busy",
-			);
-			return;
-		}
-
 		const taskText = command === "run" ? body.slice(5).trim() : body;
 		if (!taskText) {
 			await this.sendMessageSafe(chatId, "Usage: /run <task>", "/run");
 			return;
 		}
 
+		await this.enqueueTaskRequest(chatId, taskText);
+	}
+
+	private async runQueuedTask(task: RemoteTaskRecord): Promise<void> {
+		await this.executeTaskForChat(task);
+	}
+
+	private async enqueueTaskRequest(chatId: string, taskText: string): Promise<void> {
+		const normalizedTask = taskText.trim();
+		if (!normalizedTask) {
+			return;
+		}
+		const queued = await this.remoteTasks.enqueue({
+			channel: "whatsapp",
+			chatId,
+			prompt: normalizedTask,
+		});
+		await this.sendMessageSafe(
+			chatId,
+			queued.started
+				? `Task #${queued.task.id} started.`
+				: `Task #${queued.task.id} queued at position ${queued.position}.`,
+			"/run",
+		);
+	}
+
+	private async executeTaskForChat(task: RemoteTaskRecord): Promise<void> {
+		const chatId = task.chatId;
+		const taskText = task.prompt;
 		this.isProcessing = true;
+		this.activeRemoteTaskId = task.id;
+		this.stopRequestedTaskId = null;
 		this.currentChatId = chatId;
 		this.setStatus("Running");
-		this.pushLog(`[whatsapp] task from ${chatId}: ${taskText.slice(0, 180)}`);
+		this.pushLog(`[queue] task #${task.id} from ${chatId}: ${taskText.slice(0, 180)}`);
 
 		// Send "typing..." status so WhatsApp user sees the bot is thinking
 		void this.sock?.sendPresenceUpdate("composing", chatId);
@@ -561,6 +701,13 @@ export class WhatsAppChannel implements IChannel {
 				prompt: taskText,
 				outcome: "completed",
 			}));
+			await this.remoteTasks.completeTask({
+				id: task.id,
+				status: "completed",
+				summary: this.lastTaskReview?.summary,
+				responsePreview:
+					output.length > 300 ? `${output.slice(0, 297)}...` : output,
+			});
 			const chunks = splitWhatsappText(output || "Done.");
 			for (const chunk of chunks) {
 				await this.sendMessageSafe(chatId, chunk);
@@ -578,29 +725,44 @@ export class WhatsAppChannel implements IChannel {
 			this.setStatus("Ready");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			const interrupted = this.stopRequestedTaskId === task.id;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
 				prompt: taskText,
-				outcome: "failed",
-				error: message,
+				outcome: interrupted ? "interrupted" : "failed",
+				error: interrupted ? "Task cancelled before completion." : message,
 			}));
+			await this.remoteTasks.completeTask({
+				id: task.id,
+				status: interrupted ? "interrupted" : "failed",
+				error: interrupted ? "Task cancelled before completion." : message,
+				summary: this.lastTaskReview?.summary,
+				responsePreview:
+					output.length > 300 ? `${output.slice(0, 297)}...` : output,
+			});
 			const failedReview = this.lastTaskReview;
 			if (!failedReview) {
-				await this.sendMessageSafe(chatId, `Task failed: ${message}`, "failure");
+				await this.sendMessageSafe(
+					chatId,
+					`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}`,
+					"failure",
+				);
 				return;
 			}
 			for (const chunk of splitWhatsappText(
-				`Task failed: ${message}\n\n${renderWhatsappTaskReview(failedReview)}`,
+				`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}\n\n${renderWhatsappTaskReview(failedReview)}`,
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "failure");
 			}
 			this.pushLog(`[whatsapp:error] ${message}`);
-			this.setStatus("Error");
+			this.setStatus(interrupted ? "Idle" : "Error");
 		} finally {
 			clearInterval(typingInterval);
 			void this.sock?.sendPresenceUpdate("paused", chatId);
 			unsub();
 			this.isProcessing = false;
+			this.activeRemoteTaskId = null;
+			this.stopRequestedTaskId = null;
 		}
 	}
 

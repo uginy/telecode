@@ -37,6 +37,13 @@ import {
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
 import {
+	type RemoteTaskRecord,
+	type RemoteTaskManager,
+	renderRemoteQueueSnapshot,
+	renderRemoteTaskDetails,
+	renderRemoteTaskHistory,
+} from "../remoteTasks";
+import {
 	limitText,
 	splitPlainText,
 	describeRuntimePhase,
@@ -77,13 +84,17 @@ export class TelegramChannel implements IChannel {
 	private lastResponse = "";
 	private lastTaskReview: TaskReviewSummary | null = null;
 	private readonly logs: string[] = [];
+	private readonly pendingTaskImages = new Map<number, ImageContentExt[]>();
 	private startGeneration = 0;
 	private lastLifecycleNotice = "";
 	private lastLifecycleNoticeAt = 0;
+	private activeRemoteTaskId: number | null = null;
+	private stopRequestedTaskId: number | null = null;
 
 	constructor(
 		private readonly tools: AgentTool[],
 		private readonly workspaceRoot: string,
+		private readonly remoteTasks: RemoteTaskManager,
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
 	) {
@@ -278,7 +289,59 @@ export class TelegramChannel implements IChannel {
 					error: this.lastTaskReview.error,
 					checks,
 				}));
-				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
+				const updatedReview = this.lastTaskReview;
+				if (!updatedReview) {
+					return;
+				}
+				await ctx.reply(limitText(renderTelegramTaskReview(updatedReview), 4000));
+			});
+
+			bot.command("queue", async (ctx) => {
+				const snapshot = await this.remoteTasks.getQueueSnapshot();
+				await ctx.reply(limitText(renderRemoteQueueSnapshot(snapshot), 4000));
+			});
+
+			bot.command("history", async (ctx) => {
+				const text = ctx.match;
+				const args = typeof text === "string" ? text.trim() : "";
+				const requested = args ? Number.parseInt(args, 10) : 10;
+				const count =
+					Number.isFinite(requested) && requested > 0
+						? Math.min(requested, 20)
+						: 10;
+				const history = await this.remoteTasks.getHistory(count);
+				await ctx.reply(limitText(renderRemoteTaskHistory(history), 4000));
+			});
+
+			bot.command("task", async (ctx) => {
+				const text = ctx.match;
+				const args = typeof text === "string" ? text.trim() : "";
+				const taskId = Number.parseInt(args, 10);
+				if (!Number.isFinite(taskId)) {
+					await ctx.reply("Usage: /task <id>");
+					return;
+				}
+				const taskRecord = await this.remoteTasks.getTask(taskId);
+				await ctx.reply(
+					limitText(
+						taskRecord
+							? renderRemoteTaskDetails(taskRecord)
+							: `Task #${taskId} not found.`,
+						4000,
+					),
+				);
+			});
+
+			bot.command("cancel", async (ctx) => {
+				const text = ctx.match;
+				const args = typeof text === "string" ? text.trim() : "";
+				const taskId = Number.parseInt(args, 10);
+				if (!Number.isFinite(taskId)) {
+					await ctx.reply("Usage: /cancel <id>");
+					return;
+				}
+				const result = await this.remoteTasks.cancelTask(taskId);
+				await ctx.reply(limitText(result.message, 4000));
 			});
 
 			bot.command("rerun", async (ctx) => {
@@ -286,7 +349,10 @@ export class TelegramChannel implements IChannel {
 					await ctx.reply("No last task to rerun.");
 					return;
 				}
-				await this.executeTask(ctx, this.lastTaskReview.prompt);
+				await this.enqueueTaskRequest(
+					ctx,
+					this.lastTaskReview.prompt,
+				);
 			});
 
 			bot.command("resume", async (ctx) => {
@@ -298,7 +364,10 @@ export class TelegramChannel implements IChannel {
 					await ctx.reply("Last task is not interrupted.");
 					return;
 				}
-				await this.executeTask(ctx, this.lastTaskReview.prompt);
+				await this.enqueueTaskRequest(
+					ctx,
+					this.lastTaskReview.prompt,
+				);
 			});
 
 			bot.command("commit", async (ctx) => {
@@ -506,7 +575,7 @@ export class TelegramChannel implements IChannel {
 					return;
 				}
 
-				await this.executeTask(ctx, task);
+				await this.enqueueTaskRequest(ctx, task);
 			});
 
 			bot.on("message:text", async (ctx) => {
@@ -518,7 +587,7 @@ export class TelegramChannel implements IChannel {
 					"[telegram:debug] routing plain text message to executeTask",
 				);
 
-				await this.executeTask(ctx, text);
+				await this.enqueueTaskRequest(ctx, text);
 			});
 
 			bot.on("message:photo", async (ctx) => {
@@ -551,7 +620,7 @@ export class TelegramChannel implements IChannel {
 						},
 					];
 
-					await this.executeTask(
+					await this.enqueueTaskRequest(
 						ctx,
 						text || "Explain or analyze this image",
 						images,
@@ -586,6 +655,17 @@ export class TelegramChannel implements IChannel {
 							return;
 						}
 						this.active = true;
+						this.remoteTasks.registerExecutor("telegram", {
+							start: async (task) => {
+								await this.runQueuedTask(task);
+							},
+							cancel: (task) => {
+								if (task.id === this.activeRemoteTaskId) {
+									this.stopRequestedTaskId = task.id;
+									this.stopCurrentTask();
+								}
+							},
+						});
 						this.lastActivityAt = Date.now();
 						this.setStatus("Idle");
 						this.pushLog(`[telegram] started as @${botInfo.username}`);
@@ -617,6 +697,7 @@ export class TelegramChannel implements IChannel {
 						return;
 					}
 					this.active = false;
+					this.remoteTasks.unregisterExecutor("telegram");
 					this.setStatus("Error");
 					const message = formatError(error);
 					this.pushLog(`[telegram:error] failed to start - ${message}`);
@@ -631,6 +712,7 @@ export class TelegramChannel implements IChannel {
 				return;
 			}
 			this.active = false;
+			this.remoteTasks.unregisterExecutor("telegram");
 			this.setStatus("Error");
 			const message = formatError(error);
 			this.pushLog(`[telegram:error] failed to start - ${message}`);
@@ -803,6 +885,7 @@ export class TelegramChannel implements IChannel {
 
 	public stop(): void {
 		this.startGeneration += 1;
+		this.remoteTasks.unregisterExecutor("telegram");
 		this.cleanupActiveTask();
 		this.taskRunner.abortCurrentRun();
 		this.active = false;
@@ -830,6 +913,9 @@ export class TelegramChannel implements IChannel {
 		if (!this.isProcessing) {
 			return;
 		}
+		if (this.activeRemoteTaskId !== null && this.stopRequestedTaskId === null) {
+			this.stopRequestedTaskId = this.activeRemoteTaskId;
+		}
 		this.cleanupActiveTask();
 		this.taskRunner.abortCurrentRun();
 		this.isProcessing = false;
@@ -838,21 +924,53 @@ export class TelegramChannel implements IChannel {
 		this.pushLog("[telegram] current task stopped by UI");
 	}
 
-	private async executeTask(
+	private async enqueueTaskRequest(
 		ctx: Context,
 		task: string,
 		images?: ImageContentExt[],
 	): Promise<void> {
-		if (this.isProcessing) {
-			await ctx.reply("Agent is busy. Wait for completion or send /stop.");
+		const chatId = ctx.chat?.id;
+		if (typeof chatId !== "number") {
 			return;
 		}
-
 		const normalizedTask = task.trim();
 		if (normalizedTask.length === 0) {
 			return;
 		}
+		if (images && this.isProcessing) {
+			await ctx.reply("Image tasks cannot be queued while another task is running.");
+			return;
+		}
+		const queued = await this.remoteTasks.enqueue({
+			channel: "telegram",
+			chatId: String(chatId),
+			prompt: normalizedTask,
+		});
+		if (images?.length) {
+			this.pendingTaskImages.set(queued.task.id, images);
+		}
+		await ctx.reply(
+			queued.started
+				? `Task #${queued.task.id} started.`
+				: `Task #${queued.task.id} queued at position ${queued.position}.`,
+		);
+	}
 
+	private async runQueuedTask(task: RemoteTaskRecord): Promise<void> {
+		const chatId = Number.parseInt(task.chatId, 10);
+		if (!Number.isFinite(chatId)) {
+			return;
+		}
+		const images = this.pendingTaskImages.get(task.id);
+		this.pendingTaskImages.delete(task.id);
+		await this.executeTaskForChat(chatId, task, images);
+	}
+
+	private async executeTaskForChat(
+		chatId: number,
+		task: RemoteTaskRecord,
+		images?: ImageContentExt[],
+	): Promise<void> {
 		const settings = readTelecodeSettings();
 		i18n.setLanguage(
 			settings.agent.language === "auto" ? "ru" : settings.agent.language,
@@ -860,12 +978,29 @@ export class TelegramChannel implements IChannel {
 		const t = i18n.t;
 
 		this.isProcessing = true;
+		this.activeRemoteTaskId = task.id;
+		this.stopRequestedTaskId = null;
 		this.lastActivityAt = Date.now();
-		this.currentChatId = typeof ctx.chat?.id === "number" ? ctx.chat.id : null;
+		this.currentChatId = chatId;
 		this.setStatus("Running");
 		let responseBuffer = "";
-		const progress = await TelegramTaskProgress.open(
-			ctx,
+		const progress = await TelegramTaskProgress.openForChat(
+			{
+				sendMessage: async (targetChatId, text) => {
+					const message = await this.bot?.api.sendMessage(targetChatId, text);
+					if (!message) {
+						throw new Error("Telegram bot is not available.");
+					}
+					return message.message_id;
+				},
+				editMessage: async (targetChatId, messageId, text) => {
+					await this.bot?.api.editMessageText(targetChatId, messageId, text);
+				},
+				sendTyping: async (targetChatId) => {
+					await this.bot?.api.sendChatAction(targetChatId, "typing");
+				},
+			},
+			chatId,
 			t.tg_studying_request,
 		);
 
@@ -898,14 +1033,13 @@ export class TelegramChannel implements IChannel {
 			const runtime = this.ensureRuntime();
 			responseBuffer = "";
 			const preview =
-				normalizedTask.length > 240
-					? `${normalizedTask.slice(0, 240)}...`
-					: normalizedTask;
+				task.prompt.length > 240 ? `${task.prompt.slice(0, 240)}...` : task.prompt;
 			this.pushLog(
 				`[request] engine=${runtime.engine} provider=${settings.agent.provider} model=${settings.agent.model}`,
 			);
+			this.pushLog(`[queue] task #${task.id} started`);
 			this.pushLog(`[request] prompt="${preview}"`);
-			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
+			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(task.prompt, 400)}`);
 
 			unsubscribe = runtime.onEvent((event) => {
 				if (event.type === "text_delta") {
@@ -969,28 +1103,34 @@ export class TelegramChannel implements IChannel {
 				}
 			});
 
-			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(normalizedTask, 400)}`);
+			progress.schedule(`⏳ ${phaseLabel}\n\n${limitText(task.prompt, 400)}`);
 
-			await this.taskRunner.runTask(normalizedTask, images);
+			await this.taskRunner.runTask(task.prompt, images);
 
 			this.lastResponse = responseBuffer;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
-				prompt: normalizedTask,
+				prompt: task.prompt,
 				outcome: "completed",
 			}));
+			await this.remoteTasks.completeTask({
+				id: task.id,
+				status: "completed",
+				summary: this.lastTaskReview?.summary,
+				responsePreview:
+					responseBuffer.length > 300
+						? `${responseBuffer.slice(0, 297)}...`
+						: responseBuffer,
+			});
 			this.isProcessing = false;
 			this.setStatus("Idle");
 			cleanupTask();
 
-			await this.editMessageMarkdown(
-				ctx,
-				progress.messageId,
-				responseBuffer,
-			);
+			await this.editMessageMarkdown(chatId, progress.messageId, responseBuffer);
 			const completedReview = this.lastTaskReview;
 			if (completedReview) {
-				await ctx.reply(
+				await this.sendTextMessage(
+					chatId,
 					limitText(renderTelegramTaskReview(completedReview), 4000),
 				);
 			}
@@ -1000,23 +1140,41 @@ export class TelegramChannel implements IChannel {
 			cleanupTask();
 			const message = formatError(error);
 			this.pushLog(`[execute:error] ${message}`);
+			const interrupted = this.stopRequestedTaskId === task.id;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
-				prompt: normalizedTask,
-				outcome: "failed",
-				error: message,
+				prompt: task.prompt,
+				outcome: interrupted ? "interrupted" : "failed",
+				error: interrupted ? "Task cancelled before completion." : message,
 			}));
+			await this.remoteTasks.completeTask({
+				id: task.id,
+				status: interrupted ? "interrupted" : "failed",
+				error: interrupted ? "Task cancelled before completion." : message,
+				summary: this.lastTaskReview?.summary,
+				responsePreview:
+					responseBuffer.length > 300
+						? `${responseBuffer.slice(0, 297)}...`
+						: responseBuffer,
+			});
 			const failedReview = this.lastTaskReview;
 			if (failedReview) {
-				await ctx.reply(
+				await this.sendTextMessage(
+					chatId,
 					limitText(
-						`Task failed: ${message}\n\n${renderTelegramTaskReview(failedReview)}`,
+						`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}\n\n${renderTelegramTaskReview(failedReview)}`,
 						4000,
 					),
 				);
 			} else {
-				await ctx.reply(`Task failed: ${message}`);
+				await this.sendTextMessage(
+					chatId,
+					`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}`,
+				);
 			}
+		} finally {
+			this.activeRemoteTaskId = null;
+			this.stopRequestedTaskId = null;
 		}
 	}
 
@@ -1082,24 +1240,23 @@ export class TelegramChannel implements IChannel {
 	}
 
 	private async editMessageMarkdown(
-		ctx: Context,
+		chatId: number,
 		messageId: number,
 		markdown: string,
 	): Promise<void> {
-		if (!ctx.chat?.id) return;
 		const chunks = markdownToTelegramHtmlChunks(markdown);
 		if (chunks.length === 0) {
-			await ctx.api.editMessageText(ctx.chat.id, messageId, "Done.");
+			await this.bot?.api.editMessageText(chatId, messageId, "Done.");
 			return;
 		}
 
 		try {
-			await ctx.api.editMessageText(ctx.chat.id, messageId, chunks[0], {
+			await this.bot?.api.editMessageText(chatId, messageId, chunks[0], {
 				parse_mode: "HTML",
 				link_preview_options: { is_disabled: true },
 			});
 			for (const extra of chunks.slice(1)) {
-				await ctx.reply(extra, {
+				await this.sendTextMessage(chatId, extra, {
 					parse_mode: "HTML",
 					link_preview_options: { is_disabled: true },
 				});
@@ -1111,11 +1268,21 @@ export class TelegramChannel implements IChannel {
 				)}`,
 			);
 			const plain = splitPlainText(markdown);
-			await ctx.api.editMessageText(ctx.chat.id, messageId, plain[0]);
+			await this.bot?.api.editMessageText(chatId, messageId, plain[0]);
 			for (const extra of plain.slice(1)) {
-				await ctx.reply(extra, { link_preview_options: { is_disabled: true } });
+				await this.sendTextMessage(chatId, extra, {
+					link_preview_options: { is_disabled: true },
+				});
 			}
 		}
+	}
+
+	private async sendTextMessage(
+		chatId: number,
+		text: string,
+		options?: Parameters<Bot["api"]["sendMessage"]>[2],
+	): Promise<void> {
+		await this.bot?.api.sendMessage(chatId, text, options);
 	}
 
 	private async updateSetting(

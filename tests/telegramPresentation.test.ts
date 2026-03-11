@@ -110,6 +110,10 @@ describe("telegram presentation", () => {
 		);
 		expect(renderTelegramHelp(t)).toContain("/run <task> - run task");
 		expect(renderTelegramHelp(t)).toContain("/review - show last task summary");
+		expect(renderTelegramHelp(t)).toContain("/queue - show running and queued tasks");
+		expect(renderTelegramHelp(t)).toContain("/history [N] - show recent tasks");
+		expect(renderTelegramHelp(t)).toContain("/task <id> - show task details");
+		expect(renderTelegramHelp(t)).toContain("/cancel <id> - cancel queued or running task");
 		expect(renderTelegramHelp(t)).toContain("/rerun - rerun last task prompt");
 		expect(renderTelegramHelp(t)).toContain("/resume - rerun last interrupted task");
 	});
