@@ -10,6 +10,8 @@ describe("whatsapp presentation", () => {
 	it("renders help and status text", () => {
 		expect(renderWhatsappHelp()).toContain("/run <task>");
 		expect(renderWhatsappHelp()).toContain("/review");
+		expect(renderWhatsappHelp()).toContain("/rerun");
+		expect(renderWhatsappHelp()).toContain("/resume");
 		expect(renderWhatsappStatus(true)).toBe("Agent status: running");
 		expect(renderWhatsappStatus(false)).toBe("Agent status: ready");
 	});

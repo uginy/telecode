@@ -274,6 +274,26 @@ export class TelegramChannel implements IChannel {
 				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
 			});
 
+			bot.command("rerun", async (ctx) => {
+				if (!this.lastTaskReview?.prompt) {
+					await ctx.reply("No last task to rerun.");
+					return;
+				}
+				await this.executeTask(ctx, this.lastTaskReview.prompt);
+			});
+
+			bot.command("resume", async (ctx) => {
+				if (!this.lastTaskReview) {
+					await ctx.reply("No interrupted task to resume.");
+					return;
+				}
+				if (this.lastTaskReview.outcome !== "interrupted") {
+					await ctx.reply("Last task is not interrupted.");
+					return;
+				}
+				await this.executeTask(ctx, this.lastTaskReview.prompt);
+			});
+
 			bot.command("commit", async (ctx) => {
 				if (!this.lastTaskReview?.canCommit) {
 					await ctx.reply("No changed files from the last task.");

@@ -49,6 +49,8 @@ export function renderTelegramHelp(t: Translations): string {
 		`/settings - ${t.tg_cmd_settings}`,
 		"/review - show last task summary",
 		"/checks - run lint/build/test for last task",
+		"/rerun - rerun last task prompt",
+		"/resume - rerun last interrupted task",
 		"/commit <message> - commit files from last task",
 		"/revert - revert files from last task",
 		`/run <task> - ${t.tg_cmd_run}`,

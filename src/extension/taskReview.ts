@@ -233,14 +233,15 @@ export async function buildTaskDiff(
 	workspaceRoot: string,
 	files: TaskChangedFile[],
 ): Promise<string> {
-	if (files.length === 0) {
+	const safeFiles = sanitizeTaskFiles(files);
+	if (safeFiles.length === 0) {
 		return "No changed files.";
 	}
 
-	const trackedFiles = files
+	const trackedFiles = safeFiles
 		.filter((file) => file.status !== "untracked")
 		.map((file) => file.path);
-	const untrackedFiles = files.filter((file) => file.status === "untracked");
+	const untrackedFiles = safeFiles.filter((file) => file.status === "untracked");
 	const sections: string[] = [];
 
 	if (trackedFiles.length > 0) {
@@ -277,12 +278,13 @@ export async function commitTaskFiles(options: {
 	files: TaskChangedFile[];
 	message: string;
 }): Promise<{ ok: boolean; message: string }> {
-	if (options.files.length === 0) {
+	const safeFiles = sanitizeTaskFiles(options.files);
+	if (safeFiles.length === 0) {
 		return { ok: false, message: "No changed files to commit." };
 	}
 
 	const add = await runGit(
-		["add", "-A", "--", ...options.files.map((file) => file.path)],
+		["add", "-A", "--", ...safeFiles.map((file) => file.path)],
 		options.workspaceRoot,
 	);
 	if (!add.ok) {
@@ -310,14 +312,15 @@ export async function revertTaskFiles(options: {
 	workspaceRoot: string;
 	files: TaskChangedFile[];
 }): Promise<{ ok: boolean; message: string }> {
-	if (options.files.length === 0) {
+	const safeFiles = sanitizeTaskFiles(options.files);
+	if (safeFiles.length === 0) {
 		return { ok: false, message: "No changed files to revert." };
 	}
 
-	const tracked = options.files
+	const tracked = safeFiles
 		.filter((file) => file.status !== "untracked")
 		.map((file) => file.path);
-	const untracked = options.files
+	const untracked = safeFiles
 		.filter((file) => file.status === "untracked")
 		.map((file) => file.path);
 
@@ -426,6 +429,10 @@ function mapGitStatus(rawStatus: string): TaskFileStatus {
 
 function isTelecodeMetaFile(filePath: string): boolean {
 	return filePath === ".telecode" || filePath.startsWith(".telecode/");
+}
+
+function sanitizeTaskFiles(files: TaskChangedFile[]): TaskChangedFile[] {
+	return files.filter((file) => !isTelecodeMetaFile(file.path));
 }
 
 function extractBranchFromStatus(line: string): string | null {

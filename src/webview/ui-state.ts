@@ -37,6 +37,8 @@ export const el = {
   taskResultChecks: () => document.getElementById('taskResultChecks')!,
   taskDiffBtn: () => document.getElementById('taskDiffBtn')! as HTMLButtonElement,
   taskChecksBtn: () => document.getElementById('taskChecksBtn')! as HTMLButtonElement,
+  taskRerunBtn: () => document.getElementById('taskRerunBtn')! as HTMLButtonElement,
+  taskResumeBtn: () => document.getElementById('taskResumeBtn')! as HTMLButtonElement,
   taskCommitBtn: () => document.getElementById('taskCommitBtn')! as HTMLButtonElement,
   taskRevertBtn: () => document.getElementById('taskRevertBtn')! as HTMLButtonElement,
 };

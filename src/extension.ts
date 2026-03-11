@@ -96,6 +96,12 @@ export function activate(context: vscode.ExtensionContext): void {
 				runTaskChecks: async () => {
 					await taskReview.runChecks();
 				},
+				rerunTaskChanges: async () => {
+					await taskReview.rerunLatest((prompt) => runtime.runTask(prompt));
+				},
+				resumeTaskChanges: async () => {
+					await taskReview.resumeInterrupted((prompt) => runtime.runTask(prompt));
+				},
 				commitTaskChanges: async () => {
 					await taskReview.commitLatest();
 				},
@@ -150,6 +156,12 @@ export function activate(context: vscode.ExtensionContext): void {
 		},
 		runTaskChecks: async () => {
 			await taskReview.runChecks();
+		},
+		rerunTaskChanges: async () => {
+			await taskReview.rerunLatest((prompt) => runtime.runTask(prompt));
+		},
+		resumeTaskChanges: async () => {
+			await taskReview.resumeInterrupted((prompt) => runtime.runTask(prompt));
 		},
 		commitTaskChanges: async () => {
 			await taskReview.commitLatest();

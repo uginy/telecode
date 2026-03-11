@@ -386,6 +386,34 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
+		if (command === "rerun") {
+			if (!this.lastTaskReview?.prompt) {
+				await this.sendMessageSafe(chatId, "No last task to rerun.", "/rerun");
+				return;
+			}
+			await this.handleMessage({
+				key: { remoteJid: chatId, fromMe: false },
+				message: { conversation: this.lastTaskReview.prompt },
+			});
+			return;
+		}
+
+		if (command === "resume") {
+			if (!this.lastTaskReview) {
+				await this.sendMessageSafe(chatId, "No interrupted task to resume.", "/resume");
+				return;
+			}
+			if (this.lastTaskReview.outcome !== "interrupted") {
+				await this.sendMessageSafe(chatId, "Last task is not interrupted.", "/resume");
+				return;
+			}
+			await this.handleMessage({
+				key: { remoteJid: chatId, fromMe: false },
+				message: { conversation: this.lastTaskReview.prompt },
+			});
+			return;
+		}
+
 		if (command === "commit") {
 			if (!this.lastTaskReview?.canCommit) {
 				await this.sendMessageSafe(chatId, "No changed files from the last task.", "/commit");

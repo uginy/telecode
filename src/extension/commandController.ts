@@ -13,6 +13,8 @@ export interface ChatCommandCallbacks {
 	saveSettings: (command: Extract<ChatViewCommand, { command: "saveSettings" }>) => Promise<void>;
 	showTaskDiff: () => Promise<void>;
 	runTaskChecks: () => Promise<void>;
+	rerunTaskChanges: () => Promise<void>;
+	resumeTaskChanges: () => Promise<void>;
 	commitTaskChanges: () => Promise<void>;
 	revertTaskChanges: () => Promise<void>;
 	fetchModels: (command: Extract<ChatViewCommand, { command: "fetchModels" }>) => Promise<void>;
@@ -27,6 +29,8 @@ export interface ExtensionCommandCallbacks {
 	resetSession: () => void;
 	showTaskDiff: () => Promise<void>;
 	runTaskChecks: () => Promise<void>;
+	rerunTaskChanges: () => Promise<void>;
+	resumeTaskChanges: () => Promise<void>;
 	commitTaskChanges: () => Promise<void>;
 	revertTaskChanges: () => Promise<void>;
 	setResponseStyle: (style: string, successMessage: string) => Promise<void>;
@@ -71,6 +75,12 @@ export function createChatViewCommandHandler(
 			case "runTaskChecks":
 				await callbacks.runTaskChecks();
 				return;
+			case "rerunTaskChanges":
+				await callbacks.rerunTaskChanges();
+				return;
+			case "resumeTaskChanges":
+				await callbacks.resumeTaskChanges();
+				return;
 			case "commitTaskChanges":
 				await callbacks.commitTaskChanges();
 				return;
@@ -108,6 +118,14 @@ export function registerExtensionCommands(
 		vscode.commands.registerCommand(
 			"telecode.runTaskChecks",
 			callbacks.runTaskChecks,
+		),
+		vscode.commands.registerCommand(
+			"telecode.rerunLastTask",
+			callbacks.rerunTaskChanges,
+		),
+		vscode.commands.registerCommand(
+			"telecode.resumeLastTask",
+			callbacks.resumeTaskChanges,
 		),
 		vscode.commands.registerCommand(
 			"telecode.commitTaskChanges",

@@ -110,6 +110,8 @@ describe("telegram presentation", () => {
 		);
 		expect(renderTelegramHelp(t)).toContain("/run <task> - run task");
 		expect(renderTelegramHelp(t)).toContain("/review - show last task summary");
+		expect(renderTelegramHelp(t)).toContain("/rerun - rerun last task prompt");
+		expect(renderTelegramHelp(t)).toContain("/resume - rerun last interrupted task");
 	});
 
 	it("renders task review summary", () => {

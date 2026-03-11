@@ -91,18 +91,38 @@ export class TaskReviewController {
 			this.workspaceRoot,
 			this.latestResult.changedFiles,
 		);
-		const chatView = this.getChatView();
-		if (chatView) {
-			chatView.appendOutput(`\n[review:diff]\n${diff}\n`);
-			chatView.notify("Diff appended to logs.");
-			return;
-		}
-
 		const document = await vscode.workspace.openTextDocument({
 			content: diff,
 			language: "diff",
 		});
 		await vscode.window.showTextDocument(document, { preview: false });
+		this.getChatView()?.notify("Diff opened in editor.");
+	}
+
+	public async rerunLatest(
+		runTask: (prompt: string) => Promise<void>,
+	): Promise<void> {
+		if (!this.latestResult?.prompt) {
+			this.notifyUser("No last task to rerun.");
+			return;
+		}
+
+		await runTask(this.latestResult.prompt);
+	}
+
+	public async resumeInterrupted(
+		runTask: (prompt: string) => Promise<void>,
+	): Promise<void> {
+		if (!this.latestResult) {
+			this.notifyUser("No interrupted task to resume.");
+			return;
+		}
+		if (this.latestResult.outcome !== "interrupted") {
+			this.notifyUser("Last task is not interrupted.");
+			return;
+		}
+
+		await runTask(this.latestResult.prompt);
 	}
 
 	public async commitLatest(): Promise<void> {

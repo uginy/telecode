@@ -57,6 +57,8 @@ describe("createChatViewCommandHandler", () => {
 			saveSettings: vi.fn(async () => calls.push("saveSettings")),
 			showTaskDiff: vi.fn(async () => calls.push("showTaskDiff")),
 			runTaskChecks: vi.fn(async () => calls.push("runTaskChecks")),
+			rerunTaskChanges: vi.fn(async () => calls.push("rerunTaskChanges")),
+			resumeTaskChanges: vi.fn(async () => calls.push("resumeTaskChanges")),
 			commitTaskChanges: vi.fn(async () => calls.push("commitTaskChanges")),
 			revertTaskChanges: vi.fn(async () => calls.push("revertTaskChanges")),
 			fetchModels: vi.fn(async () => calls.push("fetchModels")),
@@ -74,6 +76,8 @@ describe("createChatViewCommandHandler", () => {
 			{ command: "saveSettings", settings: createSettings() },
 			{ command: "showTaskDiff" },
 			{ command: "runTaskChecks" },
+			{ command: "rerunTaskChanges" },
+			{ command: "resumeTaskChanges" },
 			{ command: "commitTaskChanges" },
 			{ command: "revertTaskChanges" },
 			{
@@ -100,6 +104,8 @@ describe("createChatViewCommandHandler", () => {
 			"saveSettings",
 			"showTaskDiff",
 			"runTaskChecks",
+			"rerunTaskChanges",
+			"resumeTaskChanges",
 			"commitTaskChanges",
 			"revertTaskChanges",
 			"fetchModels",
@@ -119,6 +125,8 @@ describe("registerExtensionCommands", () => {
 			resetSession: vi.fn(),
 			showTaskDiff: vi.fn(async () => {}),
 			runTaskChecks: vi.fn(async () => {}),
+			rerunTaskChanges: vi.fn(async () => {}),
+			resumeTaskChanges: vi.fn(async () => {}),
 			commitTaskChanges: vi.fn(async () => {}),
 			revertTaskChanges: vi.fn(async () => {}),
 			setResponseStyle: vi.fn(async () => {}),
@@ -128,6 +136,8 @@ describe("registerExtensionCommands", () => {
 		const ids = registerCommand.mock.calls.map((call) => call[0]);
 		expect(ids).toContain("telecode.showTaskDiff");
 		expect(ids).toContain("telecode.runTaskChecks");
+		expect(ids).toContain("telecode.rerunLastTask");
+		expect(ids).toContain("telecode.resumeLastTask");
 		expect(ids).toContain("telecode.commitTaskChanges");
 		expect(ids).toContain("telecode.revertTaskChanges");
 	});

@@ -24,6 +24,8 @@ function formatFiles(result: TaskReviewSummary): string {
 export function bindTaskResultActions(): void {
   el.taskDiffBtn()?.addEventListener('click', () => cmd.showTaskDiff());
   el.taskChecksBtn()?.addEventListener('click', () => cmd.runTaskChecks());
+  el.taskRerunBtn()?.addEventListener('click', () => cmd.rerunTaskChanges());
+  el.taskResumeBtn()?.addEventListener('click', () => cmd.resumeTaskChanges());
   el.taskCommitBtn()?.addEventListener('click', () => cmd.commitTaskChanges());
   el.taskRevertBtn()?.addEventListener('click', () => cmd.revertTaskChanges());
 }
@@ -57,6 +59,8 @@ export function renderTaskResultCard(result: TaskReviewSummary | null): void {
 
   el.taskDiffBtn().disabled = result.changedFiles.length === 0;
   el.taskChecksBtn().disabled = false;
+  el.taskRerunBtn().disabled = false;
+  el.taskResumeBtn().disabled = result.outcome !== 'interrupted';
   el.taskCommitBtn().disabled = !result.canCommit;
   el.taskRevertBtn().disabled = result.changedFiles.length === 0;
 }

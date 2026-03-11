@@ -19,6 +19,8 @@
     saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings"),
     showTaskDiff: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "showTaskDiff" }), "showTaskDiff"),
     runTaskChecks: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "runTaskChecks" }), "runTaskChecks"),
+    rerunTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "rerunTaskChanges" }), "rerunTaskChanges"),
+    resumeTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "resumeTaskChanges" }), "resumeTaskChanges"),
     commitTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "commitTaskChanges" }), "commitTaskChanges"),
     revertTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "revertTaskChanges" }), "revertTaskChanges"),
     fetchModels: /* @__PURE__ */ __name((provider, baseUrl, apiKey) => vscode_api_default.postMessage({ command: "fetchModels", provider, baseUrl, apiKey }), "fetchModels")
@@ -101,6 +103,8 @@
     taskResultChecks: /* @__PURE__ */ __name(() => document.getElementById("taskResultChecks"), "taskResultChecks"),
     taskDiffBtn: /* @__PURE__ */ __name(() => document.getElementById("taskDiffBtn"), "taskDiffBtn"),
     taskChecksBtn: /* @__PURE__ */ __name(() => document.getElementById("taskChecksBtn"), "taskChecksBtn"),
+    taskRerunBtn: /* @__PURE__ */ __name(() => document.getElementById("taskRerunBtn"), "taskRerunBtn"),
+    taskResumeBtn: /* @__PURE__ */ __name(() => document.getElementById("taskResumeBtn"), "taskResumeBtn"),
     taskCommitBtn: /* @__PURE__ */ __name(() => document.getElementById("taskCommitBtn"), "taskCommitBtn"),
     taskRevertBtn: /* @__PURE__ */ __name(() => document.getElementById("taskRevertBtn"), "taskRevertBtn")
   };
@@ -670,6 +674,8 @@
   function bindTaskResultActions() {
     el.taskDiffBtn()?.addEventListener("click", () => cmd.showTaskDiff());
     el.taskChecksBtn()?.addEventListener("click", () => cmd.runTaskChecks());
+    el.taskRerunBtn()?.addEventListener("click", () => cmd.rerunTaskChanges());
+    el.taskResumeBtn()?.addEventListener("click", () => cmd.resumeTaskChanges());
     el.taskCommitBtn()?.addEventListener("click", () => cmd.commitTaskChanges());
     el.taskRevertBtn()?.addEventListener("click", () => cmd.revertTaskChanges());
   }
@@ -695,6 +701,8 @@
     el.taskResultChecks().textContent = formatCheckList(result);
     el.taskDiffBtn().disabled = result.changedFiles.length === 0;
     el.taskChecksBtn().disabled = false;
+    el.taskRerunBtn().disabled = false;
+    el.taskResumeBtn().disabled = result.outcome !== "interrupted";
     el.taskCommitBtn().disabled = !result.canCommit;
     el.taskRevertBtn().disabled = result.changedFiles.length === 0;
   }

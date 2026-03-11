@@ -73,6 +73,16 @@
 				"icon": "$(check-all)"
 			},
 			{
+				"command": "telecode.rerunLastTask",
+				"title": "TeleCode AI: Rerun Last Task",
+				"icon": "$(debug-rerun)"
+			},
+			{
+				"command": "telecode.resumeLastTask",
+				"title": "TeleCode AI: Resume Last Interrupted Task",
+				"icon": "$(debug-continue)"
+			},
+			{
 				"command": "telecode.commitTaskChanges",
 				"title": "TeleCode AI: Commit Last Task Changes",
 				"icon": "$(git-commit)"

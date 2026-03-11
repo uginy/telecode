@@ -5,6 +5,8 @@ export type IncomingCommand =
 	| "status"
 	| "review"
 	| "checks"
+	| "rerun"
+	| "resume"
 	| "commit"
 	| "revert"
 	| "stop"
@@ -68,6 +70,8 @@ export function parseWhatsappCommand(body: string): IncomingCommand {
 	if (body.startsWith("/status")) return "status";
 	if (body.startsWith("/review")) return "review";
 	if (body.startsWith("/checks")) return "checks";
+	if (body.startsWith("/rerun")) return "rerun";
+	if (body.startsWith("/resume")) return "resume";
 	if (body.startsWith("/commit")) return "commit";
 	if (body.startsWith("/revert")) return "revert";
 	if (body.startsWith("/stop")) return "stop";

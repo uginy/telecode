@@ -17,6 +17,8 @@ export type ChatViewCommand =
 	| { command: "saveSettings"; settings: ChatViewSettings }
 	| { command: "showTaskDiff" }
 	| { command: "runTaskChecks" }
+	| { command: "rerunTaskChanges" }
+	| { command: "resumeTaskChanges" }
 	| { command: "commitTaskChanges" }
 	| { command: "revertTaskChanges" }
 	| {
@@ -148,6 +150,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 			if (command === "runTaskChecks") {
 				this.commandEmitter.fire({ command: "runTaskChecks" });
+			}
+
+			if (command === "rerunTaskChanges") {
+				this.commandEmitter.fire({ command: "rerunTaskChanges" });
+			}
+
+			if (command === "resumeTaskChanges") {
+				this.commandEmitter.fire({ command: "resumeTaskChanges" });
 			}
 
 			if (command === "commitTaskChanges") {
