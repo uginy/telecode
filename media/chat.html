@@ -74,10 +74,21 @@
     </div>
     <div id="taskResultCard" class="task-result-card hidden">
       <div class="task-result-head">
-        <div>
-          <div id="taskResultTitle" class="task-result-title">Last task</div>
-          <div id="taskResultMeta" class="task-result-meta"></div>
-        </div>
+        <button
+          id="taskResultToggleBtn"
+          class="task-result-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="taskResultBody"
+        >
+          <div class="task-result-toggle-copy">
+            <div id="taskResultTitle" class="task-result-title">Last task</div>
+            <div id="taskResultMeta" class="task-result-meta"></div>
+          </div>
+          <span class="task-result-chevron" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div id="taskResultBody" class="task-result-body hidden">
         <div class="task-result-actions">
           <button id="taskDiffBtn" class="quick-btn" type="button">Diff</button>
           <button id="taskChecksBtn" class="quick-btn" type="button">Checks</button>
@@ -86,21 +97,21 @@
           <button id="taskCommitBtn" class="quick-btn" type="button">Commit</button>
           <button id="taskRevertBtn" class="quick-btn danger" type="button">Revert</button>
         </div>
-      </div>
-      <div id="taskResultSummary" class="task-result-summary"></div>
-      <div class="task-result-split">
-        <div class="task-result-block">
-          <div class="task-result-label">Prompt</div>
-          <pre id="taskResultPrompt" class="task-result-pre"></pre>
+        <div id="taskResultSummary" class="task-result-summary"></div>
+        <div class="task-result-split">
+          <div class="task-result-block">
+            <div class="task-result-label">Prompt</div>
+            <pre id="taskResultPrompt" class="task-result-pre"></pre>
+          </div>
+          <div class="task-result-block">
+            <div class="task-result-label">Changed files</div>
+            <pre id="taskResultFiles" class="task-result-pre"></pre>
+          </div>
         </div>
         <div class="task-result-block">
-          <div class="task-result-label">Changed files</div>
-          <pre id="taskResultFiles" class="task-result-pre"></pre>
+          <div class="task-result-label">Checks</div>
+          <div id="taskResultChecks" class="task-result-value"></div>
         </div>
-      </div>
-      <div class="task-result-block">
-        <div class="task-result-label">Checks</div>
-        <div id="taskResultChecks" class="task-result-value"></div>
       </div>
     </div>
     <div class="input-area">

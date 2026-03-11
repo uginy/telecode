@@ -95,6 +95,8 @@
     viewListBtn: /* @__PURE__ */ __name(() => document.getElementById("viewListBtn"), "viewListBtn"),
     logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles"),
     taskResultCard: /* @__PURE__ */ __name(() => document.getElementById("taskResultCard"), "taskResultCard"),
+    taskResultBody: /* @__PURE__ */ __name(() => document.getElementById("taskResultBody"), "taskResultBody"),
+    taskResultToggleBtn: /* @__PURE__ */ __name(() => document.getElementById("taskResultToggleBtn"), "taskResultToggleBtn"),
     taskResultTitle: /* @__PURE__ */ __name(() => document.getElementById("taskResultTitle"), "taskResultTitle"),
     taskResultSummary: /* @__PURE__ */ __name(() => document.getElementById("taskResultSummary"), "taskResultSummary"),
     taskResultMeta: /* @__PURE__ */ __name(() => document.getElementById("taskResultMeta"), "taskResultMeta"),
@@ -657,6 +659,7 @@
   __name(writeForm, "writeForm");
 
   // src/webview/task-result.ts
+  var taskResultExpanded = false;
   function formatCheckList(result) {
     if (result.checks.length === 0) {
       return "Checks: not run";
@@ -671,7 +674,23 @@
     return result.changedFiles.slice(0, 6).map((file) => `${file.status}: ${file.path}`).join("\n");
   }
   __name(formatFiles, "formatFiles");
+  function syncTaskResultCollapse() {
+    const card = el.taskResultCard();
+    const body = el.taskResultBody();
+    const toggle = el.taskResultToggleBtn();
+    if (!card || !body) {
+      return;
+    }
+    card.dataset.expanded = taskResultExpanded ? "true" : "false";
+    body.classList.toggle("hidden", !taskResultExpanded);
+    toggle.setAttribute("aria-expanded", taskResultExpanded ? "true" : "false");
+  }
+  __name(syncTaskResultCollapse, "syncTaskResultCollapse");
   function bindTaskResultActions() {
+    el.taskResultToggleBtn()?.addEventListener("click", () => {
+      taskResultExpanded = !taskResultExpanded;
+      syncTaskResultCollapse();
+    });
     el.taskDiffBtn()?.addEventListener("click", () => cmd.showTaskDiff());
     el.taskChecksBtn()?.addEventListener("click", () => cmd.runTaskChecks());
     el.taskRerunBtn()?.addEventListener("click", () => cmd.rerunTaskChanges());
@@ -690,6 +709,7 @@
       return;
     }
     card.classList.remove("hidden");
+    syncTaskResultCollapse();
     el.taskResultTitle().textContent = result.outcome === "completed" ? "Last task completed" : result.outcome === "failed" ? "Last task failed" : "Last task interrupted";
     el.taskResultSummary().textContent = result.summary;
     el.taskResultMeta().textContent = [

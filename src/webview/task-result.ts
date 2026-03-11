@@ -2,6 +2,8 @@ import { cmd } from './commands';
 import { el } from './ui-state';
 import type { TaskReviewSummary } from '../extension/taskReview';
 
+let taskResultExpanded = false;
+
 function formatCheckList(result: TaskReviewSummary): string {
   if (result.checks.length === 0) {
     return 'Checks: not run';
@@ -21,7 +23,24 @@ function formatFiles(result: TaskReviewSummary): string {
     .join('\n');
 }
 
+function syncTaskResultCollapse(): void {
+  const card = el.taskResultCard();
+  const body = el.taskResultBody();
+  const toggle = el.taskResultToggleBtn();
+  if (!card || !body) {
+    return;
+  }
+
+  card.dataset.expanded = taskResultExpanded ? 'true' : 'false';
+  body.classList.toggle('hidden', !taskResultExpanded);
+  toggle.setAttribute('aria-expanded', taskResultExpanded ? 'true' : 'false');
+}
+
 export function bindTaskResultActions(): void {
+  el.taskResultToggleBtn()?.addEventListener('click', () => {
+    taskResultExpanded = !taskResultExpanded;
+    syncTaskResultCollapse();
+  });
   el.taskDiffBtn()?.addEventListener('click', () => cmd.showTaskDiff());
   el.taskChecksBtn()?.addEventListener('click', () => cmd.runTaskChecks());
   el.taskRerunBtn()?.addEventListener('click', () => cmd.rerunTaskChanges());
@@ -42,6 +61,7 @@ export function renderTaskResultCard(result: TaskReviewSummary | null): void {
   }
 
   card.classList.remove('hidden');
+  syncTaskResultCollapse();
   el.taskResultTitle().textContent =
     result.outcome === 'completed'
       ? 'Last task completed'
