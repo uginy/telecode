@@ -110,6 +110,9 @@ describe("telegram presentation", () => {
 		);
 		expect(renderTelegramHelp(t)).toContain("/run <task> - run task");
 		expect(renderTelegramHelp(t)).toContain("/review - show last task summary");
+		expect(renderTelegramHelp(t)).toContain("/memory - show workspace project memory");
+		expect(renderTelegramHelp(t)).toContain("/remember <note> - append a project note");
+		expect(renderTelegramHelp(t)).toContain("/forget - clear workspace project memory");
 		expect(renderTelegramHelp(t)).toContain("/queue - show running and queued tasks");
 		expect(renderTelegramHelp(t)).toContain("/history [N] [status] [text] - filter recent tasks");
 		expect(renderTelegramHelp(t)).toContain("/task <id|last|active> - show task details");

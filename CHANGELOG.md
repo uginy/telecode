@@ -4,6 +4,10 @@ All notable changes to the "telecode-ai" extension will be documented in this fi
 
 ## [Unreleased]
 
+- **Remote Control**: Added shared remote task history filters, task lookup helpers, artifacts delivery, lightweight remote git commands, and persisted recurring schedules for Telegram and WhatsApp.
+- **Scheduler**: Lowered the minimum recurring interval to `1` minute for practical testing and lightweight automation.
+- **Messenger UX**: Reduced WhatsApp scheduled-task reply noise so recurring jobs send the useful result without an extra automatic review block.
+- **Documentation**: Updated architecture and README docs to reflect the current messenger-first command surface and scheduler capabilities.
 - **Architecture**: Reduced `src/extension.ts` to a composition root and moved lifecycle orchestration into dedicated controllers for commands, runtime, channels, config application, dev watchers, settings sync, fetch logging, and UI status handling.
 - **Channel Runtime**: Unified Telegram and WhatsApp runtime bootstrap/reuse logic behind a shared channel runtime helper to keep policy/signature behavior consistent.
 - **Telegram Maintenance**: Extracted Telegram presentation parsing and task progress/typing helpers from the channel runtime class.

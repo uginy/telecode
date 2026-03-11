@@ -29,19 +29,28 @@ import {
 	renderWhatsappHelp,
 	renderWhatsappStartupMessage,
 	renderWhatsappStatus,
+	renderWhatsappTaskReviewCompact,
 	renderWhatsappTaskReview,
 } from "./presentation";
 import { isWhatsappSenderAllowed } from "./access";
 import {
 	collectTaskReviewSummary,
+	collectWorkspaceChangedFiles,
 	commitTaskFiles,
+	didTaskChangeFiles,
 	loadTaskReviewSummary,
 	revertTaskFiles,
 	runWorkspaceChecks,
 	saveTaskReviewSummary,
+	shouldSendAutomaticTaskReview,
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
 import { createTaskArtifacts } from "../../extension/taskArtifacts";
+import {
+	appendProjectMemoryNote,
+	clearProjectMemory,
+	loadProjectMemory,
+} from "../../projectMemory";
 import {
 	type RemoteTaskManager,
 	type RemoteTaskRecord,
@@ -52,7 +61,7 @@ import {
 import type { RemoteScheduleManager } from "../remoteSchedules";
 import { renderRemoteSchedules } from "../remoteSchedules";
 import { parseHistoryArgs, parseScheduleCommand, parseTaskSelector } from "../remoteCommandArgs";
-import { executeRemoteGitCommand } from "../remoteGit";
+import { executeRemoteGitCommand, renderRemoteGitStatus } from "../remoteGit";
 import { runGitCommand } from "../telegram/utils";
 
 const WA_BOT_PREFIX = "[Bot] ";
@@ -107,6 +116,17 @@ export class WhatsAppChannel implements IChannel {
 	private lastTaskReview: TaskReviewSummary | null = null;
 	private activeRemoteTaskId: number | null = null;
 	private stopRequestedTaskId: number | null = null;
+	private readonly usage = {
+		task: "Usage: /task <id|last|active>",
+		cancel: "Usage: /cancel <id>",
+		artifacts: "Usage: /artifacts [id|last|active]",
+		schedule:
+			"Usage: /schedule | /schedule every <minutes> <task> | /schedule pause|resume|remove|run <id>",
+		diff: "Usage: /diff <relative-file-path>",
+		commit: "Usage: /commit <message>",
+		remember: "Usage: /remember <note>",
+		run: "Usage: /run <task>",
+	};
 
 	private taskRunner: TaskRunner;
 
@@ -428,6 +448,33 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
+		if (command === "memory") {
+			const memory = await loadProjectMemory(this.workspaceRoot);
+			await this.sendMessageSafe(
+				chatId,
+				memory || "Project memory is empty.",
+				"/memory",
+			);
+			return;
+		}
+
+		if (command === "remember") {
+			const note = body.replace(/^\/remember\s*/i, "").trim();
+			if (!note) {
+				await this.sendMessageSafe(chatId, this.usage.remember, "/remember");
+				return;
+			}
+			await appendProjectMemoryNote(this.workspaceRoot, note);
+			await this.sendMessageSafe(chatId, "Project memory updated.", "/remember");
+			return;
+		}
+
+		if (command === "forget") {
+			await clearProjectMemory(this.workspaceRoot);
+			await this.sendMessageSafe(chatId, "Project memory cleared.", "/forget");
+			return;
+		}
+
 		if (command === "checks") {
 			if (!this.lastTaskReview) {
 				await this.sendMessageSafe(chatId, "No completed runs yet.", "/checks");
@@ -480,7 +527,7 @@ export class WhatsAppChannel implements IChannel {
 		if (command === "task") {
 			const selector = parseTaskSelector(body.replace(/^\/task\s*/i, ""));
 			if (!selector) {
-				await this.sendMessageSafe(chatId, "Usage: /task <id|last|active>", "/task");
+				await this.sendMessageSafe(chatId, this.usage.task, "/task");
 				return;
 			}
 			const task = await this.remoteTasks.findTask({
@@ -490,7 +537,7 @@ export class WhatsAppChannel implements IChannel {
 			});
 			await this.sendMessageSafe(
 				chatId,
-				task ? renderRemoteTaskDetails(task) : `Task not found.`,
+				task ? renderRemoteTaskDetails(task) : `Task ${body.replace(/^\/task\s*/i, "").trim() || "last"} not found.`,
 				"/task",
 			);
 			return;
@@ -499,7 +546,7 @@ export class WhatsAppChannel implements IChannel {
 		if (command === "cancel") {
 			const taskId = parseIdCommand(body);
 			if (!taskId) {
-				await this.sendMessageSafe(chatId, "Usage: /cancel <id>", "/cancel");
+				await this.sendMessageSafe(chatId, this.usage.cancel, "/cancel");
 				return;
 			}
 			const result = await this.remoteTasks.cancelTask(taskId);
@@ -518,11 +565,7 @@ export class WhatsAppChannel implements IChannel {
 		if (command === "schedule") {
 			const parsed = parseScheduleCommand(body.replace(/^\/schedule\s*/i, ""));
 			if (!parsed) {
-				await this.sendMessageSafe(
-					chatId,
-					"Usage: /schedule | /schedule every <minutes> <task> | /schedule pause|resume|remove|run <id>",
-					"/schedule",
-				);
+				await this.sendMessageSafe(chatId, this.usage.schedule, "/schedule");
 				return;
 			}
 			if (parsed.kind === "list") {
@@ -618,7 +661,9 @@ export class WhatsAppChannel implements IChannel {
 		if (command === "changes") {
 			const { stdout } = await runGitCommand(["status", "--porcelain"]);
 			for (const chunk of splitWhatsappText(
-				stdout.trim().length > 0 ? stdout.trim() : "No working tree changes.",
+				stdout.trim().length > 0
+					? renderRemoteGitStatus(stdout)
+					: "No working tree changes.",
 			)) {
 				await this.sendMessageSafe(chatId, chunk, "/changes");
 			}
@@ -628,7 +673,7 @@ export class WhatsAppChannel implements IChannel {
 		if (command === "diff") {
 			const diffPath = body.replace(/^\/diff\s*/, "").trim();
 			if (!diffPath) {
-				await this.sendMessageSafe(chatId, "Usage: /diff <relative-file-path>", "/diff");
+				await this.sendMessageSafe(chatId, this.usage.diff, "/diff");
 				return;
 			}
 			const { stdout } = await runGitCommand(["diff", "--", diffPath]);
@@ -669,7 +714,7 @@ export class WhatsAppChannel implements IChannel {
 			}
 			const message = body.replace(/^\/commit\s*/, "").trim();
 			if (!message) {
-				await this.sendMessageSafe(chatId, "Usage: /commit <message>", "/commit");
+				await this.sendMessageSafe(chatId, this.usage.commit, "/commit");
 				return;
 			}
 			const result = await commitTaskFiles({
@@ -740,7 +785,7 @@ export class WhatsAppChannel implements IChannel {
 
 		const taskText = command === "run" ? body.slice(5).trim() : body;
 		if (!taskText) {
-			await this.sendMessageSafe(chatId, "Usage: /run <task>", "/run");
+			await this.sendMessageSafe(chatId, this.usage.run, "/run");
 			return;
 		}
 
@@ -761,13 +806,13 @@ export class WhatsAppChannel implements IChannel {
 			chatId,
 			prompt: normalizedTask,
 		});
-		await this.sendMessageSafe(
-			chatId,
-			queued.started
-				? `Task #${queued.task.id} started.`
-				: `Task #${queued.task.id} queued at position ${queued.position}.`,
-			"/run",
-		);
+		if (!queued.started) {
+			await this.sendMessageSafe(
+				chatId,
+				`Task #${queued.task.id} queued at position ${queued.position}.`,
+				"/run",
+			);
+		}
 	}
 
 	private async enqueueScheduledTaskRequest(
@@ -802,7 +847,7 @@ export class WhatsAppChannel implements IChannel {
 	): Promise<void> {
 		const selector = parseTaskSelector(selectorInput);
 		if (!selector) {
-			await this.sendMessageSafe(chatId, "Usage: /artifacts [id|last|active]", "/artifacts");
+			await this.sendMessageSafe(chatId, this.usage.artifacts, "/artifacts");
 			return;
 		}
 		const task = await this.remoteTasks.findTask({
@@ -811,7 +856,11 @@ export class WhatsAppChannel implements IChannel {
 			chatId,
 		});
 		if (!task) {
-			await this.sendMessageSafe(chatId, "Task not found.", "/artifacts");
+			await this.sendMessageSafe(
+				chatId,
+				`Task ${selectorInput.trim() || "last"} not found.`,
+				"/artifacts",
+			);
 			return;
 		}
 		if (!task.artifacts || task.artifacts.length === 0) {
@@ -862,6 +911,7 @@ export class WhatsAppChannel implements IChannel {
 		}, 10_000);
 
 		const runtime = this.ensureRuntime();
+		const changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
 		let output = "";
 		const unsub = runtime.onEvent((event: RuntimeEvent) => {
 			if (event.type === "text_delta") {
@@ -920,10 +970,21 @@ export class WhatsAppChannel implements IChannel {
 			if (!completedReview) {
 				return;
 			}
-			for (const chunk of splitWhatsappText(
-				renderWhatsappTaskReview(completedReview),
-			)) {
-				await this.sendMessageSafe(chatId, chunk, "review");
+			if (
+				task.source !== "schedule" &&
+				(shouldSendAutomaticTaskReview(completedReview) &&
+					(completedReview.outcome !== "completed" ||
+						completedReview.checks.length > 0 ||
+						didTaskChangeFiles(
+							changedFilesBefore,
+							completedReview.changedFiles,
+						)))
+			) {
+				for (const chunk of splitWhatsappText(
+					renderWhatsappTaskReviewCompact(completedReview),
+				)) {
+					await this.sendMessageSafe(chatId, chunk, "review");
+				}
 			}
 			this.pushLog("[whatsapp] task done");
 			this.setStatus("Ready");
@@ -961,10 +1022,18 @@ export class WhatsAppChannel implements IChannel {
 				);
 				return;
 			}
-			for (const chunk of splitWhatsappText(
-				`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}\n\n${renderWhatsappTaskReview(failedReview)}`,
-			)) {
-				await this.sendMessageSafe(chatId, chunk, "failure");
+			if (task.source === "schedule") {
+				await this.sendMessageSafe(
+					chatId,
+					`Scheduled task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}`,
+					"failure",
+				);
+			} else {
+				for (const chunk of splitWhatsappText(
+					renderWhatsappTaskReviewCompact(failedReview),
+				)) {
+					await this.sendMessageSafe(chatId, chunk, "failure");
+				}
 			}
 			this.pushLog(`[whatsapp:error] ${message}`);
 			this.setStatus(interrupted ? "Idle" : "Error");

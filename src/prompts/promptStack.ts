@@ -1,6 +1,7 @@
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { getProjectMemoryForPrompt } from '../projectMemory';
 
 const PROMPT_FILES = [
   'rules.md',
@@ -133,7 +134,6 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
 }
 
 export function getPromptStackSignature(cwd?: string): string {
-  void cwd;
   const hash = crypto.createHash('sha1');
   const dir = getBundledPromptDirectory();
 
@@ -150,6 +150,10 @@ export function getPromptStackSignature(cwd?: string): string {
     }
   }
 
+  const workspaceRoot = typeof cwd === 'string' && cwd.trim().length > 0 ? cwd : process.cwd();
+  hash.update('project-memory');
+  hash.update(getProjectMemoryForPrompt(workspaceRoot));
+
   return hash.digest('hex').slice(0, 16);
 }
 
@@ -163,9 +167,10 @@ export function buildComposedSystemPrompt(options: {
 }): PromptStackBuildResult {
   const cwd = typeof options.cwd === 'string' && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
   const { layers, missing } = loadPromptLayers();
-  const signature = getPromptStackSignature();
+  const signature = getPromptStackSignature(cwd);
   const workspaceHint = cwd;
   const toolInventory = formatToolInventory(options.tools);
+  const projectMemory = getProjectMemoryForPrompt(cwd);
 
   const styleInstruction = options.responseStyle === 'detailed' 
     ? '- Provide detailed, comprehensive answers with full explanations.' 
@@ -189,6 +194,14 @@ export function buildComposedSystemPrompt(options: {
     '- Runtime choice for ephemeral tools: node (.js), else python3 (.py), else bash/powershell based on OS.',
   ].join('\n');
 
+  const projectMemoryLayer = projectMemory
+    ? [
+        '# Project Memory',
+        '- The following notes are workspace-scoped and must not leak across projects.',
+        projectMemory,
+      ].join('\n')
+    : '';
+
   if (layers.length === 0) {
     return {
       prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language, options.allowOutOfWorkspace),
@@ -204,7 +217,10 @@ export function buildComposedSystemPrompt(options: {
     .join('')
     .trim();
 
-  const prompt = `${stackPrompt}\n\n${runtimeLayer}`.trim();
+  const prompt = [stackPrompt, runtimeLayer, projectMemoryLayer]
+    .filter((section) => section.trim().length > 0)
+    .join('\n\n')
+    .trim();
 
   return {
     prompt,

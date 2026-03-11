@@ -2,7 +2,7 @@ import type { AgentSettings } from "../../config/settings";
 import type { TaskReviewSummary } from "../../extension/taskReview";
 
 export function renderWhatsappHelp(): string {
-	return "Commands:\n/status — current state\n/review — last task summary\n/checks — run lint/build/test for last task\n/queue — show running and queued tasks\n/history [N] [status] [text] — filter recent tasks\n/task <id|last|active> — show task details\n/cancel <id> — cancel queued or running task\n/artifacts [id|last] — send task artifacts\n/schedule — list periodic tasks\n/schedule every <minutes> <task> — add periodic task\n/schedule pause|resume|remove|run <id> — manage schedule\n/logs [N] — show recent channel logs\n/git <status|log [N]|show <ref>> — git tooling\n/changes — show git status\n/diff <path> — show git diff for file\n/rerun — rerun last task prompt\n/resume — rerun last interrupted task\n/commit <message> — commit files from last task\n/revert — revert files from last task\n/stop — stop current run\n/run <task> — run a task (required in self-chat)";
+	return "Commands:\n/status — current state\n/review — last task summary\n/memory — show workspace project memory\n/remember <note> — append a project note\n/forget — clear workspace project memory\n/checks — run lint/build/test for last task\n/queue — show running and queued tasks\n/history [N] [status] [text] — filter recent tasks\n/task <id|last|active> — show task details\n/cancel <id> — cancel queued or running task\n/artifacts [id|last] — send task artifacts\n/schedule — list periodic tasks\n/schedule every <minutes> <task> — add periodic task\n/schedule pause|resume|remove|run <id> — manage schedule\n/logs [N] — show recent channel logs\n/git <status|log [N]|show <ref>> — git tooling\n/changes — show git status\n/diff <path> — show git diff for file\n/rerun — rerun last task prompt\n/resume — rerun last interrupted task\n/commit <message> — commit files from last task\n/revert — revert files from last task\n/stop — stop current run\n/run <task> — run a task (required in self-chat)";
 }
 
 export function renderWhatsappStatus(isProcessing: boolean): string {
@@ -63,5 +63,25 @@ export function renderWhatsappTaskReview(result: TaskReviewSummary): string {
 		parts.push("Checks: not run");
 	}
 
+	return parts.join("\n");
+}
+
+export function renderWhatsappTaskReviewCompact(
+	result: TaskReviewSummary,
+): string {
+	const parts = [
+		result.outcome === "completed"
+			? "Last task completed"
+			: result.outcome === "failed"
+				? "Last task failed"
+				: "Last task interrupted",
+		result.summary,
+	];
+
+	if (result.error && result.outcome !== "completed") {
+		parts.push(`Error: ${result.error}`);
+	}
+
+	parts.push("Use /review for details.");
 	return parts.join("\n");
 }

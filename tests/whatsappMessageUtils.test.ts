@@ -17,6 +17,9 @@ describe("whatsapp message utils", () => {
 	it("parses commands and extracts message fields", () => {
 		expect(parseWhatsappCommand("/help")).toBe("help");
 		expect(parseWhatsappCommand("/review")).toBe("review");
+		expect(parseWhatsappCommand("/memory")).toBe("memory");
+		expect(parseWhatsappCommand("/remember repo has no ci")).toBe("remember");
+		expect(parseWhatsappCommand("/forget")).toBe("forget");
 		expect(parseWhatsappCommand("/checks")).toBe("checks");
 		expect(parseWhatsappCommand("/rerun")).toBe("rerun");
 		expect(parseWhatsappCommand("/resume")).toBe("resume");

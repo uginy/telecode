@@ -49,11 +49,18 @@ return { content: [{ type: 'text', text: 'Result' }], details: {} };
 }
 \`\`\`
 
-## 🏗 Planned Work (Roadmap)
+## 🏗 Current Remote Scope
 
-- **Messenger Channels**: Full implementation of the Telegram and WhatsApp bots to control the VS Code extension externally.
-- **Advanced Tools**: File writing, AST parsing, Git operations.
-- **Agent State Persistence**: Allowing the agent to remember context across VS Code restarts.
+- **Messenger-first Control**: Telegram and WhatsApp are first-class control surfaces for running coding tasks remotely.
+- **Remote Task Operations**: Queue, history, task lookup, rerun/resume, commit/revert, artifacts, and lightweight git/checks flows are already part of the product surface.
+- **Periodic Automation**: Remote schedules can enqueue recurring tasks through the same shared task queue.
+- **Persistence**: Last task review, queue state, and schedules survive extension restarts inside the workspace.
+
+## 🧭 Next Priorities
+
+- **Task Delta Accuracy**: Improve task result summaries so they reflect changes caused by the task itself rather than any pre-existing dirty workspace state.
+- **Messenger UX Polish**: Keep messenger replies short by default and move details behind explicit commands.
+- **Targeted Remote Tools**: Add small built-in remote utilities only when they materially reduce LLM overhead for common checks.
 
 ## 📚 Best Practices
 

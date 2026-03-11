@@ -30,13 +30,21 @@ import { TelegramTaskProgress } from "./taskProgress";
 import { createTelegramTools } from "./tools";
 import {
 	collectTaskReviewSummary,
+	collectWorkspaceChangedFiles,
 	commitTaskFiles,
+	didTaskChangeFiles,
 	loadTaskReviewSummary,
 	revertTaskFiles,
 	runWorkspaceChecks,
 	saveTaskReviewSummary,
+	shouldSendAutomaticTaskReview,
 	type TaskReviewSummary,
 } from "../../extension/taskReview";
+import {
+	appendProjectMemoryNote,
+	clearProjectMemory,
+	loadProjectMemory,
+} from "../../projectMemory";
 import {
 	type RemoteTaskRecord,
 	type RemoteTaskManager,
@@ -48,7 +56,7 @@ import type { RemoteScheduleManager } from "../remoteSchedules";
 import { renderRemoteSchedules } from "../remoteSchedules";
 import { parseHistoryArgs, parseScheduleCommand, parseTaskSelector } from "../remoteCommandArgs";
 import { createTaskArtifacts } from "../../extension/taskArtifacts";
-import { executeRemoteGitCommand } from "../remoteGit";
+import { executeRemoteGitCommand, renderRemoteGitStatus } from "../remoteGit";
 import {
 	limitText,
 	splitPlainText,
@@ -96,6 +104,22 @@ export class TelegramChannel implements IChannel {
 	private lastLifecycleNoticeAt = 0;
 	private activeRemoteTaskId: number | null = null;
 	private stopRequestedTaskId: number | null = null;
+
+	private readonly usage = {
+		task: "Usage: /task <id|last|active>",
+		cancel: "Usage: /cancel <id>",
+		artifacts: "Usage: /artifacts [id|last|active]",
+		schedule:
+			"Usage: /schedule | /schedule every <minutes> <task> | /schedule pause|resume|remove|run <id>",
+		commit: "Usage: /commit <message>",
+		diff: "Usage: /diff <relative-file-path>",
+		remember: "Usage: /remember <note>",
+		model: "Usage: /model <model-id>",
+		provider: "Usage: /provider <provider-id>",
+		style: "Usage: /style <concise|normal|detailed>",
+		language: "Usage: /language <ru|en>",
+		run: "Usage: /run <task>",
+	};
 
 	constructor(
 		private readonly tools: AgentTool[],
@@ -282,6 +306,27 @@ export class TelegramChannel implements IChannel {
 				await ctx.reply(limitText(renderTelegramTaskReview(updatedReview), 4000));
 			});
 
+			bot.command("memory", async (ctx) => {
+				const memory = await loadProjectMemory(this.workspaceRoot);
+				await ctx.reply(limitText(memory || "Project memory is empty.", 4000));
+			});
+
+			bot.command("remember", async (ctx) => {
+				const text = ctx.match;
+				const note = typeof text === "string" ? text.trim() : "";
+				if (!note) {
+					await ctx.reply(this.usage.remember);
+					return;
+				}
+				await appendProjectMemoryNote(this.workspaceRoot, note);
+				await ctx.reply("Project memory updated.");
+			});
+
+			bot.command("forget", async (ctx) => {
+				await clearProjectMemory(this.workspaceRoot);
+				await ctx.reply("Project memory cleared.");
+			});
+
 			bot.command("checks", async (ctx) => {
 				if (!this.lastTaskReview) {
 					await ctx.reply("No completed runs yet.");
@@ -327,7 +372,7 @@ export class TelegramChannel implements IChannel {
 				const args = typeof text === "string" ? text.trim() : "";
 				const selector = parseTaskSelector(args);
 				if (!selector) {
-					await ctx.reply("Usage: /task <id|last|active>");
+					await ctx.reply(this.usage.task);
 					return;
 				}
 				const taskRecord = await this.remoteTasks.findTask({
@@ -350,7 +395,7 @@ export class TelegramChannel implements IChannel {
 				const args = typeof text === "string" ? text.trim() : "";
 				const taskId = Number.parseInt(args, 10);
 				if (!Number.isFinite(taskId)) {
-					await ctx.reply("Usage: /cancel <id>");
+					await ctx.reply(this.usage.cancel);
 					return;
 				}
 				const result = await this.remoteTasks.cancelTask(taskId);
@@ -371,9 +416,7 @@ export class TelegramChannel implements IChannel {
 				const args = typeof text === "string" ? text.trim() : "";
 				const parsed = parseScheduleCommand(args);
 				if (!parsed) {
-					await ctx.reply(
-						"Usage: /schedule | /schedule every <minutes> <task> | /schedule pause|resume|remove|run <id>",
-					);
+					await ctx.reply(this.usage.schedule);
 					return;
 				}
 				const chatId = ctx.chat?.id;
@@ -463,7 +506,7 @@ export class TelegramChannel implements IChannel {
 				const text = ctx.match;
 				const message = typeof text === "string" ? text.trim() : "";
 				if (!message) {
-					await ctx.reply("Usage: /commit <message>");
+					await ctx.reply(this.usage.commit);
 					return;
 				}
 				const result = await commitTaskFiles({
@@ -554,7 +597,7 @@ export class TelegramChannel implements IChannel {
 				const { stdout } = await runGitCommand(["status", "--porcelain"]);
 				await ctx.reply(
 					stdout.trim().length > 0
-						? limitText(stdout)
+						? limitText(renderRemoteGitStatus(stdout))
 						: "No working tree changes.",
 				);
 			});
@@ -563,7 +606,7 @@ export class TelegramChannel implements IChannel {
 				const text = ctx.match;
 				const args = typeof text === "string" ? text.trim() : "";
 				if (!args) {
-					await ctx.reply("Usage: /diff <relative-file-path>");
+					await ctx.reply(this.usage.diff);
 					return;
 				}
 
@@ -615,7 +658,7 @@ export class TelegramChannel implements IChannel {
 				const text = ctx.match;
 				const args = typeof text === "string" ? text.trim() : "";
 				if (!args) {
-					await ctx.reply("Usage: /model <model-id>");
+					await ctx.reply(this.usage.model);
 					return;
 				}
 
@@ -627,7 +670,7 @@ export class TelegramChannel implements IChannel {
 				const text = ctx.match;
 				const args = typeof text === "string" ? text.trim() : "";
 				if (!args) {
-					await ctx.reply("Usage: /provider <provider-id>");
+					await ctx.reply(this.usage.provider);
 					return;
 				}
 
@@ -641,7 +684,7 @@ export class TelegramChannel implements IChannel {
 					typeof text === "string" ? text.trim() : ""
 				).toLowerCase();
 				if (!args || !["concise", "normal", "detailed"].includes(args)) {
-					await ctx.reply("Usage: /style <concise|normal|detailed>");
+					await ctx.reply(this.usage.style);
 					return;
 				}
 
@@ -655,7 +698,7 @@ export class TelegramChannel implements IChannel {
 					typeof text === "string" ? text.trim() : ""
 				).toLowerCase();
 				if (!args || !["ru", "en"].includes(args)) {
-					await ctx.reply("Usage: /language <ru|en>");
+					await ctx.reply(this.usage.language);
 					return;
 				}
 
@@ -667,7 +710,7 @@ export class TelegramChannel implements IChannel {
 				const text = ctx.match;
 				const task = typeof text === "string" ? text.trim() : "";
 				if (!task) {
-					await ctx.reply("Usage: /run <task>");
+					await ctx.reply(this.usage.run);
 					return;
 				}
 
@@ -1056,11 +1099,9 @@ export class TelegramChannel implements IChannel {
 		if (images?.length) {
 			this.pendingTaskImages.set(queued.task.id, images);
 		}
-		await ctx.reply(
-			queued.started
-				? `Task #${queued.task.id} started.`
-				: `Task #${queued.task.id} queued at position ${queued.position}.`,
-		);
+		if (!queued.started) {
+			await ctx.reply(`Task #${queued.task.id} queued at position ${queued.position}.`);
+		}
 	}
 
 	private async enqueueScheduledTaskRequest(
@@ -1100,7 +1141,7 @@ export class TelegramChannel implements IChannel {
 		}
 		const selector = parseTaskSelector(selectorInput);
 		if (!selector) {
-			await this.sendTextMessage(chatId, "Usage: /artifacts [id|last|active]");
+			await this.sendTextMessage(chatId, this.usage.artifacts);
 			return;
 		}
 		const task = await this.remoteTasks.findTask({
@@ -1204,6 +1245,7 @@ export class TelegramChannel implements IChannel {
 
 		try {
 			const runtime = this.ensureRuntime();
+			const changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
 			responseBuffer = "";
 			const preview =
 				task.prompt.length > 240 ? `${task.prompt.slice(0, 240)}...` : task.prompt;
@@ -1309,7 +1351,17 @@ export class TelegramChannel implements IChannel {
 
 			await this.editMessageMarkdown(chatId, progress.messageId, responseBuffer);
 			const completedReview = this.lastTaskReview;
-			if (completedReview) {
+			if (
+				completedReview &&
+				task.source !== "schedule" &&
+				(shouldSendAutomaticTaskReview(completedReview) &&
+					(completedReview.outcome !== "completed" ||
+						completedReview.checks.length > 0 ||
+						didTaskChangeFiles(
+							changedFilesBefore,
+							completedReview.changedFiles,
+						)))
+			) {
 				await this.sendTextMessage(
 					chatId,
 					limitText(renderTelegramTaskReview(completedReview), 4000),
@@ -1347,7 +1399,7 @@ export class TelegramChannel implements IChannel {
 				artifacts: failedArtifacts,
 			});
 			const failedReview = this.lastTaskReview;
-			if (failedReview) {
+			if (failedReview && task.source !== "schedule") {
 				await this.sendTextMessage(
 					chatId,
 					limitText(
@@ -1358,7 +1410,7 @@ export class TelegramChannel implements IChannel {
 			} else {
 				await this.sendTextMessage(
 					chatId,
-					`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}`,
+					`${task.source === "schedule" ? "Scheduled task" : "Task"} ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}`,
 				);
 			}
 		} finally {

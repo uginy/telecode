@@ -73,6 +73,30 @@ You can control it from VS Code or remotely via Telegram/WhatsApp.
 3. Configure your provider and API key in Settings (`Cmd/Ctrl + ,` → TeleCode AI)
 4. Click **Start TeleCode**, type a task in the prompt field, and send it
 
+## 📱 Remote Commands
+
+TeleCode AI is designed to be useful from messengers first. Telegram and WhatsApp share the same practical remote flows:
+
+- `run/review/checks` for daily task execution
+- `queue/history/task/cancel` for task control
+- `commit/revert/artifacts` for result handoff
+- `git/changes/diff/logs` for lightweight remote inspection
+- `schedule` for periodic remote tasks
+
+Typical examples:
+
+```text
+/run fix failing tests in taskRunner and show me the result
+/review
+/history 10 failed
+/task last
+/artifacts last
+/git status
+/schedule every 1 send me the latest git commit title
+```
+
+The VS Code panel remains useful for logs and local runs, but the main operational loop can be fully driven from Telegram or WhatsApp.
+
 ## ⚙️ Development
 
 ```bash
@@ -111,6 +135,25 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 | `telecode.whatsapp.allowSelfCommands` | Allow self-chat command mode (`/run`, `/status`, `/stop`, `/help`)                     |
 | `telecode.whatsapp.accessMode`        | WhatsApp sender policy (`self`, `allowlist`, `all`)                                    |
 | `telecode.whatsapp.allowedPhones`     | Comma-separated allowlist phones for `allowlist` mode                                  |
+
+## ⏱ Remote Scheduler
+
+You can create recurring remote tasks directly from Telegram or WhatsApp:
+
+```text
+/schedule every 1 send me the current date and time
+/schedule every 5 send me the latest git commit title
+/schedule
+/schedule pause 1
+/schedule resume 1
+/schedule remove 1
+```
+
+Notes:
+
+- Minimum interval is `1` minute.
+- Schedules are persisted in the workspace under `.telecode/remote-schedules.json`.
+- Scheduled runs reuse the same task queue, so they do not bypass active manual tasks.
 
 ## 📄 License
 

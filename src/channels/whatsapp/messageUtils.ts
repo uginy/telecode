@@ -4,6 +4,9 @@ export type IncomingCommand =
 	| "help"
 	| "status"
 	| "review"
+	| "memory"
+	| "remember"
+	| "forget"
 	| "checks"
 	| "rerun"
 	| "resume"
@@ -79,6 +82,9 @@ export function parseWhatsappCommand(body: string): IncomingCommand {
 	if (body.startsWith("/help")) return "help";
 	if (body.startsWith("/status")) return "status";
 	if (body.startsWith("/review")) return "review";
+	if (body.startsWith("/memory")) return "memory";
+	if (body.startsWith("/remember")) return "remember";
+	if (body.startsWith("/forget")) return "forget";
 	if (body.startsWith("/checks")) return "checks";
 	if (body.startsWith("/rerun")) return "rerun";
 	if (body.startsWith("/resume")) return "resume";

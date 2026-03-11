@@ -3,6 +3,7 @@ import {
 	renderWhatsappHelp,
 	renderWhatsappStartupMessage,
 	renderWhatsappStatus,
+	renderWhatsappTaskReviewCompact,
 	renderWhatsappTaskReview,
 } from "../src/channels/whatsapp/presentation";
 
@@ -10,6 +11,9 @@ describe("whatsapp presentation", () => {
 	it("renders help and status text", () => {
 		expect(renderWhatsappHelp()).toContain("/run <task>");
 		expect(renderWhatsappHelp()).toContain("/review");
+		expect(renderWhatsappHelp()).toContain("/memory");
+		expect(renderWhatsappHelp()).toContain("/remember <note>");
+		expect(renderWhatsappHelp()).toContain("/forget");
 		expect(renderWhatsappHelp()).toContain("/queue");
 		expect(renderWhatsappHelp()).toContain("/history [N] [status] [text]");
 		expect(renderWhatsappHelp()).toContain("/task <id|last|active>");
@@ -58,5 +62,25 @@ describe("whatsapp presentation", () => {
 		expect(text).toContain("Last task failed");
 		expect(text).toContain("Files: modified:src/app.ts");
 		expect(text).toContain("Checks: Build:failed (exit 1)");
+	});
+
+	it("renders compact task review summary", () => {
+		const text = renderWhatsappTaskReviewCompact({
+			prompt: "fix tests",
+			outcome: "completed",
+			summary: "Task completed • 1 file changed • Checks not run",
+			completedAt: new Date().toISOString(),
+			branch: "main",
+			gitAvailable: true,
+			hasChanges: true,
+			canCommit: true,
+			changedFiles: [{ path: "src/app.ts", status: "modified", rawStatus: " M" }],
+			checks: [],
+		});
+
+		expect(text).toContain("Last task completed");
+		expect(text).toContain("Use /review for details.");
+		expect(text).not.toContain("Prompt:");
+		expect(text).not.toContain("Branch:");
 	});
 });

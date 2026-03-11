@@ -5,9 +5,11 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	buildTaskSummaryText,
+	collectWorkspaceChangedFiles,
 	clearTaskRunMarker,
 	collectTaskReviewSummary,
 	commitTaskFiles,
+	didTaskChangeFiles,
 	detectPackageScripts,
 	loadTaskReviewSummary,
 	markTaskRunStarted,
@@ -15,6 +17,7 @@ import {
 	recoverTaskReviewSummary,
 	revertTaskFiles,
 	saveTaskReviewSummary,
+	shouldSendAutomaticTaskReview,
 	summarizeChecks,
 	type TaskCheckResult,
 } from "../src/extension/taskReview";
@@ -77,6 +80,42 @@ describe("taskReview", () => {
 				checks: [],
 			}),
 		).toBe("Task interrupted • no file changes • Checks not run");
+		expect(
+			shouldSendAutomaticTaskReview({
+				outcome: "completed",
+				changedFiles: [],
+				checks: [],
+			}),
+		).toBe(false);
+		expect(
+			shouldSendAutomaticTaskReview({
+				outcome: "completed",
+				changedFiles: [{ path: "a.ts", rawStatus: " M", status: "modified" }],
+				checks: [],
+			}),
+		).toBe(true);
+		expect(
+			shouldSendAutomaticTaskReview({
+				outcome: "failed",
+				changedFiles: [],
+				checks: [],
+			}),
+		).toBe(true);
+		expect(
+			didTaskChangeFiles(
+				[{ path: "a.ts", rawStatus: " M", status: "modified" }],
+				[{ path: "a.ts", rawStatus: " M", status: "modified" }],
+			),
+		).toBe(false);
+		expect(
+			didTaskChangeFiles(
+				[{ path: "a.ts", rawStatus: " M", status: "modified" }],
+				[
+					{ path: "a.ts", rawStatus: " M", status: "modified" },
+					{ path: "b.ts", rawStatus: "??", status: "untracked" },
+				],
+			),
+		).toBe(true);
 	});
 
 	it("collects task summary and persists it", async () => {
@@ -94,6 +133,9 @@ describe("taskReview", () => {
 		expect(summary.changedFiles).toEqual([
 			{ path: "notes.txt", rawStatus: " M", status: "modified" },
 		]);
+		await expect(collectWorkspaceChangedFiles(workspaceRoot)).resolves.toEqual(
+			summary.changedFiles,
+		);
 
 		await saveTaskReviewSummary(workspaceRoot, summary);
 		await expect(loadTaskReviewSummary(workspaceRoot)).resolves.toEqual(summary);

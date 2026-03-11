@@ -129,6 +129,16 @@ export function buildTaskSummaryText(options: {
 	return `${outcomeText} • ${changeText} • ${summarizeChecks(options.checks)}`;
 }
 
+export function shouldSendAutomaticTaskReview(
+	summary: Pick<TaskReviewSummary, "outcome" | "changedFiles" | "checks">,
+): boolean {
+	return (
+		summary.outcome !== "completed" ||
+		summary.changedFiles.length > 0 ||
+		summary.checks.length > 0
+	);
+}
+
 export async function collectTaskReviewSummary(options: {
 	workspaceRoot: string;
 	prompt: string;
@@ -185,6 +195,36 @@ export async function collectTaskReviewSummary(options: {
 		changedFiles,
 		checks,
 	};
+}
+
+export async function collectWorkspaceChangedFiles(
+	workspaceRoot: string,
+): Promise<TaskChangedFile[]> {
+	const gitStatus = await runGit(
+		["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+		workspaceRoot,
+	);
+	if (!gitStatus.ok) {
+		return [];
+	}
+	return parseGitStatusPorcelain(gitStatus.result.stdout);
+}
+
+export function didTaskChangeFiles(
+	before: TaskChangedFile[],
+	after: TaskChangedFile[],
+): boolean {
+	const beforeSet = new Set(before.map((file) => `${file.rawStatus}:${file.path}`));
+	const afterSet = new Set(after.map((file) => `${file.rawStatus}:${file.path}`));
+	if (beforeSet.size !== afterSet.size) {
+		return true;
+	}
+	for (const key of afterSet) {
+		if (!beforeSet.has(key)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export async function runWorkspaceChecks(
