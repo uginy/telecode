@@ -1,6 +1,15 @@
 const WA_MESSAGE_LIMIT = 3000;
 
-export type IncomingCommand = "help" | "status" | "stop" | "run" | null;
+export type IncomingCommand =
+	| "help"
+	| "status"
+	| "review"
+	| "checks"
+	| "commit"
+	| "revert"
+	| "stop"
+	| "run"
+	| null;
 
 /** Minimal shape of a Baileys incoming message. */
 export type BaileysMessage = {
@@ -57,6 +66,10 @@ export function summarizeWhatsappToolPayload(value: unknown): string {
 export function parseWhatsappCommand(body: string): IncomingCommand {
 	if (body.startsWith("/help")) return "help";
 	if (body.startsWith("/status")) return "status";
+	if (body.startsWith("/review")) return "review";
+	if (body.startsWith("/checks")) return "checks";
+	if (body.startsWith("/commit")) return "commit";
+	if (body.startsWith("/revert")) return "revert";
 	if (body.startsWith("/stop")) return "stop";
 	if (body.startsWith("/run ")) return "run";
 	return null;

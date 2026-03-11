@@ -1,5 +1,6 @@
 import type { TelecodeSettings } from "../../config/settings";
 import type { Translations } from "../../services/i18n";
+import type { TaskReviewSummary } from "../../extension/taskReview";
 import { formatError } from "./utils";
 
 export function renderTelegramStatus(options: {
@@ -46,6 +47,10 @@ export function renderTelegramHelp(t: Translations): string {
 		t.tg_help_title,
 		`/status - ${t.tg_cmd_status}`,
 		`/settings - ${t.tg_cmd_settings}`,
+		"/review - show last task summary",
+		"/checks - run lint/build/test for last task",
+		"/commit <message> - commit files from last task",
+		"/revert - revert files from last task",
 		`/run <task> - ${t.tg_cmd_run}`,
 		`/stop - ${t.tg_cmd_stop}`,
 		`/last - ${t.tg_cmd_last}`,
@@ -57,6 +62,43 @@ export function renderTelegramHelp(t: Translations): string {
 		`/model <id> - ${t.tg_cmd_model}`,
 		`/help - ${t.tg_cmd_help}`,
 	].join("\n");
+}
+
+export function renderTelegramTaskReview(result: TaskReviewSummary): string {
+	const lines = [
+		result.outcome === "completed" ? "Last task completed" : "Last task failed",
+		result.summary,
+		result.branch ? `Branch: ${result.branch}` : "Branch: -",
+		`Prompt: ${result.prompt}`,
+	];
+
+	if (result.error) {
+		lines.push(`Error: ${result.error}`);
+	}
+
+	if (result.changedFiles.length > 0) {
+		lines.push(
+			"Files:",
+			...result.changedFiles
+				.slice(0, 8)
+				.map((file) => `- ${file.status}: ${file.path}`),
+		);
+	} else {
+		lines.push("Files: no changes");
+	}
+
+	if (result.checks.length > 0) {
+		lines.push(
+			"Checks:",
+			...result.checks.map(
+				(check) => `- ${check.label}: ${check.status}${check.summary ? ` (${check.summary})` : ""}`,
+			),
+		);
+	} else {
+		lines.push("Checks: not run");
+	}
+
+	return lines.join("\n");
 }
 
 export function parseTelegramRawApiCommand(raw: string): {

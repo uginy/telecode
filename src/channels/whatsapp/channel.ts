@@ -29,8 +29,16 @@ import {
 	renderWhatsappHelp,
 	renderWhatsappStartupMessage,
 	renderWhatsappStatus,
+	renderWhatsappTaskReview,
 } from "./presentation";
 import { isWhatsappSenderAllowed } from "./access";
+import {
+	collectTaskReviewSummary,
+	commitTaskFiles,
+	revertTaskFiles,
+	runWorkspaceChecks,
+	type TaskReviewSummary,
+} from "../../extension/taskReview";
 
 const WA_BOT_PREFIX = "[Bot] ";
 
@@ -63,6 +71,7 @@ export class WhatsAppChannel implements IChannel {
 	private currentChatId: string | null = null;
 	private reconnectAttempts = 0;
 	private readonly maxReconnectAttempts = 5;
+	private lastTaskReview: TaskReviewSummary | null = null;
 
 	private taskRunner: TaskRunner;
 
@@ -344,6 +353,101 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
+		if (command === "review") {
+			await this.sendMessageSafe(
+				chatId,
+				this.lastTaskReview
+					? renderWhatsappTaskReview(this.lastTaskReview)
+					: "No completed runs yet.",
+				"/review",
+			);
+			return;
+		}
+
+		if (command === "checks") {
+			if (!this.lastTaskReview) {
+				await this.sendMessageSafe(chatId, "No completed runs yet.", "/checks");
+				return;
+			}
+			await this.sendMessageSafe(chatId, "Running checks for last task...", "/checks");
+			const checks = await runWorkspaceChecks(this.workspaceRoot);
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: this.lastTaskReview.prompt,
+				outcome: this.lastTaskReview.outcome,
+				error: this.lastTaskReview.error,
+				checks,
+			});
+			for (const chunk of splitWhatsappText(
+				renderWhatsappTaskReview(this.lastTaskReview),
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/checks");
+			}
+			return;
+		}
+
+		if (command === "commit") {
+			if (!this.lastTaskReview?.canCommit) {
+				await this.sendMessageSafe(chatId, "No changed files from the last task.", "/commit");
+				return;
+			}
+			const message = body.replace(/^\/commit\s*/, "").trim();
+			if (!message) {
+				await this.sendMessageSafe(chatId, "Usage: /commit <message>", "/commit");
+				return;
+			}
+			const result = await commitTaskFiles({
+				workspaceRoot: this.workspaceRoot,
+				files: this.lastTaskReview.changedFiles,
+				message,
+			});
+			if (!result.ok) {
+				await this.sendMessageSafe(chatId, result.message, "/commit");
+				return;
+			}
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: this.lastTaskReview.prompt,
+				outcome: this.lastTaskReview.outcome,
+				error: this.lastTaskReview.error,
+				checks: this.lastTaskReview.checks,
+			});
+			for (const chunk of splitWhatsappText(
+				`${result.message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/commit");
+			}
+			return;
+		}
+
+		if (command === "revert") {
+			if (!this.lastTaskReview || this.lastTaskReview.changedFiles.length === 0) {
+				await this.sendMessageSafe(chatId, "No changed files from the last task.", "/revert");
+				return;
+			}
+			const result = await revertTaskFiles({
+				workspaceRoot: this.workspaceRoot,
+				files: this.lastTaskReview.changedFiles,
+			});
+			if (!result.ok) {
+				await this.sendMessageSafe(chatId, result.message, "/revert");
+				return;
+			}
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: this.lastTaskReview.prompt,
+				outcome: this.lastTaskReview.outcome,
+				error: this.lastTaskReview.error,
+				checks: this.lastTaskReview.checks,
+			});
+			for (const chunk of splitWhatsappText(
+				`${result.message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "/revert");
+			}
+			return;
+		}
+
 		if (command === "stop") {
 			this.stopCurrentTask();
 			await this.sendMessageSafe(chatId, "Stopped current run.", "/stop");
@@ -409,15 +513,35 @@ export class WhatsAppChannel implements IChannel {
 				this.pushLog("[whatsapp] task aborted");
 				return;
 			}
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: taskText,
+				outcome: "completed",
+			});
 			const chunks = splitWhatsappText(output || "Done.");
 			for (const chunk of chunks) {
 				await this.sendMessageSafe(chatId, chunk);
+			}
+			for (const chunk of splitWhatsappText(
+				renderWhatsappTaskReview(this.lastTaskReview),
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "review");
 			}
 			this.pushLog("[whatsapp] task done");
 			this.setStatus("Ready");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			await this.sock?.sendMessage(chatId, { text: `Task failed: ${message}` });
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: taskText,
+				outcome: "failed",
+				error: message,
+			});
+			for (const chunk of splitWhatsappText(
+				`Task failed: ${message}\n\n${renderWhatsappTaskReview(this.lastTaskReview)}`,
+			)) {
+				await this.sendMessageSafe(chatId, chunk, "failure");
+			}
 			this.pushLog(`[whatsapp:error] ${message}`);
 			this.setStatus("Error");
 		} finally {

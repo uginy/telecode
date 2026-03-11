@@ -16,6 +16,10 @@ describe("whatsapp message utils", () => {
 
 	it("parses commands and extracts message fields", () => {
 		expect(parseWhatsappCommand("/help")).toBe("help");
+		expect(parseWhatsappCommand("/review")).toBe("review");
+		expect(parseWhatsappCommand("/checks")).toBe("checks");
+		expect(parseWhatsappCommand("/commit chore: update")).toBe("commit");
+		expect(parseWhatsappCommand("/revert")).toBe("revert");
 		expect(parseWhatsappCommand("/run refactor")).toBe("run");
 		expect(parseWhatsappCommand("plain text")).toBeNull();
 		expect(

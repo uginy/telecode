@@ -23,9 +23,17 @@ import {
 	renderTelegramHelp,
 	renderTelegramSettings,
 	renderTelegramStatus,
+	renderTelegramTaskReview,
 } from "./presentation";
 import { TelegramTaskProgress } from "./taskProgress";
 import { createTelegramTools } from "./tools";
+import {
+	collectTaskReviewSummary,
+	commitTaskFiles,
+	revertTaskFiles,
+	runWorkspaceChecks,
+	type TaskReviewSummary,
+} from "../../extension/taskReview";
 import {
 	limitText,
 	splitPlainText,
@@ -65,6 +73,7 @@ export class TelegramChannel implements IChannel {
 	private activeTaskCleanup: (() => void) | null = null;
 
 	private lastResponse = "";
+	private lastTaskReview: TaskReviewSummary | null = null;
 	private readonly logs: string[] = [];
 	private startGeneration = 0;
 	private lastLifecycleNotice = "";
@@ -238,6 +247,94 @@ export class TelegramChannel implements IChannel {
 					return;
 				}
 				await this.replyMarkdown(ctx, this.lastResponse);
+			});
+
+			bot.command("review", async (ctx) => {
+				if (!this.lastTaskReview) {
+					await ctx.reply("No completed runs yet.");
+					return;
+				}
+				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
+			});
+
+			bot.command("checks", async (ctx) => {
+				if (!this.lastTaskReview) {
+					await ctx.reply("No completed runs yet.");
+					return;
+				}
+				await ctx.reply("Running checks for last task...");
+				const checks = await runWorkspaceChecks(this.workspaceRoot);
+				this.lastTaskReview = await collectTaskReviewSummary({
+					workspaceRoot: this.workspaceRoot,
+					prompt: this.lastTaskReview.prompt,
+					outcome: this.lastTaskReview.outcome,
+					error: this.lastTaskReview.error,
+					checks,
+				});
+				await ctx.reply(limitText(renderTelegramTaskReview(this.lastTaskReview), 4000));
+			});
+
+			bot.command("commit", async (ctx) => {
+				if (!this.lastTaskReview?.canCommit) {
+					await ctx.reply("No changed files from the last task.");
+					return;
+				}
+				const text = ctx.match;
+				const message = typeof text === "string" ? text.trim() : "";
+				if (!message) {
+					await ctx.reply("Usage: /commit <message>");
+					return;
+				}
+				const result = await commitTaskFiles({
+					workspaceRoot: this.workspaceRoot,
+					files: this.lastTaskReview.changedFiles,
+					message,
+				});
+				if (!result.ok) {
+					await ctx.reply(limitText(result.message, 4000));
+					return;
+				}
+				this.lastTaskReview = await collectTaskReviewSummary({
+					workspaceRoot: this.workspaceRoot,
+					prompt: this.lastTaskReview.prompt,
+					outcome: this.lastTaskReview.outcome,
+					error: this.lastTaskReview.error,
+					checks: this.lastTaskReview.checks,
+				});
+				await ctx.reply(
+					limitText(
+						`${result.message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
+						4000,
+					),
+				);
+			});
+
+			bot.command("revert", async (ctx) => {
+				if (!this.lastTaskReview || this.lastTaskReview.changedFiles.length === 0) {
+					await ctx.reply("No changed files from the last task.");
+					return;
+				}
+				const result = await revertTaskFiles({
+					workspaceRoot: this.workspaceRoot,
+					files: this.lastTaskReview.changedFiles,
+				});
+				if (!result.ok) {
+					await ctx.reply(limitText(result.message, 4000));
+					return;
+				}
+				this.lastTaskReview = await collectTaskReviewSummary({
+					workspaceRoot: this.workspaceRoot,
+					prompt: this.lastTaskReview.prompt,
+					outcome: this.lastTaskReview.outcome,
+					error: this.lastTaskReview.error,
+					checks: this.lastTaskReview.checks,
+				});
+				await ctx.reply(
+					limitText(
+						`${result.message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
+						4000,
+					),
+				);
 			});
 
 			bot.command("logs", async (ctx) => {
@@ -842,6 +939,11 @@ export class TelegramChannel implements IChannel {
 			await this.taskRunner.runTask(normalizedTask, images);
 
 			this.lastResponse = responseBuffer;
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: normalizedTask,
+				outcome: "completed",
+			});
 			this.isProcessing = false;
 			this.setStatus("Idle");
 			cleanupTask();
@@ -851,13 +953,27 @@ export class TelegramChannel implements IChannel {
 				progress.messageId,
 				responseBuffer,
 			);
+			await ctx.reply(
+				limitText(renderTelegramTaskReview(this.lastTaskReview), 4000),
+			);
 		} catch (error) {
 			this.isProcessing = false;
 			this.setStatus("Error");
 			cleanupTask();
 			const message = formatError(error);
 			this.pushLog(`[execute:error] ${message}`);
-			await ctx.reply(`Task failed: ${message}`);
+			this.lastTaskReview = await collectTaskReviewSummary({
+				workspaceRoot: this.workspaceRoot,
+				prompt: normalizedTask,
+				outcome: "failed",
+				error: message,
+			});
+			await ctx.reply(
+				limitText(
+					`Task failed: ${message}\n\n${renderTelegramTaskReview(this.lastTaskReview)}`,
+					4000,
+				),
+			);
 		}
 	}
 

@@ -19,6 +19,7 @@ import {
 	renderTelegramHelp,
 	renderTelegramSettings,
 	renderTelegramStatus,
+	renderTelegramTaskReview,
 } from "../src/channels/telegram/presentation";
 
 function createSettings(): TelecodeSettings {
@@ -108,6 +109,30 @@ describe("telegram presentation", () => {
 			"- Out of Workspace: YES",
 		);
 		expect(renderTelegramHelp(t)).toContain("/run <task> - run task");
+		expect(renderTelegramHelp(t)).toContain("/review - show last task summary");
+	});
+
+	it("renders task review summary", () => {
+		const text = renderTelegramTaskReview({
+			prompt: "refactor channel",
+			outcome: "completed",
+			summary: "Task completed • 2 files changed • Checks not run",
+			completedAt: new Date().toISOString(),
+			branch: "main",
+			gitAvailable: true,
+			hasChanges: true,
+			canCommit: true,
+			changedFiles: [
+				{ path: "src/a.ts", status: "modified", rawStatus: " M" },
+				{ path: "src/b.ts", status: "added", rawStatus: "A " },
+			],
+			checks: [],
+		});
+
+		expect(text).toContain("Last task completed");
+		expect(text).toContain("Files:");
+		expect(text).toContain("- modified: src/a.ts");
+		expect(text).toContain("Checks: not run");
 	});
 
 	it("parses raw api command with json params", () => {
