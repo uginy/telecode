@@ -80,6 +80,7 @@ TeleCode AI is designed to be useful from messengers first. Telegram and WhatsAp
 - `run/review/checks` for daily task execution
 - `queue/history/task/cancel` for task control
 - `commit/revert/artifacts` for result handoff
+- `memory/remember/forget` for workspace-scoped project memory
 - `git/changes/diff/logs` for lightweight remote inspection
 - `schedule` for periodic remote tasks
 
@@ -91,6 +92,8 @@ Typical examples:
 /history 10 failed
 /task last
 /artifacts last
+/memory
+/remember repo uses pnpm only
 /git status
 /schedule every 1 send me the latest git commit title
 ```
@@ -102,6 +105,8 @@ The VS Code panel remains useful for logs and local runs, but the main operation
 ```bash
 npm install       # Install dependencies
 npm run build     # Build extension
+npm test          # Run test suite
+npm run test:coverage # Run tests with coverage report
 npm run watch     # Watch mode
 ```
 
@@ -144,6 +149,7 @@ You can create recurring remote tasks directly from Telegram or WhatsApp:
 /schedule every 1 send me the current date and time
 /schedule every 5 send me the latest git commit title
 /schedule
+/schedule run 1
 /schedule pause 1
 /schedule resume 1
 /schedule remove 1
