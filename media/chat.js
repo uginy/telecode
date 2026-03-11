@@ -667,6 +667,13 @@
     return result.changedFiles.slice(0, 6).map((file) => `${file.status}: ${file.path}`).join("\n");
   }
   __name(formatFiles, "formatFiles");
+  function bindTaskResultActions() {
+    el.taskDiffBtn()?.addEventListener("click", () => cmd.showTaskDiff());
+    el.taskChecksBtn()?.addEventListener("click", () => cmd.runTaskChecks());
+    el.taskCommitBtn()?.addEventListener("click", () => cmd.commitTaskChanges());
+    el.taskRevertBtn()?.addEventListener("click", () => cmd.revertTaskChanges());
+  }
+  __name(bindTaskResultActions, "bindTaskResultActions");
   function renderTaskResultCard(result) {
     const card = el.taskResultCard();
     if (!card) {
@@ -1396,9 +1403,11 @@
   applyGroupedFilters();
   initStaticIcons();
   initTooltips();
+  bindTaskResultActions();
   bindSafeModeStrip();
   syncWhatsappAccessFields();
   updateComposerMeta();
   setControlState(el.status().textContent ?? "");
   cmd.requestSettings();
+  cmd.requestTaskResult();
 })();

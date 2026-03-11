@@ -10,6 +10,7 @@ import { replaceOutput, collapseAllGroups, expandAllGroups } from './log';
 import { readForm } from './settings';
 import { handleMessage } from './messages';
 import { makeIcon } from './icon-service';
+import { bindTaskResultActions } from './task-result';
 import { applyTooltipTranslations, initTooltips } from './tooltip-service';
 
 type PersistedState = {
@@ -573,8 +574,10 @@ updatePinFiltersButton();
 applyGroupedFilters();
 initStaticIcons();
 initTooltips();
+bindTaskResultActions();
 bindSafeModeStrip();
 syncWhatsappAccessFields();
 updateComposerMeta();
 setControlState(el.status().textContent ?? '');
 cmd.requestSettings();
+cmd.requestTaskResult();

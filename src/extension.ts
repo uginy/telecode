@@ -20,6 +20,7 @@ import { ConfigApplyScheduler } from "./extension/configApplyScheduler";
 import { DevWatchController } from "./extension/devWatchController";
 import { installLlmFetchLogger } from "./extension/fetchLogger";
 import { RuntimeController } from "./extension/runtimeController";
+import { TaskReviewController } from "./extension/taskReviewController";
 import { UiStatusController } from "./extension/uiStatusController";
 
 let chatProvider: ChatViewProvider | null = null;
@@ -31,7 +32,16 @@ const channels = new ChannelController(
 	() => chatProvider,
 	getPrimaryWorkspaceRoot,
 );
-const runtime = new RuntimeController(uiStatus, () => channels.refresh());
+const taskReview = new TaskReviewController(
+	getPrimaryWorkspaceRoot(),
+	() => chatProvider,
+	(line) => uiStatus.appendLogLine(line),
+);
+const runtime = new RuntimeController(
+	uiStatus,
+	() => channels.refresh(),
+	(options) => taskReview.captureRunResult(options),
+);
 let restoreFetchLogger: (() => void) | null = null;
 let extensionVersion = "0.0.0";
 
@@ -73,8 +83,23 @@ export function activate(context: vscode.ExtensionContext): void {
 				requestSettings: () => {
 					syncSettingsToChatView(chatProvider);
 				},
+				requestTaskResult: () => {
+					chatProvider?.setTaskResult(taskReview.getLatestResult());
+				},
 				saveSettings: async (command) => {
 					await saveSettingsFromChatView(command.settings);
+				},
+				showTaskDiff: async () => {
+					await taskReview.showDiff();
+				},
+				runTaskChecks: async () => {
+					await taskReview.runChecks();
+				},
+				commitTaskChanges: async () => {
+					await taskReview.commitLatest();
+				},
+				revertTaskChanges: async () => {
+					await taskReview.revertLatest();
 				},
 				fetchModels: async (command) => {
 					const models = await CodingAgent.fetchModelsFromApi(
@@ -154,6 +179,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	);
 
 	channels.refresh();
+	void taskReview.loadPersisted();
 	devWatchController.setup(context, {
 		onUiRefreshed: (changedFile) => {
 			chatProvider?.refresh();

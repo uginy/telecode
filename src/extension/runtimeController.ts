@@ -16,6 +16,7 @@ import {
 	saveOpenSettingsFiles,
 } from "../utils/vscodeUtils";
 import { UiStatusController, isBusyStatus } from "./uiStatusController";
+import type { TaskOutcome } from "./taskReview";
 
 export class RuntimeController {
 	private taskRunner: TaskRunner | null = null;
@@ -25,6 +26,11 @@ export class RuntimeController {
 	constructor(
 		private readonly uiStatus: UiStatusController,
 		private readonly refreshChannels: () => void,
+		private readonly onTaskSettled?: (options: {
+			prompt: string;
+			outcome: TaskOutcome;
+			error?: string;
+		}) => Promise<void>,
 	) {}
 
 	public hasRuntime(): boolean {
@@ -205,12 +211,38 @@ export class RuntimeController {
 
 		try {
 			await this.taskRunner?.runTask(prompt);
+			await this.captureTaskResult({
+				prompt,
+				outcome: "completed",
+			});
 			this.uiStatus.setLocalStatus("Ready");
 			this.uiStatus.appendLogLine("[run] done");
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			await this.captureTaskResult({
+				prompt,
+				outcome: "failed",
+				error: message,
+			});
 			this.uiStatus.appendLogLine(`[run:error] ${message}`);
 			this.uiStatus.setLocalStatus("Error");
+		}
+	}
+
+	private async captureTaskResult(options: {
+		prompt: string;
+		outcome: TaskOutcome;
+		error?: string;
+	}): Promise<void> {
+		if (!this.onTaskSettled) {
+			return;
+		}
+
+		try {
+			await this.onTaskSettled(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.uiStatus.appendLogLine(`[review:error] ${message}`);
 		}
 	}
 }

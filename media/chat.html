@@ -72,6 +72,35 @@
       </div>
       <div id="runSummaryCard" class="quick-summary" data-t="run_summary_empty">No runs yet</div>
     </div>
+    <div id="taskResultCard" class="task-result-card hidden">
+      <div class="task-result-head">
+        <div>
+          <div id="taskResultTitle" class="task-result-title">Last task</div>
+          <div id="taskResultMeta" class="task-result-meta"></div>
+        </div>
+        <div class="task-result-actions">
+          <button id="taskDiffBtn" class="quick-btn" type="button">Diff</button>
+          <button id="taskChecksBtn" class="quick-btn" type="button">Checks</button>
+          <button id="taskCommitBtn" class="quick-btn" type="button">Commit</button>
+          <button id="taskRevertBtn" class="quick-btn danger" type="button">Revert</button>
+        </div>
+      </div>
+      <div id="taskResultSummary" class="task-result-summary"></div>
+      <div class="task-result-split">
+        <div class="task-result-block">
+          <div class="task-result-label">Prompt</div>
+          <pre id="taskResultPrompt" class="task-result-pre"></pre>
+        </div>
+        <div class="task-result-block">
+          <div class="task-result-label">Changed files</div>
+          <pre id="taskResultFiles" class="task-result-pre"></pre>
+        </div>
+      </div>
+      <div class="task-result-block">
+        <div class="task-result-label">Checks</div>
+        <div id="taskResultChecks" class="task-result-value"></div>
+      </div>
+    </div>
     <div class="input-area">
       <div class="composer">
         <textarea id="prompt" data-t-placeholder="prompt_placeholder" rows="2"></textarea>

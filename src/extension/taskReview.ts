@@ -249,7 +249,7 @@ export async function buildTaskDiff(
 
 	for (const file of untrackedFiles) {
 		const targetPath = path.join(workspaceRoot, file.path);
-		let content = "";
+		let content: string;
 		try {
 			content = await fs.readFile(targetPath, "utf8");
 		} catch {

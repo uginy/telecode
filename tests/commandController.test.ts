@@ -47,7 +47,12 @@ describe("createChatViewCommandHandler", () => {
 			runTask: vi.fn(async (prompt: string) => calls.push(`run:${prompt}`)),
 			openSettings: vi.fn(() => calls.push("openSettings")),
 			requestSettings: vi.fn(() => calls.push("requestSettings")),
+			requestTaskResult: vi.fn(() => calls.push("requestTaskResult")),
 			saveSettings: vi.fn(async () => calls.push("saveSettings")),
+			showTaskDiff: vi.fn(async () => calls.push("showTaskDiff")),
+			runTaskChecks: vi.fn(async () => calls.push("runTaskChecks")),
+			commitTaskChanges: vi.fn(async () => calls.push("commitTaskChanges")),
+			revertTaskChanges: vi.fn(async () => calls.push("revertTaskChanges")),
 			fetchModels: vi.fn(async () => calls.push("fetchModels")),
 		});
 
@@ -59,7 +64,12 @@ describe("createChatViewCommandHandler", () => {
 			{ command: "runTask", prompt: "refactor me" },
 			{ command: "openSettings" },
 			{ command: "requestSettings" },
+			{ command: "requestTaskResult" },
 			{ command: "saveSettings", settings: createSettings() },
+			{ command: "showTaskDiff" },
+			{ command: "runTaskChecks" },
+			{ command: "commitTaskChanges" },
+			{ command: "revertTaskChanges" },
 			{
 				command: "fetchModels",
 				provider: "openrouter",
@@ -80,7 +90,12 @@ describe("createChatViewCommandHandler", () => {
 			"run:refactor me",
 			"openSettings",
 			"requestSettings",
+			"requestTaskResult",
 			"saveSettings",
+			"showTaskDiff",
+			"runTaskChecks",
+			"commitTaskChanges",
+			"revertTaskChanges",
 			"fetchModels",
 		]);
 	});

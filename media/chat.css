@@ -806,6 +806,13 @@ body {
   background: var(--vscode-button-background, #2f8bfd);
   border-color: transparent;
 }
+.quick-btn.danger {
+  color: var(--vscode-errorForeground, #f44747);
+}
+.quick-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
 .quick-summary {
   font-size: 10px;
   color: var(--muted);
@@ -814,6 +821,70 @@ body {
   text-overflow: ellipsis;
   text-align: right;
   min-width: 200px;
+}
+.task-result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.task-result-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.task-result-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+.task-result-meta {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.task-result-summary {
+  font-size: 11px;
+  color: var(--vscode-foreground);
+}
+.task-result-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.task-result-block {
+  min-width: 0;
+}
+.task-result-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.task-result-value {
+  font-size: 11px;
+  color: var(--vscode-foreground);
+}
+.task-result-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--vscode-foreground);
+}
+.task-result-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .grouped-node {
@@ -1323,6 +1394,20 @@ textarea:focus { border-color: var(--accent); }
   font-size: 11px;
   color: var(--muted);
   min-height: 14px;
+}
+
+@media (max-width: 860px) {
+  .task-result-head {
+    flex-direction: column;
+  }
+
+  .task-result-actions {
+    justify-content: flex-start;
+  }
+
+  .task-result-split {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────────── */
