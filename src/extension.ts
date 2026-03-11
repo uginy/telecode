@@ -553,10 +553,8 @@ async function saveSettingsFromChatView(
 
 		await config.update("provider", settings.provider, target);
 		await config.update("model", settings.model, target);
-		if (apiKey.length > 0) {
-			await config.update("apiKey", apiKey, target);
-			sessionApiKey = apiKey;
-		}
+		await config.update("apiKey", apiKey, target);
+		sessionApiKey = apiKey;
 		await config.update("baseUrl", settings.baseUrl, target);
 		await config.update("maxSteps", settings.maxSteps, target);
 		await config.update("logMaxChars", settings.logMaxChars, target);
@@ -572,9 +570,7 @@ async function saveSettingsFromChatView(
 			target,
 		);
 		await config.update("telegram.enabled", settings.telegramEnabled, target);
-		if (telegramBotToken.length > 0) {
-			await config.update("telegram.botToken", telegramBotToken, target);
-		}
+		await config.update("telegram.botToken", telegramBotToken, target);
 		await config.update("telegram.chatId", settings.telegramChatId, target);
 		await config.update("telegram.apiRoot", settings.telegramApiRoot, target);
 		await config.update(
