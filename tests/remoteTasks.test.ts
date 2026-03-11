@@ -151,4 +151,40 @@ describe("RemoteTaskManager", () => {
 		});
 		expect(renderRemoteTaskDetails(failed[0])).toContain("Source: schedule #9");
 	});
+
+	it("scopes last task lookup by chat", async () => {
+		const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "telecode-queue-"));
+		const manager = new RemoteTaskManager(workspaceRoot);
+
+		manager.registerExecutor("telegram", { start: async () => {} });
+
+		const chatOne = await manager.enqueue({
+			channel: "telegram",
+			chatId: "chat-1",
+			prompt: "task for first chat",
+		});
+		await manager.completeTask({
+			id: chatOne.task.id,
+			status: "completed",
+			summary: "first done",
+		});
+
+		const chatTwo = await manager.enqueue({
+			channel: "telegram",
+			chatId: "chat-2",
+			prompt: "task for second chat",
+		});
+		await manager.completeTask({
+			id: chatTwo.task.id,
+			status: "completed",
+			summary: "second done",
+		});
+
+		expect(
+			await manager.findTask({ kind: "last", channel: "telegram", chatId: "chat-1" }),
+		).toMatchObject({ id: chatOne.task.id });
+		expect(
+			await manager.findTask({ kind: "last", channel: "telegram", chatId: "chat-2" }),
+		).toMatchObject({ id: chatTwo.task.id });
+	});
 });

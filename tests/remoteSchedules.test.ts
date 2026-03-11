@@ -69,4 +69,30 @@ describe("RemoteScheduleManager", () => {
 		const reloaded = await manager.list({ channel: "whatsapp", chatId: "chat-1" });
 		expect(reloaded[0]?.lastTaskId).toBe(33);
 	});
+
+	it("persists paused schedules across reload", async () => {
+		const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "telecode-schedule-"));
+		const manager = new RemoteScheduleManager(workspaceRoot);
+		managers.push(manager);
+
+		const created = await manager.add({
+			channel: "telegram",
+			chatId: "chat-1",
+			prompt: "check latest commit",
+			intervalMinutes: 3,
+		});
+		await manager.pause(created.id);
+
+		const reloaded = new RemoteScheduleManager(workspaceRoot);
+		managers.push(reloaded);
+		const schedules = await reloaded.list({ channel: "telegram", chatId: "chat-1" });
+
+		expect(schedules).toHaveLength(1);
+		expect(schedules[0]).toMatchObject({
+			id: created.id,
+			status: "paused",
+			prompt: "check latest commit",
+			intervalMinutes: 3,
+		});
+	});
 });
