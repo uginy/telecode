@@ -28,7 +28,7 @@ interface RemoteScheduleExecutor {
 
 const STORE_DIR = ".telecode";
 const STORE_FILE = "remote-schedules.json";
-const MIN_INTERVAL_MINUTES = 5;
+const MIN_INTERVAL_MINUTES = 1;
 const TICK_MS = 30_000;
 
 export class RemoteScheduleManager {

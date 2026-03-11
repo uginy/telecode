@@ -27,7 +27,7 @@ describe("RemoteScheduleManager", () => {
 			prompt: "check repo",
 			intervalMinutes: 1,
 		});
-		expect(created.intervalMinutes).toBe(5);
+		expect(created.intervalMinutes).toBe(1);
 
 		const paused = await manager.pause(created.id);
 		expect(paused?.status).toBe("paused");
