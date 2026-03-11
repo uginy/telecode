@@ -25,6 +25,10 @@ export interface ExtensionCommandCallbacks {
 	promptTask: () => Promise<void>;
 	stopAgent: () => void;
 	resetSession: () => void;
+	showTaskDiff: () => Promise<void>;
+	runTaskChecks: () => Promise<void>;
+	commitTaskChanges: () => Promise<void>;
+	revertTaskChanges: () => Promise<void>;
 	setResponseStyle: (style: string, successMessage: string) => Promise<void>;
 	setLanguage: (language: string, successMessage: string) => Promise<void>;
 }
@@ -96,6 +100,22 @@ export function registerExtensionCommands(
 		vscode.commands.registerCommand(
 			"telecode.resetSession",
 			callbacks.resetSession,
+		),
+		vscode.commands.registerCommand(
+			"telecode.showTaskDiff",
+			callbacks.showTaskDiff,
+		),
+		vscode.commands.registerCommand(
+			"telecode.runTaskChecks",
+			callbacks.runTaskChecks,
+		),
+		vscode.commands.registerCommand(
+			"telecode.commitTaskChanges",
+			callbacks.commitTaskChanges,
+		),
+		vscode.commands.registerCommand(
+			"telecode.revertTaskChanges",
+			callbacks.revertTaskChanges,
 		),
 		vscode.commands.registerCommand("telecode.setStyleShort", () =>
 			callbacks.setResponseStyle(

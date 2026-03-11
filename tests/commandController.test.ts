@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+const { registerCommand } = vi.hoisted(() => ({
+	registerCommand: vi.fn(),
+}));
 vi.mock("vscode", () => ({
 	commands: {
-		registerCommand: vi.fn(),
+		registerCommand,
 	},
 }));
 
-import { createChatViewCommandHandler } from "../src/extension/commandController";
+import {
+	createChatViewCommandHandler,
+	registerExtensionCommands,
+} from "../src/extension/commandController";
 import type { ChatViewCommand, ChatViewSettings } from "../src/ui/chatViewProvider";
 
 function createSettings(): ChatViewSettings {
@@ -98,5 +104,31 @@ describe("createChatViewCommandHandler", () => {
 			"revertTaskChanges",
 			"fetchModels",
 		]);
+	});
+});
+
+describe("registerExtensionCommands", () => {
+	it("registers task review commands for command palette", () => {
+		registerCommand.mockClear();
+		registerExtensionCommands({ subscriptions: [] } as never, {
+			openChat: vi.fn(),
+			openSettings: vi.fn(),
+			startAgent: vi.fn(async () => {}),
+			promptTask: vi.fn(async () => {}),
+			stopAgent: vi.fn(),
+			resetSession: vi.fn(),
+			showTaskDiff: vi.fn(async () => {}),
+			runTaskChecks: vi.fn(async () => {}),
+			commitTaskChanges: vi.fn(async () => {}),
+			revertTaskChanges: vi.fn(async () => {}),
+			setResponseStyle: vi.fn(async () => {}),
+			setLanguage: vi.fn(async () => {}),
+		});
+
+		const ids = registerCommand.mock.calls.map((call) => call[0]);
+		expect(ids).toContain("telecode.showTaskDiff");
+		expect(ids).toContain("telecode.runTaskChecks");
+		expect(ids).toContain("telecode.commitTaskChanges");
+		expect(ids).toContain("telecode.revertTaskChanges");
 	});
 });

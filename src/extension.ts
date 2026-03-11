@@ -144,6 +144,18 @@ export function activate(context: vscode.ExtensionContext): void {
 				"TeleCode AI: Session history cleared.",
 			);
 		},
+		showTaskDiff: async () => {
+			await taskReview.showDiff();
+		},
+		runTaskChecks: async () => {
+			await taskReview.runChecks();
+		},
+		commitTaskChanges: async () => {
+			await taskReview.commitLatest();
+		},
+		revertTaskChanges: async () => {
+			await taskReview.revertLatest();
+		},
 		setResponseStyle: async (style, successMessage) => {
 			await saveOpenSettingsFiles();
 			await vscode.workspace

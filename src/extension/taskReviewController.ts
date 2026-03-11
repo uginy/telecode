@@ -55,7 +55,7 @@ export class TaskReviewController {
 
 	public async runChecks(): Promise<void> {
 		if (!this.latestResult) {
-			this.getChatView()?.notify("No completed task to check yet.");
+			this.notifyUser("No completed task to check yet.");
 			return;
 		}
 
@@ -71,11 +71,12 @@ export class TaskReviewController {
 		await saveTaskReviewSummary(this.workspaceRoot, this.latestResult);
 		this.syncToView();
 		this.appendLogLine(`[review] Checks: ${this.latestResult.summary}`);
+		this.notifyUser(`Checks finished: ${this.latestResult.summary}`);
 	}
 
 	public async showDiff(): Promise<void> {
 		if (!this.latestResult) {
-			this.getChatView()?.notify("No task result to diff yet.");
+			this.notifyUser("No task result to diff yet.");
 			return;
 		}
 
@@ -83,12 +84,23 @@ export class TaskReviewController {
 			this.workspaceRoot,
 			this.latestResult.changedFiles,
 		);
-		this.getChatView()?.appendOutput(`\n[review:diff]\n${diff}\n`);
+		const chatView = this.getChatView();
+		if (chatView) {
+			chatView.appendOutput(`\n[review:diff]\n${diff}\n`);
+			chatView.notify("Diff appended to logs.");
+			return;
+		}
+
+		const document = await vscode.workspace.openTextDocument({
+			content: diff,
+			language: "diff",
+		});
+		await vscode.window.showTextDocument(document, { preview: false });
 	}
 
 	public async commitLatest(): Promise<void> {
 		if (!this.latestResult || !this.latestResult.canCommit) {
-			this.getChatView()?.notify("No changed files to commit.");
+			this.notifyUser("No changed files to commit.");
 			return;
 		}
 
@@ -118,11 +130,12 @@ export class TaskReviewController {
 			outcome: this.latestResult.outcome,
 			error: this.latestResult.error,
 		});
+		this.notifyUser(result.message);
 	}
 
 	public async revertLatest(): Promise<void> {
 		if (!this.latestResult || this.latestResult.changedFiles.length === 0) {
-			this.getChatView()?.notify("No touched files to revert.");
+			this.notifyUser("No touched files to revert.");
 			return;
 		}
 
@@ -151,9 +164,19 @@ export class TaskReviewController {
 			outcome: this.latestResult.outcome,
 			error: this.latestResult.error,
 		});
+		this.notifyUser(result.message);
 	}
 
 	private syncToView(): void {
 		this.getChatView()?.setTaskResult(this.latestResult);
+	}
+
+	private notifyUser(message: string): void {
+		const chatView = this.getChatView();
+		if (chatView) {
+			chatView.notify(message);
+			return;
+		}
+		void vscode.window.showInformationMessage(`TeleCode AI: ${message}`);
 	}
 }

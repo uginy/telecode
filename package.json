@@ -63,6 +63,26 @@
 				"icon": "$(trash)"
 			},
 			{
+				"command": "telecode.showTaskDiff",
+				"title": "TeleCode AI: Show Last Task Diff",
+				"icon": "$(diff)"
+			},
+			{
+				"command": "telecode.runTaskChecks",
+				"title": "TeleCode AI: Run Checks For Last Task",
+				"icon": "$(check-all)"
+			},
+			{
+				"command": "telecode.commitTaskChanges",
+				"title": "TeleCode AI: Commit Last Task Changes",
+				"icon": "$(git-commit)"
+			},
+			{
+				"command": "telecode.revertTaskChanges",
+				"title": "TeleCode AI: Revert Last Task Changes",
+				"icon": "$(discard)"
+			},
+			{
 				"command": "telecode.setStyleShort",
 				"title": "TeleCode AI: Set Response Style - Short",
 				"icon": "$(comment)"
