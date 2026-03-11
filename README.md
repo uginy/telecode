@@ -27,6 +27,13 @@
 It plans, executes tools, edits files, and reports progress in a structured log UI.
 You can control it from VS Code or remotely via Telegram/WhatsApp.
 
+## 🧱 Architecture
+
+- `src/extension.ts` is intentionally thin and acts as the VS Code composition root.
+- Runtime, channels, command wiring, settings sync, fetch logging, and UI status orchestration live in focused modules under `src/extension/`.
+- Agent tools are defined in `src/tools/index.ts` and `src/tools/definitions/*`.
+- Telegram and WhatsApp channels share common runtime bootstrap logic, while channel-specific rendering and message helpers live next to each channel.
+
 ## 🚀 Features
 
 - **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.

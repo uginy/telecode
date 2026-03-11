@@ -2,6 +2,14 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [Unreleased]
+
+- **Architecture**: Reduced `src/extension.ts` to a composition root and moved lifecycle orchestration into dedicated controllers for commands, runtime, channels, config application, dev watchers, settings sync, fetch logging, and UI status handling.
+- **Channel Runtime**: Unified Telegram and WhatsApp runtime bootstrap/reuse logic behind a shared channel runtime helper to keep policy/signature behavior consistent.
+- **Telegram Maintenance**: Extracted Telegram presentation parsing and task progress/typing helpers from the channel runtime class.
+- **WhatsApp Maintenance**: Extracted WhatsApp message parsing, payload summarization, and presentation helpers from the channel runtime class.
+- **Tests**: Added regression coverage for config apply scheduling, command dispatch, shared channel runtime bootstrap, Telegram presentation/progress, and WhatsApp helper modules.
+
 ## [0.1.19]
 
 - **Native Toolchain Expansion**: Added two powerful zero-dependency tools that significantly expand autonomous capabilities:

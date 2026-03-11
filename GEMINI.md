@@ -12,9 +12,10 @@ User Request → VS Code Command → CodingAgent (pi-agent-core) → LLM Provide
 
 ### Key Components
 
-- **\`src/extension.ts\`**: The VS Code extension entry point. It registers commands, tools for the agent (Read File, Glob, Grep, Bash), and provides a basic webview interface for starting the agent and dispatching tasks.
-- **\`src/agent/codingAgent.ts\`**: A wrapper around `@mariozechner/pi-agent-core`. Handles the agent creation, initialization with tools, and prompt execution.
-- **\`src/providers/piAi.ts\`**: Integration with `@mariozechner/pi-ai` to standardize LLM interactions across different providers (OpenAI, Anthropic, Gemini, OpenRouter, etc.).
+- **\`src/extension.ts\`**: Thin VS Code composition root. It wires the webview, commands, runtime/channel controllers, settings sync, and lifecycle hooks.
+- **\`src/extension/*Controller.ts\`**: Focused controllers for commands, runtime lifecycle, channels, settings sync, fetch logging, and UI status orchestration.
+- **\`src/agent/codingAgent.ts\`**: Wrapper around `@mariozechner/pi-agent-core` that resolves provider/model setup and drives prompt execution.
+- **\`src/tools/index.ts\`** and **\`src/tools/definitions/*\`**: The canonical source for agent tools and their VS Code / workspace integrations.
 
 ## ⚠️ Core Philosophy: Agent Over Chat
 
@@ -29,8 +30,8 @@ When adding features, adhere to the autonomous agent philosophy:
 
 To add a new capability to the agent:
 
-1. Open \`src/extension.ts\`.
-2. Add a new \`AgentTool\` definition to the \`tools\` array.
+1. Open \`src/tools/index.ts\` or the relevant file under \`src/tools/definitions/\`.
+2. Add a new \`AgentTool\` definition there and keep the implementation close to the domain it belongs to.
 3. Use \`vscode.\*\` APIs for deep IDE integration, or standard Node APIs for external system access.
 4. Ensure the tool returns clear results for the agent to parse.
 
