@@ -10,12 +10,12 @@ import {
 	fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
-import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "../../agent/runtimeSession";
+import { createTaskRunner } from "../../agent/runtimeSession";
 import type { TaskRunner } from "../../agent/taskRunner";
-import type { RuntimeConfig, AgentRuntime, RuntimeEvent } from "../../engine/types";
+import type { AgentRuntime, RuntimeEvent } from "../../engine/types";
 import { readTelecodeSettings } from "../../config/settings";
-import { getEffectiveAgentPolicy } from "../../agent/runtimePolicy";
 import type { IChannel } from "../types";
+import { ensureChannelRuntime } from "../runtime";
 import { isWhatsappSenderAllowed } from "./access";
 
 const WA_MESSAGE_LIMIT = 3000;
@@ -523,25 +523,17 @@ export class WhatsAppChannel implements IChannel {
 
 	private ensureRuntime(): AgentRuntime {
 		const settings = readTelecodeSettings();
-		const policy = getEffectiveAgentPolicy(settings.agent);
-		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
-			cwd: this.workspaceRoot,
-			allowedTools: policy.allowedTools,
-			allowOutOfWorkspace: policy.allowOutOfWorkspace,
+		const ensured = ensureChannelRuntime({
+			settings: settings.agent,
+			tools: this.tools,
+			taskRunner: this.taskRunner,
+			runtimeConfigSignature: this.runtimeConfigSignature,
+			workspaceRoot: this.workspaceRoot,
+			onLog: (line) => this.pushLog(line),
+			initLogLine: `[whatsapp] initializing runtime (engine=${settings.agent.provider})`,
 		});
-
-		const signature = createRuntimeSignature(config, this.tools);
-
-		if (this.taskRunner.runtime && this.runtimeConfigSignature === signature) {
-			return this.taskRunner.runtime;
-		}
-
-		this.pushLog(
-			`[whatsapp] initializing runtime (engine=${settings.agent.provider})`,
-		);
-		const runtime = this.taskRunner.initRuntime(config, this.tools);
-		this.runtimeConfigSignature = signature;
-		return runtime;
+		this.runtimeConfigSignature = ensured.signature;
+		return ensured.runtime;
 	}
 
 	// ---------------------------------------------------------------------------

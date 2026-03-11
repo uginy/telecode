@@ -9,15 +9,14 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { readTelecodeSettings } from "../../config/settings";
 import type {
 	AgentRuntime,
-	RuntimeConfig,
 	ImageContentExt,
 } from "../../engine/types";
 import type { IChannel } from "../types";
-import { createTaskRunner, buildRuntimeConfig, createRuntimeSignature } from "../../agent/runtimeSession";
+import { createTaskRunner } from "../../agent/runtimeSession";
 import type { TaskRunner } from "../../agent/taskRunner";
-import { getEffectiveAgentPolicy } from "../../agent/runtimePolicy";
 import { saveOpenSettingsFiles } from "../../utils/vscodeUtils";
 import { i18n, type Translations } from "../../services/i18n";
+import { ensureChannelRuntime } from "../runtime";
 import { TelegramApiService } from "./api";
 import { createTelegramTools } from "./tools";
 import {
@@ -914,7 +913,6 @@ export class TelegramChannel implements IChannel {
 	private ensureRuntime(): AgentRuntime {
 		const settings = readTelecodeSettings();
 		const currentTools = this.tools;
-		const policy = getEffectiveAgentPolicy(settings.agent);
 
 		const apiService = new TelegramApiService(this.bot, (l) => this.pushLog(l));
 		const telegramTools = createTelegramTools(
@@ -924,25 +922,17 @@ export class TelegramChannel implements IChannel {
 			(l) => this.pushLog(l),
 		);
 		const allTools = [...currentTools, ...telegramTools];
-
-		const config: RuntimeConfig = buildRuntimeConfig(settings.agent, {
-			cwd: this.workspaceRoot,
-			allowedTools: policy.allowedTools,
-			allowOutOfWorkspace: policy.allowOutOfWorkspace,
+		const ensured = ensureChannelRuntime({
+			settings: settings.agent,
+			tools: allTools,
+			taskRunner: this.taskRunner,
+			runtimeConfigSignature: this.runtimeConfigSignature,
+			workspaceRoot: this.workspaceRoot,
+			onLog: (line) => this.pushLog(line),
+			initLogLine: `[telegram] initializing matching runtime (engine=${settings.agent.provider})`,
 		});
-
-		const signature = createRuntimeSignature(config, allTools);
-
-		if (this.taskRunner.runtime && this.runtimeConfigSignature === signature) {
-			return this.taskRunner.runtime;
-		}
-
-		this.pushLog(
-			`[telegram] initializing matching runtime (engine=${settings.agent.provider})`,
-		);
-		const runtime = this.taskRunner.initRuntime(config, allTools);
-		this.runtimeConfigSignature = signature;
-		return runtime;
+		this.runtimeConfigSignature = ensured.signature;
+		return ensured.runtime;
 	}
 
 	private abortRuntime(): void {
