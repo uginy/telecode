@@ -12,8 +12,11 @@ export type IncomingCommand =
 	| "task"
 	| "cancel"
 	| "logs"
+	| "git"
 	| "changes"
 	| "diff"
+	| "artifacts"
+	| "schedule"
 	| "commit"
 	| "revert"
 	| "stop"
@@ -84,8 +87,11 @@ export function parseWhatsappCommand(body: string): IncomingCommand {
 	if (body.startsWith("/task")) return "task";
 	if (body.startsWith("/cancel")) return "cancel";
 	if (body.startsWith("/logs")) return "logs";
+	if (body.startsWith("/git")) return "git";
 	if (body.startsWith("/changes")) return "changes";
 	if (body.startsWith("/diff")) return "diff";
+	if (body.startsWith("/artifacts")) return "artifacts";
+	if (body.startsWith("/schedule")) return "schedule";
 	if (body.startsWith("/commit")) return "commit";
 	if (body.startsWith("/revert")) return "revert";
 	if (body.startsWith("/stop")) return "stop";

@@ -1,9 +1,12 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { TelecodeSettings } from "../config/settings";
 import { RemoteTaskManager } from "./remoteTasks";
+import { RemoteScheduleManager } from "./remoteSchedules";
 import { TelegramChannel } from "./telegram";
 import { WhatsAppChannel } from "./whatsapp/channel";
 import type { IChannel } from "./types";
+
+const sharedSchedulers = new Map<string, RemoteScheduleManager>();
 
 function prefixChannelLog(channelId: "telegram" | "whatsapp", line: string): string {
 	const basePrefix = `[${channelId}]`;
@@ -29,6 +32,10 @@ export function createEnabledChannels(options: {
 		options.workspaceRoot,
 		(line) => options.onLog(line),
 	);
+	const remoteSchedules =
+		sharedSchedulers.get(options.workspaceRoot) ||
+		new RemoteScheduleManager(options.workspaceRoot, (line) => options.onLog(line));
+	sharedSchedulers.set(options.workspaceRoot, remoteSchedules);
 
 	if (options.settings.telegram.enabled) {
 		channels.push(
@@ -36,6 +43,7 @@ export function createEnabledChannels(options: {
 				options.tools,
 				options.workspaceRoot,
 				remoteTasks,
+				remoteSchedules,
 				(line) => options.onLog(prefixChannelLog("telegram", line)),
 				(status) => options.onStatus("telegram", status),
 			),
@@ -48,6 +56,7 @@ export function createEnabledChannels(options: {
 				options.tools,
 				options.workspaceRoot,
 				remoteTasks,
+				remoteSchedules,
 				(line) => options.onLog(prefixChannelLog("whatsapp", line)),
 				(status) => options.onStatus("whatsapp", status),
 			),

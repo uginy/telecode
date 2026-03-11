@@ -111,11 +111,14 @@ describe("telegram presentation", () => {
 		expect(renderTelegramHelp(t)).toContain("/run <task> - run task");
 		expect(renderTelegramHelp(t)).toContain("/review - show last task summary");
 		expect(renderTelegramHelp(t)).toContain("/queue - show running and queued tasks");
-		expect(renderTelegramHelp(t)).toContain("/history [N] - show recent tasks");
-		expect(renderTelegramHelp(t)).toContain("/task <id> - show task details");
+		expect(renderTelegramHelp(t)).toContain("/history [N] [status] [text] - filter recent tasks");
+		expect(renderTelegramHelp(t)).toContain("/task <id|last|active> - show task details");
 		expect(renderTelegramHelp(t)).toContain("/cancel <id> - cancel queued or running task");
+		expect(renderTelegramHelp(t)).toContain("/artifacts [id|last] - send task artifacts");
+		expect(renderTelegramHelp(t)).toContain("/schedule every <minutes> <task> - add periodic task");
 		expect(renderTelegramHelp(t)).toContain("/rerun - rerun last task prompt");
 		expect(renderTelegramHelp(t)).toContain("/resume - rerun last interrupted task");
+		expect(renderTelegramHelp(t)).toContain("/git <status|log [N]|show <ref>> - git tooling");
 	});
 
 	it("renders task review summary", () => {

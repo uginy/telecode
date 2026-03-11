@@ -25,8 +25,11 @@ describe("whatsapp message utils", () => {
 		expect(parseWhatsappCommand("/task 12")).toBe("task");
 		expect(parseWhatsappCommand("/cancel 12")).toBe("cancel");
 		expect(parseWhatsappCommand("/logs 20")).toBe("logs");
+		expect(parseWhatsappCommand("/git status")).toBe("git");
 		expect(parseWhatsappCommand("/changes")).toBe("changes");
 		expect(parseWhatsappCommand("/diff src/app.ts")).toBe("diff");
+		expect(parseWhatsappCommand("/artifacts")).toBe("artifacts");
+		expect(parseWhatsappCommand("/schedule every 15 check repo")).toBe("schedule");
 		expect(parseWhatsappCommand("/commit chore: update")).toBe("commit");
 		expect(parseWhatsappCommand("/revert")).toBe("revert");
 		expect(parseWhatsappCommand("/run refactor")).toBe("run");

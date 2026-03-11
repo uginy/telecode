@@ -11,9 +11,12 @@ describe("whatsapp presentation", () => {
 		expect(renderWhatsappHelp()).toContain("/run <task>");
 		expect(renderWhatsappHelp()).toContain("/review");
 		expect(renderWhatsappHelp()).toContain("/queue");
-		expect(renderWhatsappHelp()).toContain("/history [N]");
-		expect(renderWhatsappHelp()).toContain("/task <id>");
+		expect(renderWhatsappHelp()).toContain("/history [N] [status] [text]");
+		expect(renderWhatsappHelp()).toContain("/task <id|last|active>");
 		expect(renderWhatsappHelp()).toContain("/cancel <id>");
+		expect(renderWhatsappHelp()).toContain("/artifacts [id|last]");
+		expect(renderWhatsappHelp()).toContain("/schedule every <minutes> <task>");
+		expect(renderWhatsappHelp()).toContain("/git <status|log [N]|show <ref>>");
 		expect(renderWhatsappHelp()).toContain("/logs [N]");
 		expect(renderWhatsappHelp()).toContain("/changes");
 		expect(renderWhatsappHelp()).toContain("/diff <path>");

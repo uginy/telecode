@@ -9,12 +9,23 @@ export type RemoteTaskStatus =
 	| "failed"
 	| "interrupted"
 	| "cancelled";
+export type RemoteTaskSource = "user" | "schedule";
+
+export interface RemoteTaskArtifact {
+	kind: "review" | "checks" | "files" | "diff";
+	label: string;
+	relativePath: string;
+	fileName: string;
+	mimeType: string;
+}
 
 export interface RemoteTaskRecord {
 	id: number;
 	channel: RemoteChannelId;
 	chatId: string;
 	prompt: string;
+	source: RemoteTaskSource;
+	scheduleId?: number;
 	status: RemoteTaskStatus;
 	createdAt: string;
 	startedAt?: string;
@@ -22,7 +33,16 @@ export interface RemoteTaskRecord {
 	summary?: string;
 	error?: string;
 	responsePreview?: string;
+	artifacts?: RemoteTaskArtifact[];
 	cancelRequested?: boolean;
+}
+
+export interface RemoteTaskHistoryQuery {
+	limit?: number;
+	status?: RemoteTaskStatus;
+	channel?: RemoteChannelId;
+	chatId?: string;
+	text?: string;
 }
 
 interface RemoteTaskState {
@@ -66,6 +86,8 @@ export class RemoteTaskManager {
 		channel: RemoteChannelId;
 		chatId: string;
 		prompt: string;
+		source?: RemoteTaskSource;
+		scheduleId?: number;
 	}): Promise<{ task: RemoteTaskRecord; started: boolean; position: number }> {
 		let taskToStart: RemoteTaskRecord | null = null;
 		const result = await this.withLock(async () => {
@@ -76,6 +98,8 @@ export class RemoteTaskManager {
 				channel: options.channel,
 				chatId: options.chatId,
 				prompt: options.prompt,
+				source: options.source || "user",
+				scheduleId: options.scheduleId,
 				status: "queued",
 				createdAt: now,
 			};
@@ -102,6 +126,7 @@ export class RemoteTaskManager {
 		summary?: string;
 		error?: string;
 		responsePreview?: string;
+		artifacts?: RemoteTaskArtifact[];
 	}): Promise<void> {
 		let taskToStart: RemoteTaskRecord | null = null;
 		await this.withLock(async () => {
@@ -115,6 +140,7 @@ export class RemoteTaskManager {
 			task.summary = options.summary;
 			task.error = options.error;
 			task.responsePreview = options.responsePreview;
+			task.artifacts = options.artifacts;
 			task.finishedAt = new Date().toISOString();
 			task.cancelRequested = false;
 			if (this.state!.activeTaskId === task.id) {
@@ -214,16 +240,63 @@ export class RemoteTaskManager {
 		});
 	}
 
-	public async getHistory(limit = 10): Promise<RemoteTaskRecord[]> {
+	public async getHistory(
+		query: number | RemoteTaskHistoryQuery = 10,
+	): Promise<RemoteTaskRecord[]> {
 		return this.withLock(async () => {
 			await this.ensureLoaded();
+			const normalized =
+				typeof query === "number" ? { limit: query } : { ...query };
+			const limit =
+				typeof normalized.limit === "number" && normalized.limit > 0
+					? normalized.limit
+					: 10;
 			return this.state!.tasks
-				.filter((item) => item.status !== "queued" && item.status !== "running")
+				.filter((item) => matchesHistoryQuery(item, normalized))
 				.sort((a, b) =>
 					(b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt),
 				)
 				.slice(0, limit)
 				.map((item) => ({ ...item }));
+		});
+	}
+
+	public async findTask(options: {
+		id?: number;
+		kind?: "last" | "active";
+		channel?: RemoteChannelId;
+		chatId?: string;
+	}): Promise<RemoteTaskRecord | null> {
+		return this.withLock(async () => {
+			await this.ensureLoaded();
+			if (typeof options.id === "number") {
+				const exact = this.state!.tasks.find((item) => item.id === options.id);
+				return exact ? { ...exact } : null;
+			}
+
+			const channel = options.channel;
+			const chatId = options.chatId;
+			const filtered = this.state!.tasks.filter((item) => {
+				if (channel && item.channel !== channel) {
+					return false;
+				}
+				if (chatId && item.chatId !== chatId) {
+					return false;
+				}
+				return true;
+			});
+
+			if (options.kind === "active") {
+				const active = filtered.find((item) => item.status === "running");
+				return active ? { ...active } : null;
+			}
+
+			const last = filtered
+				.filter((item) => item.status !== "queued" && item.status !== "running")
+				.sort((a, b) =>
+					(b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt),
+				)[0];
+			return last ? { ...last } : null;
 		});
 	}
 
@@ -397,6 +470,9 @@ export function renderRemoteTaskLine(task: RemoteTaskRecord): string {
 		task.channel,
 		task.prompt.length > 70 ? `${task.prompt.slice(0, 67)}...` : task.prompt,
 	];
+	if (task.source === "schedule" && task.scheduleId) {
+		parts.push(`schedule#${task.scheduleId}`);
+	}
 	if (task.cancelRequested) {
 		parts.push("(cancelling)");
 	}
@@ -414,9 +490,20 @@ export function renderRemoteTaskDetails(task: RemoteTaskRecord): string {
 	];
 	if (task.startedAt) lines.push(`Started: ${task.startedAt}`);
 	if (task.finishedAt) lines.push(`Finished: ${task.finishedAt}`);
+	if (task.source === "schedule" && task.scheduleId) {
+		lines.push(`Source: schedule #${task.scheduleId}`);
+	}
 	if (task.summary) lines.push(`Summary: ${task.summary}`);
 	if (task.error) lines.push(`Error: ${task.error}`);
 	if (task.responsePreview) lines.push(`Preview: ${task.responsePreview}`);
+	if (task.artifacts && task.artifacts.length > 0) {
+		lines.push(
+			"Artifacts:",
+			...task.artifacts.map(
+				(artifact) => `- ${artifact.label}: ${artifact.relativePath}`,
+			),
+		);
+	}
 	return lines.join("\n");
 }
 
@@ -448,4 +535,44 @@ export function renderRemoteTaskHistory(tasks: RemoteTaskRecord[]): string {
 	return ["Recent tasks:", ...tasks.map((task) => `- ${renderRemoteTaskLine(task)}`)].join(
 		"\n",
 	);
+}
+
+function matchesHistoryQuery(
+	task: RemoteTaskRecord,
+	query: RemoteTaskHistoryQuery,
+): boolean {
+	if (query.status) {
+		if (task.status !== query.status) {
+			return false;
+		}
+	} else if (task.status === "queued" || task.status === "running") {
+		return false;
+	}
+
+	if (query.channel && task.channel !== query.channel) {
+		return false;
+	}
+
+	if (query.chatId && task.chatId !== query.chatId) {
+		return false;
+	}
+
+	if (query.text) {
+		const needle = query.text.trim().toLowerCase();
+		if (needle.length > 0) {
+			const haystack = [
+				task.prompt,
+				task.summary || "",
+				task.error || "",
+				task.responsePreview || "",
+			]
+				.join("\n")
+				.toLowerCase();
+			if (!haystack.includes(needle)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
 }

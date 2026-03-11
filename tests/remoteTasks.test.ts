@@ -113,4 +113,42 @@ describe("RemoteTaskManager", () => {
 		expect(recoveredTask?.status).toBe("interrupted");
 		expect(recoveredTask?.summary).toContain("restarted");
 	});
+
+	it("filters history and resolves last task selectors", async () => {
+		const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "telecode-queue-"));
+		const manager = new RemoteTaskManager(workspaceRoot);
+
+		manager.registerExecutor("telegram", { start: async () => {} });
+
+		const first = await manager.enqueue({
+			channel: "telegram",
+			chatId: "1",
+			prompt: "fix tests",
+			source: "schedule",
+			scheduleId: 9,
+		});
+		await manager.completeTask({
+			id: first.task.id,
+			status: "failed",
+			summary: "failed run",
+		});
+
+		const second = await manager.enqueue({
+			channel: "telegram",
+			chatId: "1",
+			prompt: "update docs",
+		});
+		await manager.completeTask({
+			id: second.task.id,
+			status: "completed",
+			summary: "docs ok",
+		});
+
+		const failed = await manager.getHistory({ status: "failed", text: "tests" });
+		expect(failed.map((task) => task.id)).toEqual([first.task.id]);
+		expect(await manager.findTask({ kind: "last", channel: "telegram", chatId: "1" })).toMatchObject({
+			id: second.task.id,
+		});
+		expect(renderRemoteTaskDetails(failed[0])).toContain("Source: schedule #9");
+	});
 });
