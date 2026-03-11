@@ -103,9 +103,10 @@ export function readTelecodeSettings(): TelecodeSettings {
 
   const allowOutOfWorkspace = config.get<boolean>('allowOutOfWorkspace', false) === true;
   const logMaxChars = readPositiveNumber(config.get<number>('logMaxChars'), 500_000);
+  const legacyChannelLogLines = config.get<number>('telegramMaxLogLines');
   const channelLogLines = readPositiveNumber(
-    config.get<number>('channelLogLines', config.get<number>('telegramMaxLogLines')),
-    300,
+    config.get<number>('channelLogLines'),
+    readPositiveNumber(legacyChannelLogLines, 300),
   );
   const statusVerbosityRaw = (config.get<string>('statusVerbosity') || 'normal').trim();
   const statusVerbosity =

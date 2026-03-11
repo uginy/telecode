@@ -203,7 +203,6 @@ function toMoonshotLlmMessages(messages: AgentMessage[]): Message[] {
 		const msg = filtered[i];
 
 		if (msg.role === "assistant") {
-			const toolCallBlocks = msg.content.filter(isToolCall);
 			const turnIds: string[] = [];
 			let turnChanged = false;
 

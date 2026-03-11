@@ -144,15 +144,17 @@ async function createZipArchive(targetPath: string, archiveName?: string): Promi
 
   try {
     await runCommand('zip', ['-r', '-q', archivePath, sourceName], sourceDir, 120_000);
-  } catch (zipError) {
-    try {
-      await runCommand('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', targetPath, archivePath], sourceDir, 120_000);
-    } catch (dittoError) {
-      const zipMessage = formatError(zipError);
-      const dittoMessage = formatError(dittoError);
-      throw new Error(`Failed to create zip archive. zip: ${zipMessage}; ditto: ${dittoMessage}`);
-    }
-  }
+	} catch (zipError) {
+		try {
+			await runCommand('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', targetPath, archivePath], sourceDir, 120_000);
+		} catch (dittoError) {
+			const zipMessage = formatError(zipError);
+			const dittoMessage = formatError(dittoError);
+			throw new Error(`Failed to create zip archive. zip: ${zipMessage}; ditto: ${dittoMessage}`, {
+				cause: dittoError,
+			});
+		}
+	}
 
   return { archivePath, tempDir };
 }

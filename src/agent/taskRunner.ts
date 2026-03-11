@@ -98,6 +98,10 @@ export class TaskRunner {
 	 * Forcefully abort the current task.
 	 */
 	public abortCurrentRun(): void {
+		this.disposeRuntime("stopped");
+	}
+
+	private disposeRuntime(finalState: TaskRunnerState): void {
 		if (this._runtime) {
 			this._runtime.abort();
 		}
@@ -108,7 +112,7 @@ export class TaskRunner {
 			this.unsubscribeEvents = null;
 		}
 		this._runtime = null;
-		this.setState("stopped");
+		this.setState(finalState);
 	}
 
 	private setState(newState: TaskRunnerState): void {
@@ -131,7 +135,8 @@ export class TaskRunner {
 						this.watchdogTimeoutMs / 1000
 					}s)`,
 				});
-				this.abortCurrentRun();
+				void this.saveHistoryAsync();
+				this.disposeRuntime("error");
 			}
 		}, 10_000); // Check every 10 seconds
 	}

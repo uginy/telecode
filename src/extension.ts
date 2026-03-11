@@ -45,8 +45,9 @@ let statusStartedAt = 0;
 let activeStatus = "Idle";
 let toolCountInRun = 0;
 let lastToolStatus = "";
-let lastRuntimeEventAt = 0;
-let lastRuntimeEventLabel = "none";
+let pendingDuplicateLogLine = "";
+let pendingDuplicateLogCount = 0;
+let pendingDuplicateLogStartedAt = 0;
 let restoreFetchLogger: (() => void) | null = null;
 let lastRenderedStatus = "";
 let lastRenderedStatusAt = 0;
@@ -60,6 +61,38 @@ const STATUS_SUPPRESSED_PREFIXES_MINIMAL = [
 	"event:",
 	"tool_execution_update:",
 ];
+
+const STATUS_SUPPRESSED_PREFIXES_NORMAL = [
+	"tools_available ",
+	"prompt_stack ",
+	"llm_config ",
+	"tool_execution_start:",
+	"tool_execution_end:",
+	"agent_start",
+	"turn_start",
+	"message_start",
+	"message_end",
+	"turn_end",
+	"agent_end",
+] as const;
+
+const CHANNEL_CONFIG_KEYS = ["telecode.telegram", "telecode.whatsapp"] as const;
+const RUNTIME_RESTART_CONFIG_KEYS = [
+	"telecode.provider",
+	"telecode.model",
+	"telecode.apiKey",
+	"telecode.baseUrl",
+	"telecode.maxSteps",
+	"telecode.logMaxChars",
+	"telecode.channelLogLines",
+	"telecode.telegramMaxLogLines",
+	"telecode.statusVerbosity",
+	"telecode.safeModeProfile",
+	"telecode.allowedTools",
+	"telecode.responseStyle",
+	"telecode.language",
+	"telecode.allowOutOfWorkspace",
+] as const;
 
 type SafeModeProfile = "strict" | "balanced" | "power";
 type EffectiveAgentPolicy = {
@@ -85,6 +118,13 @@ function getEffectiveAgentPolicy(agent: AgentSettings): EffectiveAgentPolicy {
 		allowedTools: agent.allowedTools,
 		allowOutOfWorkspace: false,
 	};
+}
+
+function affectsAnyConfiguration(
+	event: vscode.ConfigurationChangeEvent,
+	keys: readonly string[],
+): boolean {
+	return keys.some((key) => event.affectsConfiguration(key));
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -189,29 +229,13 @@ export function activate(context: vscode.ExtensionContext): void {
 			if (event.affectsConfiguration("telecode")) {
 				pendingSettingsSync = true;
 
-				if (event.affectsConfiguration("telecode.telegram")) {
-					pendingChannelsRefresh = true;
-				}
-				if (event.affectsConfiguration("telecode.whatsapp")) {
+				if (affectsAnyConfiguration(event, CHANNEL_CONFIG_KEYS)) {
 					pendingChannelsRefresh = true;
 				}
 
 				if (
 					taskRunner?.runtime &&
-					(event.affectsConfiguration("telecode.provider") ||
-						event.affectsConfiguration("telecode.model") ||
-						event.affectsConfiguration("telecode.apiKey") ||
-						event.affectsConfiguration("telecode.baseUrl") ||
-						event.affectsConfiguration("telecode.maxSteps") ||
-						event.affectsConfiguration("telecode.logMaxChars") ||
-						event.affectsConfiguration("telecode.channelLogLines") ||
-						event.affectsConfiguration("telecode.telegramMaxLogLines") ||
-						event.affectsConfiguration("telecode.statusVerbosity") ||
-						event.affectsConfiguration("telecode.safeModeProfile") ||
-						event.affectsConfiguration("telecode.allowedTools") ||
-						event.affectsConfiguration("telecode.responseStyle") ||
-						event.affectsConfiguration("telecode.language") ||
-						event.affectsConfiguration("telecode.allowOutOfWorkspace"))
+					affectsAnyConfiguration(event, RUNTIME_RESTART_CONFIG_KEYS)
 				) {
 					pendingRuntimeRestart = true;
 				}
@@ -451,9 +475,6 @@ async function runTask(task: string): Promise<void> {
 	}
 	appendLogLine(`[user] ${prompt}`);
 	setStatus("Running");
-	const startedAt = Date.now();
-	lastRuntimeEventAt = startedAt;
-	lastRuntimeEventLabel = "task_started";
 
 	try {
 		await taskRunner?.runTask(prompt);
@@ -693,9 +714,6 @@ function resolveTools(allowedTools: string[]): AgentTool[] {
 }
 
 function handleRuntimeEvent(event: RuntimeEvent): void {
-	lastRuntimeEventAt = Date.now();
-	lastRuntimeEventLabel =
-		event.type === "status" ? `status:${event.message}` : event.type;
 	if (event.type === "text_delta") {
 		appendOutput(event.delta);
 		return;
@@ -724,7 +742,7 @@ function handleRuntimeEvent(event: RuntimeEvent): void {
 		}
 		const formatted = formatRuntimeStatus(event.message);
 		const now = Date.now();
-		if (formatted === lastRenderedStatus && now - lastRenderedStatusAt < 1500) {
+		if (formatted === lastRenderedStatus && now - lastRenderedStatusAt < 8000) {
 			return;
 		}
 		lastRenderedStatus = formatted;
@@ -755,10 +773,22 @@ function shouldRenderStatus(raw: string): boolean {
 		return true;
 	}
 	if (verbosity === "normal") {
-		if (normalized.startsWith("event:")) {
+		if (
+			normalized.startsWith("event:") ||
+			STATUS_SUPPRESSED_PREFIXES_NORMAL.some((prefix) =>
+				normalized.startsWith(prefix),
+			)
+		) {
 			return false;
 		}
 		return true;
+	}
+	if (
+		STATUS_SUPPRESSED_PREFIXES_NORMAL.some((prefix) =>
+			normalized.startsWith(prefix),
+		)
+	) {
+		return false;
 	}
 	for (const prefix of STATUS_SUPPRESSED_PREFIXES_MINIMAL) {
 		if (normalized.startsWith(prefix)) {
@@ -790,13 +820,60 @@ function appendOutput(text: string): void {
 }
 
 function appendLogLine(line: string): void {
+	if (shouldCoalesceLogLine(line)) {
+		if (line === pendingDuplicateLogLine) {
+			pendingDuplicateLogCount += 1;
+			return;
+		}
+		flushDuplicateLogSummary();
+		pendingDuplicateLogLine = line;
+		pendingDuplicateLogCount = 1;
+		pendingDuplicateLogStartedAt = Date.now();
+		appendOutput(`${line}\n`);
+		return;
+	}
+	flushDuplicateLogSummary();
 	appendOutput(`${line}\n`);
+}
+
+function shouldCoalesceLogLine(line: string): boolean {
+	return (
+		line.startsWith("[status] ") ||
+		line.startsWith("[phase] ") ||
+		line.startsWith("[heartbeat] ")
+	);
+}
+
+function flushDuplicateLogSummary(): void {
+	if (pendingDuplicateLogCount <= 1 || pendingDuplicateLogLine.length === 0) {
+		pendingDuplicateLogLine = "";
+		pendingDuplicateLogCount = 0;
+		pendingDuplicateLogStartedAt = 0;
+		return;
+	}
+
+	const repeatedTimes = pendingDuplicateLogCount - 1;
+	const elapsedSec = Math.max(
+		0,
+		Math.round((Date.now() - pendingDuplicateLogStartedAt) / 1000),
+	);
+	appendOutput(
+		`[status] repeated ${repeatedTimes} more times${
+			elapsedSec > 0 ? ` over ${elapsedSec}s` : ""
+		}\n`,
+	);
+	pendingDuplicateLogLine = "";
+	pendingDuplicateLogCount = 0;
+	pendingDuplicateLogStartedAt = 0;
 }
 
 function setStatus(status: string): void {
 	activeStatus = status;
 	chatProvider?.setStatus(status);
 	syncProgressState(status);
+	if (!isBusyStatus(status)) {
+		flushDuplicateLogSummary();
+	}
 }
 
 function getPrimaryWorkspaceRoot(): string {
@@ -1065,7 +1142,8 @@ function sanitizeTelegramFetchInit(init?: unknown): unknown {
 	// undici then throws "Expected signal to be an instanceof AbortSignal".
 	// Telegram checks are short requests, so dropping signal here is safe and
 	// prevents startup from failing.
-	const { signal: _ignored, ...rest } = maybeInit;
+	const { signal, ...rest } = maybeInit;
+	void signal;
 	return rest;
 }
 

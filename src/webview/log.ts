@@ -72,17 +72,6 @@ function stripPrefix(line: string): string {
   return normalized.slice(closing + 1).trim();
 }
 
-function parseToolInvocation(line: string, prefix: '[tool:start]' | '[tool:done]' | '[tool:error]'): { name: string; details: string } {
-  const normalized = normalizeStructuredLine(line);
-  const compatiblePrefix = prefix === '[tool:done]' && normalized.startsWith('[tool:end]') ? '[tool:end]' : prefix;
-  const payload = normalized.replace(compatiblePrefix, '').trim();
-  if (payload.length === 0) {
-    return { name: 'tool', details: '' };
-  }
-  const [name, ...rest] = payload.split(/\s+/);
-  return { name, details: rest.join(' ') };
-}
-
 function parseLine(line: string): ParsedLine {
   const kind = classifyLine(line);
   const meta = LINE_META[kind];

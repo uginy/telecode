@@ -200,15 +200,16 @@ export function createWebTools(): AgentTool[] {
               returnedLength: trimmed.length,
             },
           };
-        } catch (error) {
-          if (
-            error instanceof DOMException ||
-            (error instanceof Error && error.name === "AbortError")
-          ) {
-            throw new Error(
-              `Request timed out after ${FETCH_TIMEOUT_MS}ms for ${url.toString()}`,
-            );
-          }
+	        } catch (error) {
+	          if (
+	            error instanceof DOMException ||
+	            (error instanceof Error && error.name === "AbortError")
+	          ) {
+	            throw new Error(
+	              `Request timed out after ${FETCH_TIMEOUT_MS}ms for ${url.toString()}`,
+	              { cause: error },
+	            );
+	          }
           throw error;
         } finally {
           clearTimeout(timeout);

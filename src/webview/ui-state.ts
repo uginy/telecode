@@ -31,6 +31,7 @@ export const el = {
 };
 
 let agentActive = false;
+let channelsConnected = false;
 
 function getTranslations(): Record<string, string> {
   return (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations || {};
@@ -67,7 +68,7 @@ function statusMeansAgentActive(statusText: string): boolean {
 
 function applyAgentToggle(): void {
   const button = el.agentToggleBtn();
-  if (agentActive) {
+  if (agentActive || channelsConnected) {
     setToggleVisual(button, 'on', 'stop', 'tt_toggle_agent_stop', 'Stop TeleCode (agent + channels)');
   } else {
     setToggleVisual(button, 'off', 'run', 'tt_toggle_agent_start', 'Start TeleCode (agent + channels)');
@@ -102,9 +103,8 @@ export function setAgentToggleState(active: boolean): void {
 }
 
 export function setChannelsToggleState(connected: boolean): void {
-  // channels state is still received for telemetry/logging purposes,
-  // but channel toggle is intentionally removed from top controls.
-  void connected;
+  channelsConnected = connected;
+  applyAgentToggle();
 }
 
 export function isAgentToggleOn(): boolean {

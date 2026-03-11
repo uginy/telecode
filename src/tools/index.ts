@@ -25,20 +25,6 @@ export function createWorkspaceTools(): AgentTool[] {
   ];
 }
 
-type ToolName =
-  | 'read_file'
-  | 'write_file'
-  | 'edit_file'
-  | 'glob'
-  | 'grep'
-  | 'bash'
-  | 'fetch_url'
-  | 'diagnostics'
-  | 'list_directory'
-  | 'set_working_directory'
-  | 'open_workspace'
-  | 'get_context';
-
 const TOOL_NAME_ALIASES: Record<string, string[]> = {
   read_file: ['read', 'read_file'],
   write_file: ['write', 'write_file'],

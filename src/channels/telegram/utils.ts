@@ -2,7 +2,8 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import * as vscode from 'vscode';
-import { i18n, type Translations } from '../../services/i18n';
+import { readTelecodeSettings } from '../../config/settings';
+import type { Translations } from '../../services/i18n';
 
 export const TELEGRAM_TEXT_LIMIT = 3900;
 
@@ -285,6 +286,25 @@ export function shouldLogTelegramStatus(message: string): boolean {
   }
 
   if (normalized.startsWith('event:')) {
+    return false;
+  }
+
+  const verbosity = readTelecodeSettings().agent.statusVerbosity;
+  const lowSignalPrefixes = [
+    'tools_available ',
+    'prompt_stack ',
+    'llm_config ',
+    'tool_execution_start:',
+    'tool_execution_end:',
+    'agent_start',
+    'turn_start',
+    'message_start',
+    'message_end',
+    'turn_end',
+    'agent_end',
+  ];
+
+  if (verbosity !== 'debug' && lowSignalPrefixes.some((prefix) => normalized.startsWith(prefix))) {
     return false;
   }
 

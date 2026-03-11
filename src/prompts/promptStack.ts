@@ -35,6 +35,21 @@ type LoadedLayer = {
   content: string;
 };
 
+function getBundledPromptDirectory(): string {
+  const candidates = [
+    path.resolve(__dirname, '..', 'prompts'),
+    path.resolve(__dirname, '..', '..', 'prompts'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, PROMPT_FILES[0]))) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
 function trimToolDescription(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
@@ -65,8 +80,8 @@ function formatToolInventory(tools: PromptToolDescriptor[]): string {
   return summaries.join('; ');
 }
 
-function loadPromptLayers(cwd: string): { layers: LoadedLayer[]; missing: PromptLayerName[] } {
-  const dir = path.join(cwd, 'prompts');
+function loadPromptLayers(): { layers: LoadedLayer[]; missing: PromptLayerName[] } {
+  const dir = getBundledPromptDirectory();
   const layers: LoadedLayer[] = [];
   const missing: PromptLayerName[] = [];
 
@@ -117,9 +132,10 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
   ].join(' ');
 }
 
-export function getPromptStackSignature(cwd: string): string {
+export function getPromptStackSignature(cwd?: string): string {
+  void cwd;
   const hash = crypto.createHash('sha1');
-  const dir = path.join(cwd, 'prompts');
+  const dir = getBundledPromptDirectory();
 
   for (const name of PROMPT_FILES) {
     const filePath = path.join(dir, name);
@@ -146,8 +162,8 @@ export function buildComposedSystemPrompt(options: {
   allowOutOfWorkspace?: boolean;
 }): PromptStackBuildResult {
   const cwd = typeof options.cwd === 'string' && options.cwd.trim().length > 0 ? options.cwd : process.cwd();
-  const { layers, missing } = loadPromptLayers(cwd);
-  const signature = getPromptStackSignature(cwd);
+  const { layers, missing } = loadPromptLayers();
+  const signature = getPromptStackSignature();
   const workspaceHint = cwd;
   const toolInventory = formatToolInventory(options.tools);
 

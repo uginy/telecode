@@ -35,8 +35,8 @@ function calcPos(
   tipRect: DOMRect,
   place: 'top' | 'right' | 'bottom' | 'left'
 ): { top: number; left: number; fits: boolean } {
-  let top = 0;
-  let left = 0;
+  let top: number;
+  let left: number;
   if (place === 'top') {
     top = trigger.top - tipRect.height - VIEWPORT_GAP;
     left = trigger.left + (trigger.width - tipRect.width) / 2;

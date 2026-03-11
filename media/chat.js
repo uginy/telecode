@@ -89,6 +89,7 @@
     logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles")
   };
   var agentActive = false;
+  var channelsConnected = false;
   function getTranslations() {
     return window.__tcTranslations || {};
   }
@@ -118,7 +119,7 @@
   __name(statusMeansAgentActive, "statusMeansAgentActive");
   function applyAgentToggle() {
     const button = el.agentToggleBtn();
-    if (agentActive) {
+    if (agentActive || channelsConnected) {
       setToggleVisual(button, "on", "stop", "tt_toggle_agent_stop", "Stop TeleCode (agent + channels)");
     } else {
       setToggleVisual(button, "off", "run", "tt_toggle_agent_start", "Start TeleCode (agent + channels)");
@@ -150,6 +151,8 @@
   }
   __name(setAgentToggleState, "setAgentToggleState");
   function setChannelsToggleState(connected) {
+    channelsConnected = connected;
+    applyAgentToggle();
   }
   __name(setChannelsToggleState, "setChannelsToggleState");
   function isAgentToggleOn() {
@@ -723,8 +726,8 @@
   }
   __name(placements, "placements");
   function calcPos(trigger, tipRect, place) {
-    let top = 0;
-    let left = 0;
+    let top;
+    let left;
     if (place === "top") {
       top = trigger.top - tipRect.height - VIEWPORT_GAP;
       left = trigger.left + (trigger.width - tipRect.width) / 2;

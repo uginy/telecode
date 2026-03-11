@@ -8,7 +8,6 @@ node_modules/**
 *.ts
 tests/**
 scripts/**
-prompts/**
 tsconfig.*
 .eslintrc*
 .cursor*

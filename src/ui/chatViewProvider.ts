@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CodingAgent } from "../agent/codingAgent";
 import { i18n } from "../services/i18n";
 import { readTelecodeSettings, resolveUiLanguage } from "../config/settings";
 
@@ -56,7 +55,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 	private buildInfo = "";
 	private progressText = "Idle";
 	private progressBusy = false;
-	private output = "Ready. Start the agent and run a task.";
+	private output = "Ready. Start the agent and run a task.\n";
 	private latestSettings?: ChatViewSettings;
 	private logMaxChars = DEFAULT_OUTPUT_MAX_CHARS;
 
@@ -67,9 +66,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 	resolveWebviewView(
 		webviewView: vscode.WebviewView,
-		_context: vscode.WebviewViewResolveContext,
-		_token: vscode.CancellationToken,
+		context: vscode.WebviewViewResolveContext,
+		token: vscode.CancellationToken,
 	): void {
+		void context;
+		void token;
 		this.webview = webviewView.webview;
 
 		webviewView.webview.options = {
@@ -77,7 +78,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 			localResourceRoots: [this.extensionUri],
 		};
 
-		webviewView.webview.html = this.renderHtml(webviewView.webview);
+			webviewView.webview.html = this.renderHtml();
 
 		this.post({ type: "status", text: this.status });
 		this.post({ type: "channelsState", connected: this.channelsConnected });
@@ -311,7 +312,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		if (!this.webview) {
 			return;
 		}
-		this.webview.html = this.renderHtml(this.webview);
+		this.webview.html = this.renderHtml();
 		this.post({ type: "status", text: this.status });
 		this.post({ type: "channelsState", connected: this.channelsConnected });
 		this.post({ type: "buildInfo", text: this.buildInfo });
@@ -333,7 +334,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		this.webview?.postMessage(message);
 	}
 
-	private renderHtml(_webview: vscode.Webview): string {
+	private renderHtml(): string {
 		const nonce = createNonce();
 		const mediaPath = join(__dirname, "..", "media");
 

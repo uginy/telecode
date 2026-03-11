@@ -1,7 +1,10 @@
 import * as vscode from "vscode";
-import * as fs from "node:fs/promises";
 import * as https from "node:https";
 import { Bot, type Context } from "grammy";
+import type {
+	RequestInit as NodeFetchRequestInit,
+	Response as NodeFetchResponse,
+} from "node-fetch";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { readTelecodeSettings } from "../../config/settings";
 import type {
@@ -64,11 +67,11 @@ export class TelegramChannel implements IChannel {
 		private readonly tools: AgentTool[],
 		private readonly onLog?: (line: string) => void,
 		private readonly onStatus?: (status: string) => void,
-	) {
-		this.taskRunner = new TaskRunner(
-			(_event) => {
-				// Events will be forwarded in executeTask
-			},
+		) {
+			this.taskRunner = new TaskRunner(
+				() => {
+					// Events will be forwarded in executeTask
+				},
 			(state) => {
 				if (state === "error" || state === "idle" || state === "stopped") {
 					this.isProcessing = false;
@@ -504,12 +507,12 @@ export class TelegramChannel implements IChannel {
 		return new Bot(botToken, {
 			client: {
 				...(apiRoot ? { apiRoot } : {}),
-				fetch: async (
-					input: string | URL | Request,
-					init?: RequestInit,
-				): Promise<Response> => {
-					const normalized = this.normalizeTelegramFetch(input, init);
-					return fetch(normalized.input, normalized.init);
+				fetch: async (input, init?: NodeFetchRequestInit): Promise<NodeFetchResponse> => {
+					const normalized = this.normalizeTelegramFetch(
+						input as string | URL | Request,
+						init as unknown as RequestInit | undefined,
+					);
+					return (fetch(normalized.input, normalized.init) as unknown) as NodeFetchResponse;
 				},
 				baseFetchConfig: {
 					agent: httpsAgent,
@@ -709,13 +712,12 @@ export class TelegramChannel implements IChannel {
 
 		this.isProcessing = true;
 		this.lastActivityAt = Date.now();
-		this.currentChatId = typeof ctx.chat?.id === "number" ? ctx.chat.id : null;
-		this.setStatus("Running");
-		let responseBuffer = "";
-		const statusMessage = await ctx.reply(t.tg_studying_request);
-		const startedAt = Date.now();
+			this.currentChatId = typeof ctx.chat?.id === "number" ? ctx.chat.id : null;
+			this.setStatus("Running");
+			let responseBuffer = "";
+			const statusMessage = await ctx.reply(t.tg_studying_request);
 
-		const STATUS_THROTTLE_MS = 4_000;
+			const STATUS_THROTTLE_MS = 4_000;
 		let lastEditTime = Date.now();
 		let pendingFlush: NodeJS.Timeout | null = null;
 		let pendingText = "";
@@ -824,7 +826,7 @@ export class TelegramChannel implements IChannel {
 			unsubscribe = runtime.onEvent((event) => {
 				if (event.type === "text_delta") {
 					responseBuffer += event.delta;
-					setPhase("Writing response");
+					setPhase(t.tg_phase_writing);
 					this.setStatus("Thinking");
 				}
 
@@ -855,9 +857,9 @@ export class TelegramChannel implements IChannel {
 						}`,
 					);
 					if (event.isError) {
-						setPhase(`Tool error: ${event.toolName}`);
+						setPhase(`${t.tg_phase_tool_error} ${event.toolName}`);
 					} else {
-						setPhase("Reviewing tool result");
+						setPhase(t.tg_phase_reviewing_tool);
 					}
 				}
 
@@ -872,12 +874,12 @@ export class TelegramChannel implements IChannel {
 				}
 
 				if (event.type === "error") {
-					setPhase("Runtime error");
+					setPhase(t.tg_phase_runtime_error);
 					this.pushLog(`[error] ${event.message}`);
 				}
 
 				if (event.type === "done") {
-					setPhase("Finalising response");
+					setPhase(t.tg_phase_finalizing);
 					this.setStatus("Idle");
 					this.pushLog("[done]");
 				}
@@ -1082,6 +1084,9 @@ export class TelegramChannel implements IChannel {
 	}
 
 	private pushLog(line: string): void {
+		if (line.startsWith("[telegram:debug]") && !this.shouldEmitDebugLogs()) {
+			return;
+		}
 		const entry = `[${new Date().toLocaleTimeString()}] ${line}`;
 		this.logs.push(entry);
 		const maxLines = Math.max(
@@ -1090,6 +1095,10 @@ export class TelegramChannel implements IChannel {
 		);
 		while (this.logs.length > maxLines) this.logs.shift();
 		if (this.onLog) this.onLog(entry);
+	}
+
+	private shouldEmitDebugLogs(): boolean {
+		return readTelecodeSettings().agent.statusVerbosity === "debug";
 	}
 
 	private setStatus(status: string): void {
@@ -1124,13 +1133,13 @@ export class TelegramChannel implements IChannel {
 		if (firstSpace === -1) return { method: input, params: {} };
 		const method = input.slice(0, firstSpace).trim();
 		const rawJson = input.slice(firstSpace + 1).trim();
-		try {
-			const params = rawJson ? JSON.parse(rawJson) : {};
-			return { method, params };
-		} catch (e) {
-			throw new Error(`Invalid JSON params: ${formatError(e)}`);
+			try {
+				const params = rawJson ? JSON.parse(rawJson) : {};
+				return { method, params };
+			} catch (e) {
+				throw new Error(`Invalid JSON params: ${formatError(e)}`, { cause: e });
+			}
 		}
-	}
 
 	private cleanupActiveTask(): void {
 		if (this.activeTaskCleanup) {

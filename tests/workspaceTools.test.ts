@@ -14,11 +14,17 @@ vi.mock('vscode', () => {
     },
     Uri: {
       file: (f: string) => ({ fsPath: f })
+    },
+    DiagnosticSeverity: {
+      Error: 0,
+      Warning: 1,
+      Information: 2,
+      Hint: 3,
     }
   };
 });
 
-import { getWorkspaceRoot, createWorkspaceTools } from '../src/tools/workspaceTools';
+import { getWorkspaceRoot, createWorkspaceTools } from '../src/tools';
 
 describe('Workspace Tools', () => {
   it('getWorkspaceRoot returns mocked workspace folder', () => {

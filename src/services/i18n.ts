@@ -153,6 +153,10 @@ export interface Translations {
   tg_phase_using_tools: string;
   tg_phase_finalizing: string;
   tg_phase_done: string;
+  tg_phase_writing: string;
+  tg_phase_reviewing_tool: string;
+  tg_phase_tool_error: string;
+  tg_phase_runtime_error: string;
   tg_tool_searching: string;
   tg_tool_editing: string;
   tg_tool_executing: string;
@@ -331,6 +335,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_phase_using_tools: 'Использую инструменты...',
     tg_phase_finalizing: 'Завершаю работу...',
     tg_phase_done: 'Готово, отправляю!',
+    tg_phase_writing: 'Пишу ответ...',
+    tg_phase_reviewing_tool: 'Проверяю результат инструмента...',
+    tg_phase_tool_error: 'Инструмент завершился с ошибкой...',
+    tg_phase_runtime_error: 'Произошла ошибка рантайма...',
     tg_tool_searching: 'Поиск и анализ кода',
     tg_tool_editing: 'Фикшу баг и вношу правки',
     tg_tool_executing: 'Запускаю команды и проверяю проект',
@@ -507,6 +515,10 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tg_phase_using_tools: 'Using tools...',
     tg_phase_finalizing: 'Finalizing...',
     tg_phase_done: 'Done, sending!',
+    tg_phase_writing: 'Writing response...',
+    tg_phase_reviewing_tool: 'Reviewing tool result...',
+    tg_phase_tool_error: 'Tool error...',
+    tg_phase_runtime_error: 'Runtime error...',
     tg_tool_searching: 'Searching and analyzing code',
     tg_tool_editing: 'Fixing bugs and making edits',
     tg_tool_executing: 'Running commands and checking project',

@@ -371,6 +371,7 @@
 		"release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@mariozechner/pi-agent-core": "^0.54.0",
 		"@mariozechner/pi-ai": "^0.54.0",
 		"@types/markdown-it": "^14.1.2",
@@ -379,7 +380,10 @@
 		"@types/vscode": "^1.107.0",
 		"@vscode/vsce": "^3.7.1",
 		"esbuild": "^0.24.0",
+		"eslint": "^10.0.3",
+		"globals": "^17.4.0",
 		"typescript": "^5.7.0",
+		"typescript-eslint": "^8.57.0",
 		"vitest": "^4.0.18"
 	},
 	"dependencies": {

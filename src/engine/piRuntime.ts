@@ -45,7 +45,6 @@ export class PiRuntime implements AgentRuntime {
       type: 'status',
       message: `llm_config api=${modelInfo.api} provider=${modelInfo.provider} model=${modelInfo.id} baseUrl=${modelInfo.baseUrl}`,
     });
-    // @ts-ignore pi-agent-core Agent.prompt supports images parameter
     await this.agent.prompt(message, images);
   }
 
@@ -116,7 +115,6 @@ export class PiRuntime implements AgentRuntime {
     }
 
     if (event.type === 'tool_execution_update') {
-      this.emit({ type: 'status', message: `tool_execution_update:${event.toolName}` });
       return;
     }
 

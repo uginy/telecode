@@ -1,7 +1,7 @@
 import { Bot, InputFile } from 'grammy';
 import * as path from 'node:path';
 import { readTelecodeSettings } from '../../config/settings';
-import { isRecord, resolveExistingPath, buildMissingPathError, formatError } from './utils';
+import { isRecord, resolveExistingPath, buildMissingPathError } from './utils';
 
 export const TELEGRAM_MAX_DOCUMENT_BYTES = 49 * 1024 * 1024;
 
