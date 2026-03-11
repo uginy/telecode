@@ -28,6 +28,17 @@ export const el = {
   viewGroupedBtn:     () => document.getElementById('viewGroupedBtn')! as HTMLButtonElement,
   viewListBtn:     () => document.getElementById('viewListBtn')! as HTMLButtonElement,
   logViewToggles:  () => document.getElementById('logViewToggles')!,
+  taskResultCard:  () => document.getElementById('taskResultCard'),
+  taskResultTitle: () => document.getElementById('taskResultTitle')!,
+  taskResultSummary: () => document.getElementById('taskResultSummary')!,
+  taskResultMeta: () => document.getElementById('taskResultMeta')!,
+  taskResultPrompt: () => document.getElementById('taskResultPrompt')!,
+  taskResultFiles: () => document.getElementById('taskResultFiles')!,
+  taskResultChecks: () => document.getElementById('taskResultChecks')!,
+  taskDiffBtn: () => document.getElementById('taskDiffBtn')! as HTMLButtonElement,
+  taskChecksBtn: () => document.getElementById('taskChecksBtn')! as HTMLButtonElement,
+  taskCommitBtn: () => document.getElementById('taskCommitBtn')! as HTMLButtonElement,
+  taskRevertBtn: () => document.getElementById('taskRevertBtn')! as HTMLButtonElement,
 };
 
 let agentActive = false;

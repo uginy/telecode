@@ -15,7 +15,12 @@
     disconnectChannels: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "disconnectChannels" }), "disconnectChannels"),
     runTask: /* @__PURE__ */ __name((prompt) => vscode_api_default.postMessage({ command: "runTask", prompt }), "runTask"),
     requestSettings: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "requestSettings" }), "requestSettings"),
+    requestTaskResult: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "requestTaskResult" }), "requestTaskResult"),
     saveSettings: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "saveSettings", settings }), "saveSettings"),
+    showTaskDiff: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "showTaskDiff" }), "showTaskDiff"),
+    runTaskChecks: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "runTaskChecks" }), "runTaskChecks"),
+    commitTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "commitTaskChanges" }), "commitTaskChanges"),
+    revertTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "revertTaskChanges" }), "revertTaskChanges"),
     fetchModels: /* @__PURE__ */ __name((provider, baseUrl, apiKey) => vscode_api_default.postMessage({ command: "fetchModels", provider, baseUrl, apiKey }), "fetchModels")
   };
 
@@ -86,7 +91,18 @@
     settingsNavItems: /* @__PURE__ */ __name(() => document.querySelectorAll(".settings-nav-item"), "settingsNavItems"),
     viewGroupedBtn: /* @__PURE__ */ __name(() => document.getElementById("viewGroupedBtn"), "viewGroupedBtn"),
     viewListBtn: /* @__PURE__ */ __name(() => document.getElementById("viewListBtn"), "viewListBtn"),
-    logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles")
+    logViewToggles: /* @__PURE__ */ __name(() => document.getElementById("logViewToggles"), "logViewToggles"),
+    taskResultCard: /* @__PURE__ */ __name(() => document.getElementById("taskResultCard"), "taskResultCard"),
+    taskResultTitle: /* @__PURE__ */ __name(() => document.getElementById("taskResultTitle"), "taskResultTitle"),
+    taskResultSummary: /* @__PURE__ */ __name(() => document.getElementById("taskResultSummary"), "taskResultSummary"),
+    taskResultMeta: /* @__PURE__ */ __name(() => document.getElementById("taskResultMeta"), "taskResultMeta"),
+    taskResultPrompt: /* @__PURE__ */ __name(() => document.getElementById("taskResultPrompt"), "taskResultPrompt"),
+    taskResultFiles: /* @__PURE__ */ __name(() => document.getElementById("taskResultFiles"), "taskResultFiles"),
+    taskResultChecks: /* @__PURE__ */ __name(() => document.getElementById("taskResultChecks"), "taskResultChecks"),
+    taskDiffBtn: /* @__PURE__ */ __name(() => document.getElementById("taskDiffBtn"), "taskDiffBtn"),
+    taskChecksBtn: /* @__PURE__ */ __name(() => document.getElementById("taskChecksBtn"), "taskChecksBtn"),
+    taskCommitBtn: /* @__PURE__ */ __name(() => document.getElementById("taskCommitBtn"), "taskCommitBtn"),
+    taskRevertBtn: /* @__PURE__ */ __name(() => document.getElementById("taskRevertBtn"), "taskRevertBtn")
   };
   var agentActive = false;
   var channelsConnected = false;
@@ -636,6 +652,47 @@
   }
   __name(writeForm, "writeForm");
 
+  // src/webview/task-result.ts
+  function formatCheckList(result) {
+    if (result.checks.length === 0) {
+      return "Checks: not run";
+    }
+    return result.checks.map((check) => `${check.label}: ${check.status}${check.summary ? ` (${check.summary})` : ""}`).join(" \u2022 ");
+  }
+  __name(formatCheckList, "formatCheckList");
+  function formatFiles(result) {
+    if (result.changedFiles.length === 0) {
+      return "No changed files";
+    }
+    return result.changedFiles.slice(0, 6).map((file) => `${file.status}: ${file.path}`).join("\n");
+  }
+  __name(formatFiles, "formatFiles");
+  function renderTaskResultCard(result) {
+    const card = el.taskResultCard();
+    if (!card) {
+      return;
+    }
+    if (!result) {
+      card.classList.add("hidden");
+      return;
+    }
+    card.classList.remove("hidden");
+    el.taskResultTitle().textContent = result.outcome === "completed" ? "Last task completed" : "Last task failed";
+    el.taskResultSummary().textContent = result.summary;
+    el.taskResultMeta().textContent = [
+      result.branch ? `branch: ${result.branch}` : "branch: -",
+      `at: ${new Date(result.completedAt).toLocaleString()}`
+    ].join(" \u2022 ");
+    el.taskResultPrompt().textContent = result.prompt;
+    el.taskResultFiles().textContent = formatFiles(result);
+    el.taskResultChecks().textContent = formatCheckList(result);
+    el.taskDiffBtn().disabled = result.changedFiles.length === 0;
+    el.taskChecksBtn().disabled = false;
+    el.taskCommitBtn().disabled = !result.canCommit;
+    el.taskRevertBtn().disabled = result.changedFiles.length === 0;
+  }
+  __name(renderTaskResultCard, "renderTaskResultCard");
+
   // src/webview/messages.ts
   function handleMessage(raw) {
     const msg = raw;
@@ -673,6 +730,9 @@
         break;
       case "settings":
         if (msg.settings) writeForm(msg.settings);
+        break;
+      case "taskResult":
+        renderTaskResultCard(msg.result);
         break;
       case "activateTab":
         if (msg.tab === "settings") setTab("settings");

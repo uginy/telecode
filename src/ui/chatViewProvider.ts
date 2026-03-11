@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { i18n } from "../services/i18n";
 import { readTelecodeSettings, resolveUiLanguage } from "../config/settings";
+import type { TaskReviewSummary } from "../extension/taskReview";
 
 export type ChatViewCommand =
 	| { command: "startAgent" }
@@ -12,7 +13,12 @@ export type ChatViewCommand =
 	| { command: "runTask"; prompt: string }
 	| { command: "openSettings" }
 	| { command: "requestSettings" }
+	| { command: "requestTaskResult" }
 	| { command: "saveSettings"; settings: ChatViewSettings }
+	| { command: "showTaskDiff" }
+	| { command: "runTaskChecks" }
+	| { command: "commitTaskChanges" }
+	| { command: "revertTaskChanges" }
 	| {
 			command: "fetchModels";
 			provider: string;
@@ -57,6 +63,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 	private progressBusy = false;
 	private output = "Ready. Start the agent and run a task.\n";
 	private latestSettings?: ChatViewSettings;
+	private latestTaskResult: TaskReviewSummary | null = null;
 	private logMaxChars = DEFAULT_OUTPUT_MAX_CHARS;
 
 	private readonly commandEmitter = new vscode.EventEmitter<ChatViewCommand>();
@@ -92,6 +99,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		if (this.latestSettings) {
 			this.post({ type: "settings", settings: this.latestSettings });
 		}
+		this.post({ type: "taskResult", result: this.latestTaskResult });
 
 		webviewView.webview.onDidReceiveMessage((message: unknown) => {
 			if (!message || typeof message !== "object") {
@@ -128,6 +136,26 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 			if (command === "requestSettings") {
 				this.commandEmitter.fire({ command: "requestSettings" });
+			}
+
+			if (command === "requestTaskResult") {
+				this.commandEmitter.fire({ command: "requestTaskResult" });
+			}
+
+			if (command === "showTaskDiff") {
+				this.commandEmitter.fire({ command: "showTaskDiff" });
+			}
+
+			if (command === "runTaskChecks") {
+				this.commandEmitter.fire({ command: "runTaskChecks" });
+			}
+
+			if (command === "commitTaskChanges") {
+				this.commandEmitter.fire({ command: "commitTaskChanges" });
+			}
+
+			if (command === "revertTaskChanges") {
+				this.commandEmitter.fire({ command: "revertTaskChanges" });
 			}
 
 			if (command === "fetchModels") {
@@ -308,6 +336,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		this.post({ type: "modelList", models });
 	}
 
+	setTaskResult(result: TaskReviewSummary | null): void {
+		this.latestTaskResult = result;
+		this.post({ type: "taskResult", result });
+	}
+
 	refresh(): void {
 		if (!this.webview) {
 			return;
@@ -325,6 +358,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		if (this.latestSettings) {
 			this.post({ type: "settings", settings: this.latestSettings });
 		}
+		this.post({ type: "taskResult", result: this.latestTaskResult });
 		const settings = readTelecodeSettings();
 		i18n.setLanguage(resolveUiLanguage(settings.agent.uiLanguage));
 		this.post({ type: "translate", translations: i18n.getTranslations() });

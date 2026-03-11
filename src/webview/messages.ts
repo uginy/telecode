@@ -7,6 +7,8 @@ import { setStatus, setPhaseText, setControlState, setChannelsToggleState, setTa
 import { appendOutput, replaceOutput, clearOutput, appendLine } from './log';
 import { writeForm } from './settings';
 import type { Settings } from './commands';
+import { renderTaskResultCard } from './task-result';
+import type { TaskReviewSummary } from '../extension/taskReview';
 
 type IncomingMessage =
   | { type: 'status';   text: string }
@@ -17,6 +19,7 @@ type IncomingMessage =
   | { type: 'clearOutput' }
   | { type: 'notify';   text: string }
   | { type: 'settings'; settings: Settings }
+  | { type: 'taskResult'; result: TaskReviewSummary | null }
   | { type: 'activateTab'; tab: string }
   | { type: 'modelList'; models: string[] }
   | { type: 'buildInfo'; text: string }
@@ -70,6 +73,10 @@ export function handleMessage(raw: unknown): void {
 
     case 'settings':
       if (msg.settings) writeForm(msg.settings);
+      break;
+
+    case 'taskResult':
+      renderTaskResultCard(msg.result);
       break;
 
     case 'activateTab':

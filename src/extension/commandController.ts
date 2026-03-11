@@ -9,7 +9,12 @@ export interface ChatCommandCallbacks {
 	runTask: (prompt: string) => Promise<void>;
 	openSettings: () => void;
 	requestSettings: () => void;
+	requestTaskResult: () => void;
 	saveSettings: (command: Extract<ChatViewCommand, { command: "saveSettings" }>) => Promise<void>;
+	showTaskDiff: () => Promise<void>;
+	runTaskChecks: () => Promise<void>;
+	commitTaskChanges: () => Promise<void>;
+	revertTaskChanges: () => Promise<void>;
 	fetchModels: (command: Extract<ChatViewCommand, { command: "fetchModels" }>) => Promise<void>;
 }
 
@@ -50,8 +55,23 @@ export function createChatViewCommandHandler(
 			case "requestSettings":
 				callbacks.requestSettings();
 				return;
+			case "requestTaskResult":
+				callbacks.requestTaskResult();
+				return;
 			case "saveSettings":
 				await callbacks.saveSettings(command);
+				return;
+			case "showTaskDiff":
+				await callbacks.showTaskDiff();
+				return;
+			case "runTaskChecks":
+				await callbacks.runTaskChecks();
+				return;
+			case "commitTaskChanges":
+				await callbacks.commitTaskChanges();
+				return;
+			case "revertTaskChanges":
+				await callbacks.revertTaskChanges();
 				return;
 			case "fetchModels":
 				await callbacks.fetchModels(command);

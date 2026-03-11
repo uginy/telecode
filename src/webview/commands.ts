@@ -34,7 +34,12 @@ export const cmd = {
   disconnectChannels: () => api.postMessage({ command: 'disconnectChannels' }),
   runTask:         (prompt: string) => api.postMessage({ command: 'runTask', prompt }),
   requestSettings: () => api.postMessage({ command: 'requestSettings' }),
+  requestTaskResult: () => api.postMessage({ command: 'requestTaskResult' }),
   saveSettings:    (settings: Settings) => api.postMessage({ command: 'saveSettings', settings }),
+  showTaskDiff:    () => api.postMessage({ command: 'showTaskDiff' }),
+  runTaskChecks:   () => api.postMessage({ command: 'runTaskChecks' }),
+  commitTaskChanges: () => api.postMessage({ command: 'commitTaskChanges' }),
+  revertTaskChanges: () => api.postMessage({ command: 'revertTaskChanges' }),
   fetchModels:     (provider: string, baseUrl: string, apiKey: string) => 
                    api.postMessage({ command: 'fetchModels', provider, baseUrl, apiKey }),
 };
