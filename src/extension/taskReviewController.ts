@@ -40,7 +40,6 @@ export class TaskReviewController {
 		outcome: TaskOutcome;
 		error?: string;
 	}): Promise<void> {
-		await clearTaskRunMarker(this.workspaceRoot);
 		const checks = this.latestResult?.prompt === options.prompt
 			? this.latestResult.checks
 			: [];
@@ -51,6 +50,7 @@ export class TaskReviewController {
 			error: options.error,
 			checks,
 		});
+		await clearTaskRunMarker(this.workspaceRoot);
 		await saveTaskReviewSummary(this.workspaceRoot, this.latestResult);
 		this.syncToView();
 		this.appendLogLine(`[review] ${this.latestResult.summary}`);
@@ -74,6 +74,7 @@ export class TaskReviewController {
 			outcome: this.latestResult.outcome,
 			error: this.latestResult.error,
 			checks,
+			previousReview: this.latestResult,
 		});
 		await saveTaskReviewSummary(this.workspaceRoot, this.latestResult);
 		this.syncToView();
@@ -143,6 +144,7 @@ export class TaskReviewController {
 		const result = await commitTaskFiles({
 			workspaceRoot: this.workspaceRoot,
 			files: this.latestResult.changedFiles,
+			changeSnapshot: this.latestResult.changeSnapshot,
 			message: message.trim(),
 		});
 		if (!result.ok) {
@@ -178,6 +180,7 @@ export class TaskReviewController {
 		const result = await revertTaskFiles({
 			workspaceRoot: this.workspaceRoot,
 			files: this.latestResult.changedFiles,
+			changeSnapshot: this.latestResult.changeSnapshot,
 		});
 		if (!result.ok) {
 			this.appendLogLine(`[review:error] ${result.message}`);

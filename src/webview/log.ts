@@ -87,7 +87,16 @@ function parseLine(line: string): ParsedLine {
     }
     if (source === 'WHATSAPP' && tag === 'qrsvg') {
       const body = bodyRaw.trim();
-      const variant = body.startsWith('PHN2Zy') ? 'whatsapp-qr-svg' : 'whatsapp-qr-note';
+      let isSvg = body.startsWith('PHN2Zy') || body.startsWith('PD94');
+      if (!isSvg && body.length > 0) {
+        try {
+          const decoded = atob(body).trim();
+          isSvg = decoded.includes('<svg') || decoded.startsWith('<?xml');
+        } catch {
+          isSvg = false;
+        }
+      }
+      const variant = isSvg ? 'whatsapp-qr-svg' : 'whatsapp-qr-note';
       return {
         kind,
         message: body.length > 0 ? body : normalized,

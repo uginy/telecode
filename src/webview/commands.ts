@@ -42,6 +42,7 @@ export const cmd = {
   resumeTaskChanges: () => api.postMessage({ command: 'resumeTaskChanges' }),
   commitTaskChanges: () => api.postMessage({ command: 'commitTaskChanges' }),
   revertTaskChanges: () => api.postMessage({ command: 'revertTaskChanges' }),
+  testConnection: (settings: Settings) => api.postMessage({ command: 'testConnection', provider: settings.provider, model: settings.model, baseUrl: settings.baseUrl, apiKey: settings.apiKey }),
   fetchModels:     (provider: string, baseUrl: string, apiKey: string) => 
                    api.postMessage({ command: 'fetchModels', provider, baseUrl, apiKey }),
 };

@@ -49,6 +49,8 @@ export interface Translations {
   tt_clear_filters: string;
   tt_save_settings: string;
   tt_fetch_models: string;
+  btn_test_connection: string;
+  test_connection_hint: string;
   btn_view_grouped: string;
   btn_view_list: string;
   btn_collapse_all: string;
@@ -95,6 +97,8 @@ export interface Translations {
   field_api_key_hint: string;
   field_model: string;
   field_model_hint: string;
+  model_no_matches: string;
+  model_free_only: string;
   field_response_style: string;
   field_response_style_hint: string;
   field_language: string;
@@ -235,7 +239,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_safe_mode: 'Профиль прав агента',
     tt_clear_filters: 'Сбросить фильтры логов',
     tt_save_settings: 'Сохранить настройки',
-    tt_fetch_models: 'Получить модели от API',
+    tt_fetch_models: 'Загрузить модели',
+    btn_test_connection: 'Проверить подключение',
+    test_connection_hint: 'Один короткий запрос к выбранной модели без файлов проекта. Может тарифицироваться провайдером.',
     btn_view_grouped: 'Группа',
     btn_view_list: 'Список',
     btn_collapse_all: 'Свернуть всё',
@@ -264,7 +270,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_card_tools_text: 'Инструменты workspace для чтения/редактирования, поиска по коду и shell-команд.',
     about_feature_agent: 'Автономный агентный цикл: планирует, использует инструменты и доводит задачу до конца.',
     about_feature_files: 'Нативный coding-toolchain: read/write/edit, glob/grep, bash и контекст workspace.',
-    about_feature_terminal: 'Безопасное выполнение команд и прозрачные логи выполнения.',
+    about_feature_terminal: 'Выполнение shell-команд с таймаутом и прозрачными логами.',
     about_feature_remote: 'Удалённое управление через Telegram и WhatsApp, пока VS Code открыт на вашей машине.',
     about_feature_multimodal: 'Поддержка нескольких LLM-провайдеров: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Полная многоязычность (интерфейс и ответы агента).',
@@ -276,9 +282,11 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_base_url: 'Base URL',
     field_base_url_hint: 'Кастомный эндпоинт API. Оставьте пустым для значений по умолчанию.',
     field_api_key: 'API Key',
-    field_api_key_hint: 'Секретный ключ провайдера. Никогда не передается третьим лицам.',
+    field_api_key_hint: 'Безопасно хранится в VS Code. Используется для запросов к выбранному провайдеру.',
     field_model: 'Модель',
-    field_model_hint: 'ID модели (например: gpt-4o, claude-opus-4-5).',
+    field_model_hint: 'Начните вводить название. ↑ ↓ — выбор, Enter — подтвердить. Можно ввести любой ID. ↻ — обновить список.',
+    model_no_matches: 'Совпадений нет. Можно ввести ID модели вручную.',
+    model_free_only: 'Только бесплатные модели',
     field_response_style: 'Стиль ответов',
     field_response_style_hint: 'Насколько подробными должны быть ответы агента.',
     field_language: 'Язык общения',
@@ -288,7 +296,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_status_verbosity: 'Детализация статусов',
     field_status_verbosity_hint: 'Сколько служебных статусов показывать в логах.',
     field_safe_mode_profile: 'Профиль безопасности',
-    field_safe_mode_profile_hint: 'Быстрый профиль прав для инструментов и доступа к файлам.',
+    field_safe_mode_profile_hint: 'Strict: чтение и поиск. Balanced: правки и shell. Power: пути вне проекта. Shell выполняется без изоляции.',
     field_max_steps: 'Макс. шагов',
     field_max_steps_hint: 'Максимальное количество вызовов инструментов (1–1000).',
     field_log_max_chars: 'Буфер логов (симв.)',
@@ -415,7 +423,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_safe_mode: 'Agent permission profile',
     tt_clear_filters: 'Clear log filters',
     tt_save_settings: 'Save settings',
-    tt_fetch_models: 'Fetch models from API',
+    tt_fetch_models: 'Load models',
+    btn_test_connection: 'Test connection',
+    test_connection_hint: 'One short request to the selected model without project files. Provider usage charges may apply.',
     btn_view_grouped: 'Group',
     btn_view_list: 'List',
     btn_collapse_all: 'Collapse all',
@@ -444,7 +454,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_card_tools_text: 'Workspace tools for reading/editing files, searching code, and running shell commands.',
     about_feature_agent: 'Autonomous agent loop: plans, executes tools, edits code, and iterates until done.',
     about_feature_files: 'Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.',
-    about_feature_terminal: 'Safe command execution and transparent execution logs.',
+    about_feature_terminal: 'Shell commands with timeouts and transparent execution logs.',
     about_feature_remote: 'Telegram and WhatsApp remote control: run tasks from your phone while VS Code stays open.',
     about_feature_multimodal: 'Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
     about_feature_i18n: 'Full multi-language support (UI and responses).',
@@ -456,9 +466,11 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_base_url: 'Base URL',
     field_base_url_hint: 'Custom API endpoint. Leave blank to use provider default.',
     field_api_key: 'API Key',
-    field_api_key_hint: 'Secret key for the selected provider. Never shared.',
+    field_api_key_hint: 'Saved securely by VS Code. Used for requests to your configured provider.',
     field_model: 'Model',
-    field_model_hint: 'Model ID (e.g. gpt-4o, claude-opus-4-5).',
+    field_model_hint: 'Type to search models. ↑ ↓ to select, Enter to confirm. Any model ID is allowed. ↻ refreshes the list.',
+    model_no_matches: 'No matches. You can enter a model ID manually.',
+    model_free_only: 'Free models only',
     field_response_style: 'Response Style',
     field_response_style_hint: 'Style of text responses from the agent.',
     field_language: 'Response Language',
@@ -468,7 +480,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_status_verbosity: 'Status Verbosity',
     field_status_verbosity_hint: 'How many runtime status lines to show in logs.',
     field_safe_mode_profile: 'Safe Mode Profile',
-    field_safe_mode_profile_hint: 'Quick permission profile for tools and workspace scope.',
+    field_safe_mode_profile_hint: 'Strict: read/search. Balanced: edits and shell. Power: paths outside the project. Shell commands are not sandboxed.',
     field_max_steps: 'Max Steps',
     field_max_steps_hint: 'Max tool calls allowed per task (1–1000).',
     field_log_max_chars: 'Log Buffer (chars)',

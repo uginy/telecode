@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { i18n } from "../services/i18n";
 import { readTelecodeSettings, resolveUiLanguage } from "../config/settings";
 import type { TaskReviewSummary } from "../extension/taskReview";
+import type { DiscoveredModel } from "../agent/codingAgent";
 
 export type ChatViewCommand =
 	| { command: "startAgent" }
@@ -21,6 +22,7 @@ export type ChatViewCommand =
 	| { command: "resumeTaskChanges" }
 	| { command: "commitTaskChanges" }
 	| { command: "revertTaskChanges" }
+	| { command: "testConnection"; provider: string; model: string; baseUrl: string; apiKey: string }
 	| {
 			command: "fetchModels";
 			provider: string;
@@ -166,6 +168,16 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
 			if (command === "revertTaskChanges") {
 				this.commandEmitter.fire({ command: "revertTaskChanges" });
+			}
+
+			if (command === "testConnection") {
+				this.commandEmitter.fire({
+					command: "testConnection",
+					provider: typeof payload.provider === "string" ? payload.provider : "",
+					model: typeof payload.model === "string" ? payload.model : "",
+					baseUrl: typeof payload.baseUrl === "string" ? payload.baseUrl : "",
+					apiKey: typeof payload.apiKey === "string" ? payload.apiKey : "",
+				});
 			}
 
 			if (command === "fetchModels") {
@@ -342,8 +354,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 		this.post({ type: "notify", text: message });
 	}
 
-	setModels(models: string[]): void {
-		this.post({ type: "modelList", models });
+	finishConnectionTest(): void {
+		this.post({ type: "connectionTestDone" });
+	}
+
+	setModels(models: DiscoveredModel[], provider: string, baseUrl: string): void {
+		this.post({ type: "modelList", models, provider, baseUrl });
 	}
 
 	setTaskResult(result: TaskReviewSummary | null): void {

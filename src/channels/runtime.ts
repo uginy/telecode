@@ -1,4 +1,4 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { buildRuntimeConfig, createRuntimeSignature } from "../agent/runtimeSession";
 import { getEffectiveAgentPolicy } from "../agent/runtimePolicy";
 import type { TaskRunner } from "../agent/taskRunner";

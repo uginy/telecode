@@ -44,7 +44,7 @@ export function renderPath(fsPath: string, cwd: string): string {
 
 export function isWithinWorkspace(targetPath: string): boolean {
   const settings = readTelecodeSettings();
-  if (settings.agent.allowOutOfWorkspace) {
+  if (settings.agent.safeModeProfile === 'power') {
     return true;
   }
   const workspaceRoot = getWorkspaceRoot();

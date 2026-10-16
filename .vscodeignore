@@ -16,4 +16,12 @@ AGENTS.md
 GEMINI.md
 ais-code-*.vsix
 dist/*.map
+dist/bin/**
 landing/**
+.telecode/**
+builds/**
+*.vsix
+.env*
+docs/**
+bun.lockb
+eslint.config.*

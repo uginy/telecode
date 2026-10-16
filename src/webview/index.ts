@@ -12,6 +12,8 @@ import { handleMessage } from './messages';
 import { makeIcon } from './icon-service';
 import { bindTaskResultActions } from './task-result';
 import { applyTooltipTranslations, initTooltips } from './tooltip-service';
+import { initModelAutocomplete } from './model-autocomplete';
+import type { DiscoveredModel } from '../agent/codingAgent';
 
 type PersistedState = {
   output?: string;
@@ -395,11 +397,53 @@ whatsappAccessModeSelect?.addEventListener('change', () => {
   syncWhatsappAccessFields();
 });
 
-el.fetchModelsBtn().addEventListener('click', () => {
+document.getElementById('testConnectionBtn')?.addEventListener('click', () => {
+  const button = document.getElementById('testConnectionBtn') as HTMLButtonElement;
+  button.disabled = true;
+  el.settingsNote().textContent = '…';
+  cmd.testConnection(readForm());
+});
+
+const modelInput = document.getElementById('model') as HTMLInputElement;
+const freeModelsOnly = document.getElementById('freeModelsOnly') as HTMLInputElement;
+const modelAutocomplete = initModelAutocomplete(modelInput, el.modelPicker(), freeModelsOnly);
+let requestedModelContext = '';
+
+function syncModelFilter(): void {
+  const isOpenRouter = readForm().provider === 'openrouter';
+  freeModelsOnly.closest('label')!.classList.toggle('hidden', !isOpenRouter);
+  if (!isOpenRouter) freeModelsOnly.checked = false;
+}
+
+function modelContext(provider: string, baseUrl: string): string {
+  return JSON.stringify([provider.trim(), baseUrl.trim()]);
+}
+
+function fetchModels(): void {
   const settings = readForm();
+  requestedModelContext = modelContext(settings.provider, settings.baseUrl);
+  modelAutocomplete.clear();
   cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
   el.settingsNote().textContent = 'Fetching models...';
+}
+
+el.fetchModelsBtn().addEventListener('click', () => {
+  fetchModels();
+  modelInput.focus();
 });
+modelInput.addEventListener('focus', () => {
+  const settings = readForm();
+  if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
+});
+modelInput.addEventListener('input', updateComposerMeta);
+modelInput.addEventListener('change', updateComposerMeta);
+for (const id of ['provider', 'baseUrl', 'apiKey']) {
+  document.getElementById(id)?.addEventListener('input', () => {
+    requestedModelContext = '';
+    modelAutocomplete.clear();
+    syncModelFilter();
+  });
+}
 
 // ── Settings Sub-tabs ─────────────────────────────────────────────────────────
 function updateSettingsCategory(catId: string): void {
@@ -422,8 +466,10 @@ for (const btn of Array.from(el.settingsNavItems())) {
 }
 
 window.addEventListener('models-loaded', (e: Event) => {
-  const models = (e as CustomEvent).detail as string[];
-  updateModelSuggestions(models);
+  const { models, provider, baseUrl } = (e as CustomEvent).detail as { models: DiscoveredModel[]; provider: string; baseUrl: string };
+  const settings = readForm();
+  if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
+  modelAutocomplete.setModels(models);
   el.settingsNote().textContent = `Loaded ${models.length} models`;
   updateComposerMeta();
 });
@@ -442,55 +488,22 @@ window.addEventListener('run-summary', (e: Event) => {
   updateRunSummaryCard((e as CustomEvent).detail as { tools: number; errors: number; elapsedMs: number; prompt: string });
 });
 
-function updateModelSuggestions(models: string[]): void {
-  const picker = el.modelPicker();
-  picker.innerHTML = '';
-  if (models.length === 0) {
-    picker.classList.add('hidden');
-    return;
-  }
+// ── API Key Visibility Toggle ──────────────────────────────────────────────────
+const toggleApiKeyBtn = document.getElementById('toggleApiKeyBtn');
+const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement | null;
 
-  for (const m of models) {
-    const div = document.createElement('div');
-    div.className = 'picker-item';
-    div.textContent = m;
-    div.addEventListener('click', () => {
-      (document.getElementById('model') as HTMLInputElement).value = m;
-      picker.classList.add('hidden');
-    });
-    picker.appendChild(div);
-  }
-  picker.classList.remove('hidden');
-}
+const EYE_OPEN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_CLOSED_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
 
-// Show picker on focus if it has items
-const modelInput = document.getElementById('model') as HTMLInputElement;
-modelInput?.addEventListener('focus', () => {
-  const picker = el.modelPicker();
-  if (picker.children.length > 0) {
-    picker.classList.remove('hidden');
-  }
-});
-
-document.getElementById('modelChevron')?.addEventListener('click', (e) => {
+toggleApiKeyBtn?.addEventListener('click', (e) => {
   e.stopPropagation();
-  modelInput.focus();
-  const picker = el.modelPicker();
-  if (picker.children.length > 0) {
-    picker.classList.toggle('hidden');
-  }
-});
-
-// Close picker when clicking outside
-document.addEventListener('click', (e) => {
-  const target = e.target as HTMLElement;
-  const isModelInput = target.id === 'model';
-  const isPicker = target.closest('.picker');
-  const isFetchBtn = target.id === 'fetchModelsBtn';
-  
-  if (!isModelInput && !isPicker && !isFetchBtn) {
-    el.modelPicker().classList.add('hidden');
-  }
+  if (!apiKeyInput) return;
+  const isPassword = apiKeyInput.type === 'password';
+  apiKeyInput.type = isPassword ? 'text' : 'password';
+  toggleApiKeyBtn.innerHTML = isPassword ? EYE_CLOSED_SVG : EYE_OPEN_SVG;
+  const label = isPassword ? 'Hide API key' : 'Show API key';
+  toggleApiKeyBtn.setAttribute('title', label);
+  toggleApiKeyBtn.setAttribute('aria-label', label);
 });
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
@@ -529,7 +542,12 @@ function applyTranslations(t: Record<string, string>): void {
 
 // ── Incoming messages from extension ─────────────────────────────────────────
 window.addEventListener('message', (e: MessageEvent) => {
+  if (e.data?.type === 'settings') {
+    requestedModelContext = '';
+    modelAutocomplete.clear();
+  }
   handleMessage(e.data);
+  if (e.data?.type === 'settings') syncModelFilter();
   const anyExpanded = Array.from(document.querySelectorAll('.grouped-node')).some((node) =>
     (node as HTMLElement).classList.contains('expanded')
   );

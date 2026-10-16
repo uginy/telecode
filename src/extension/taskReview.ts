@@ -39,6 +39,7 @@ export interface TaskReviewSummary {
 	canCommit: boolean;
 	changedFiles: TaskChangedFile[];
 	checks: TaskCheckResult[];
+	changeSnapshot?: string;
 }
 
 interface CommandResult {
@@ -59,13 +60,12 @@ const CHECK_LABEL: Record<(typeof CHECK_SCRIPT_ORDER)[number], string> = {
 
 export function parseGitStatusPorcelain(output: string): TaskChangedFile[] {
 	return output
-		.split(/\r?\n/)
-		.map((line) => line.trimEnd())
+		.split(output.includes("\0") ? "\0" : /\r?\n/)
 		.filter((line) => line.length > 0 && !line.startsWith("## "))
 		.map((line) => {
 			const rawStatus = line.slice(0, 2);
-			const rawPath = line.slice(3).trim();
-			const normalizedPath = rawPath.includes(" -> ")
+			const rawPath = output.includes("\0") ? line.slice(3) : line.slice(3).trim();
+			const normalizedPath = !output.includes("\0") && rawStatus.includes("R") && rawPath.includes(" -> ")
 				? rawPath.split(" -> ").pop() || rawPath
 				: rawPath;
 
@@ -145,11 +145,15 @@ export async function collectTaskReviewSummary(options: {
 	outcome: TaskOutcome;
 	error?: string;
 	checks?: TaskCheckResult[];
+	baselineFiles?: TaskChangedFile[];
+	previousReview?: TaskReviewSummary;
 }): Promise<TaskReviewSummary> {
 	const checks = options.checks || [];
 	const gitStatus = await runGit([
 		"status",
 		"--porcelain=v1",
+		"-z",
+		"--no-renames",
 		"--branch",
 		"--untracked-files=all",
 	], options.workspaceRoot);
@@ -174,9 +178,21 @@ export async function collectTaskReviewSummary(options: {
 		};
 	}
 
-	const lines = gitStatus.result.stdout.split(/\r?\n/);
+	const lines = gitStatus.result.stdout.split("\0");
 	const branch = extractBranchFromStatus(lines[0] || "");
-	const changedFiles = parseGitStatusPorcelain(gitStatus.result.stdout);
+	let changedFiles = parseGitStatusPorcelain(gitStatus.result.stdout);
+	if (options.previousReview) {
+		const taskPaths = new Set(options.previousReview.changedFiles.map((file) => file.path));
+		changedFiles = changedFiles.filter((file) => taskPaths.has(file.path));
+	}
+	const activeRun = await loadActiveRun(options.workspaceRoot);
+	const baselineFiles = options.baselineFiles ??
+		(activeRun?.prompt === options.prompt ? activeRun.baselineFiles : undefined);
+	const changeSnapshot = options.previousReview
+		? options.previousReview.changeSnapshot
+		: baselineFiles?.length === 0 && changedFiles.length > 0
+			? await captureTaskChanges(options.workspaceRoot, changedFiles)
+			: undefined;
 	return {
 		prompt: options.prompt,
 		outcome: options.outcome,
@@ -191,7 +207,8 @@ export async function collectTaskReviewSummary(options: {
 		branch,
 		gitAvailable: true,
 		hasChanges: changedFiles.length > 0,
-		canCommit: changedFiles.length > 0,
+		canCommit: changedFiles.length > 0 && changeSnapshot !== undefined,
+		changeSnapshot,
 		changedFiles,
 		checks,
 	};
@@ -201,11 +218,11 @@ export async function collectWorkspaceChangedFiles(
 	workspaceRoot: string,
 ): Promise<TaskChangedFile[]> {
 	const gitStatus = await runGit(
-		["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+		["status", "--porcelain=v1", "-z", "--no-renames", "--branch", "--untracked-files=all"],
 		workspaceRoot,
 	);
 	if (!gitStatus.ok) {
-		return [];
+		throw new Error(gitFailureMessage("git status", gitStatus.result));
 	}
 	return parseGitStatusPorcelain(gitStatus.result.stdout);
 }
@@ -286,7 +303,7 @@ export async function buildTaskDiff(
 
 	if (trackedFiles.length > 0) {
 		const trackedDiff = await runGit(
-			["diff", "--", ...trackedFiles],
+			["diff", "HEAD", "--", ...trackedFiles],
 			workspaceRoot,
 		);
 		if (trackedDiff.ok && trackedDiff.result.stdout.trim().length > 0) {
@@ -317,11 +334,15 @@ export async function commitTaskFiles(options: {
 	workspaceRoot: string;
 	files: TaskChangedFile[];
 	message: string;
+	changeSnapshot?: string;
 }): Promise<{ ok: boolean; message: string }> {
 	const safeFiles = sanitizeTaskFiles(options.files);
 	if (safeFiles.length === 0) {
 		return { ok: false, message: "No changed files to commit." };
 	}
+
+	const blocked = await checkTaskChanges(options);
+	if (blocked) return { ok: false, message: blocked };
 
 	const add = await runGit(
 		["add", "-A", "--", ...safeFiles.map((file) => file.path)],
@@ -332,7 +353,7 @@ export async function commitTaskFiles(options: {
 	}
 
 	const commit = await runGit(
-		["commit", "-m", options.message],
+		["commit", "--only", "-m", options.message, "--", ...safeFiles.map((file) => file.path)],
 		options.workspaceRoot,
 	);
 	if (!commit.ok) {
@@ -351,11 +372,15 @@ export async function commitTaskFiles(options: {
 export async function revertTaskFiles(options: {
 	workspaceRoot: string;
 	files: TaskChangedFile[];
+	changeSnapshot?: string;
 }): Promise<{ ok: boolean; message: string }> {
 	const safeFiles = sanitizeTaskFiles(options.files);
 	if (safeFiles.length === 0) {
 		return { ok: false, message: "No changed files to revert." };
 	}
+
+	const blocked = await checkTaskChanges(options);
+	if (blocked) return { ok: false, message: blocked };
 
 	const tracked = safeFiles
 		.filter((file) => file.status !== "untracked")
@@ -412,6 +437,7 @@ export async function markTaskRunStarted(
 			{
 				prompt,
 				startedAt: new Date().toISOString(),
+				baselineFiles: await collectWorkspaceChangedFiles(workspaceRoot),
 			},
 			null,
 			2,
@@ -472,7 +498,43 @@ function isTelecodeMetaFile(filePath: string): boolean {
 }
 
 function sanitizeTaskFiles(files: TaskChangedFile[]): TaskChangedFile[] {
-	return files.filter((file) => !isTelecodeMetaFile(file.path));
+	return files.filter((file) => {
+		const relative = path.normalize(file.path);
+		if (relative === "." || path.isAbsolute(file.path) || relative === ".." || relative.startsWith(`..${path.sep}`)) {
+			throw new Error("Invalid task file path.");
+		}
+		return !isTelecodeMetaFile(file.path);
+	});
+}
+
+async function captureTaskChanges(workspaceRoot: string, files: TaskChangedFile[]): Promise<string | undefined> {
+	const safeFiles = sanitizeTaskFiles(files);
+	if (safeFiles.some((file) => file.status === "renamed")) return undefined;
+	const diff = await runGit(["diff", "--no-ext-diff", "--binary", "HEAD", "--", ...safeFiles.map((file) => file.path)], workspaceRoot);
+	if (!diff.ok) return undefined;
+	const untracked: Array<[string, string]> = [];
+	for (const file of safeFiles.filter((item) => item.status === "untracked")) {
+		const target = path.join(workspaceRoot, file.path);
+		if (!(await fs.lstat(target)).isFile()) return undefined;
+		untracked.push([file.path, (await fs.readFile(target)).toString("base64")]);
+	}
+	return JSON.stringify({ files: safeFiles, diff: diff.result.stdout, untracked });
+}
+
+async function checkTaskChanges(options: {
+	workspaceRoot: string;
+	files: TaskChangedFile[];
+	changeSnapshot?: string;
+}): Promise<string | null> {
+	if (options.changeSnapshot === undefined) {
+		return "Automatic commit/revert is unavailable: the task did not start from a clean, recorded working tree. Review changes manually in Git.";
+	}
+	const paths = new Set(options.files.map((file) => file.path));
+	const current = (await collectWorkspaceChangedFiles(options.workspaceRoot)).filter((file) => paths.has(file.path));
+	if (await captureTaskChanges(options.workspaceRoot, current) !== options.changeSnapshot) {
+		return "Task files changed after the task finished. Review changes manually in Git.";
+	}
+	return null;
 }
 
 function extractBranchFromStatus(line: string): string | null {
@@ -494,17 +556,17 @@ async function readPackageJson(workspaceRoot: string): Promise<string | null> {
 
 async function loadActiveRun(
 	workspaceRoot: string,
-): Promise<{ prompt: string; startedAt: string } | null> {
+): Promise<{ prompt: string; startedAt: string; baselineFiles?: TaskChangedFile[] } | null> {
 	try {
 		const raw = await fs.readFile(
 			path.join(workspaceRoot, LAST_RESULT_DIR, ACTIVE_RUN_FILE),
 			"utf8",
 		);
-		const parsed = JSON.parse(raw) as { prompt?: string; startedAt?: string };
+		const parsed = JSON.parse(raw) as { prompt?: string; startedAt?: string; baselineFiles?: TaskChangedFile[] };
 		if (typeof parsed.prompt !== "string" || typeof parsed.startedAt !== "string") {
 			return null;
 		}
-		return { prompt: parsed.prompt, startedAt: parsed.startedAt };
+		return { prompt: parsed.prompt, startedAt: parsed.startedAt, baselineFiles: parsed.baselineFiles };
 	} catch {
 		return null;
 	}
@@ -535,7 +597,7 @@ async function runGit(
 	args: string[],
 	cwd: string,
 ): Promise<{ ok: boolean; result: CommandResult }> {
-	const result = await runProcess("git", args, cwd);
+	const result = await runProcess("git", ["--literal-pathspecs", ...args], cwd);
 	return { ok: result.exitCode === 0, result };
 }
 

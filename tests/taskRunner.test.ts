@@ -1,5 +1,8 @@
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { AgentRuntime, RuntimeConfig, RuntimeEvent } from "../src/engine/types";
 
 const { createRuntimeMock } = vi.hoisted(() => ({
@@ -83,5 +86,39 @@ describe("TaskRunner", () => {
 			type: "error",
 			message: "Task aborted due to inactivity (> 0.001s)",
 		});
+	});
+
+	it("persists complete user turns instead of cutting through a tool sequence", async () => {
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "telecode-session-"));
+		try {
+			const runtime = createRuntimeDouble();
+			const messages = [{ role: "user", content: "current task", timestamp: 0 }, ...Array.from({ length: 42 }, (_, index) => ({ role: "assistant", content: [{ type: "text", text: String(index) }] }))];
+			runtime.getMessages = vi.fn(() => messages as never);
+			runtime.prompt = vi.fn(async () => runtime.emit({ type: "done" }));
+			createRuntimeMock.mockReturnValue({ runtime, engine: "pi" });
+			const runner = new TaskRunner(vi.fn(), vi.fn(), 180_000, root);
+			runner.initRuntime(createConfig(), []);
+			await runner.runTask("current task");
+			await vi.waitFor(async () => {
+				const saved = JSON.parse(await fs.readFile(path.join(root, ".telecode/session.json"), "utf8"));
+				expect(saved[0]).toEqual(messages[0]);
+				expect(saved).toHaveLength(messages.length);
+			});
+		} finally {
+			await fs.rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("rejects an event-reported failure even when prompt resolves", async () => {
+		const runtime = createRuntimeDouble();
+		runtime.prompt = vi.fn(async () => {
+			runtime.emit({ type: "error", message: "Invalid API key" });
+			runtime.emit({ type: "done" });
+		});
+		createRuntimeMock.mockReturnValue({ runtime, engine: "pi" });
+		const runner = new TaskRunner(vi.fn(), vi.fn());
+		runner.initRuntime(createConfig(), []);
+		await expect(runner.runTask("test")).rejects.toThrow("Invalid API key");
+		expect(runner.currentState).toBe("error");
 	});
 });

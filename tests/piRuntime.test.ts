@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AgentEvent, AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentEvent, AgentTool } from "@earendil-works/pi-agent-core";
 
 const { createAgentMock } = vi.hoisted(() => ({
 	createAgentMock: vi.fn(),

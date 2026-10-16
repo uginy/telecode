@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import * as QRCode from "qrcode";
 import {
 	DisconnectReason,
@@ -44,6 +44,7 @@ import {
 	saveTaskReviewSummary,
 	shouldSendAutomaticTaskReview,
 	type TaskReviewSummary,
+	type TaskChangedFile,
 } from "../../extension/taskReview";
 import { createTaskArtifacts } from "../../extension/taskArtifacts";
 import {
@@ -255,7 +256,10 @@ export class WhatsAppChannel implements IChannel {
 						this.remoteSchedules.unregisterExecutor("whatsapp");
 						const statusCode = (lastDisconnect?.error as Boom)?.output
 							?.statusCode;
-						const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+						const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+						const isConnectionReplaced =
+							statusCode === DisconnectReason.connectionReplaced;
+						const shouldReconnect = !isLoggedOut && !isConnectionReplaced;
 
 						this.clearStartupWatchdog();
 						this.active = false;
@@ -277,8 +281,12 @@ export class WhatsAppChannel implements IChannel {
 							this.reconnectTimer = setTimeout(() => {
 								void this.start();
 							}, 3000);
-						} else if (statusCode === DisconnectReason.loggedOut) {
+						} else if (isLoggedOut) {
 							this.pushLog("[whatsapp] logged out from WhatsApp");
+						} else if (isConnectionReplaced) {
+							this.pushLog(
+								"[whatsapp:warn] connection replaced by another active WhatsApp Web session or VS Code window",
+							);
 						} else {
 							this.pushLog(
 								`[whatsapp] disconnected: ${
@@ -487,6 +495,7 @@ export class WhatsAppChannel implements IChannel {
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
+				previousReview: this.lastTaskReview,
 				checks,
 			}));
 			const updatedReview = this.lastTaskReview;
@@ -720,6 +729,7 @@ export class WhatsAppChannel implements IChannel {
 			const result = await commitTaskFiles({
 				workspaceRoot: this.workspaceRoot,
 				files: this.lastTaskReview.changedFiles,
+				changeSnapshot: this.lastTaskReview.changeSnapshot,
 				message,
 			});
 			if (!result.ok) {
@@ -731,6 +741,7 @@ export class WhatsAppChannel implements IChannel {
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
+				previousReview: this.lastTaskReview,
 				checks: this.lastTaskReview.checks,
 			}));
 			const updatedReview = this.lastTaskReview;
@@ -753,6 +764,7 @@ export class WhatsAppChannel implements IChannel {
 			const result = await revertTaskFiles({
 				workspaceRoot: this.workspaceRoot,
 				files: this.lastTaskReview.changedFiles,
+				changeSnapshot: this.lastTaskReview.changeSnapshot,
 			});
 			if (!result.ok) {
 				await this.sendMessageSafe(chatId, result.message, "/revert");
@@ -763,6 +775,7 @@ export class WhatsAppChannel implements IChannel {
 				prompt: this.lastTaskReview.prompt,
 				outcome: this.lastTaskReview.outcome,
 				error: this.lastTaskReview.error,
+				previousReview: this.lastTaskReview,
 				checks: this.lastTaskReview.checks,
 			}));
 			const updatedReview = this.lastTaskReview;
@@ -910,33 +923,35 @@ export class WhatsAppChannel implements IChannel {
 			}
 		}, 10_000);
 
-		const runtime = this.ensureRuntime();
-		const changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
+		let changedFilesBefore: TaskChangedFile[] | undefined;
 		let output = "";
-		const unsub = runtime.onEvent((event: RuntimeEvent) => {
-			if (event.type === "text_delta") {
-				output += event.delta;
-				return;
-			}
-
-			if (event.type === "tool_start") {
-				const details = summarizeWhatsappToolPayload(event.args);
-				this.pushLog(
-					`[tool:start] ${event.toolName}${details ? ` ${details}` : ""}`,
-				);
-				return;
-			}
-
-			if (event.type === "tool_end") {
-				const state = event.isError ? "error" : "done";
-				const details = summarizeWhatsappToolPayload(event.result);
-				this.pushLog(
-					`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ""}`,
-				);
-			}
-		});
-
+		let unsub: (() => void) | undefined;
 		try {
+			const runtime = this.ensureRuntime();
+			changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
+			unsub = runtime.onEvent((event: RuntimeEvent) => {
+				if (event.type === "text_delta") {
+					output += event.delta;
+					return;
+				}
+
+				if (event.type === "tool_start") {
+					const details = summarizeWhatsappToolPayload(event.args);
+					this.pushLog(
+						`[tool:start] ${event.toolName}${details ? ` ${details}` : ""}`,
+					);
+					return;
+				}
+
+				if (event.type === "tool_end") {
+					const state = event.isError ? "error" : "done";
+					const details = summarizeWhatsappToolPayload(event.result);
+					this.pushLog(
+						`[tool:${state}] ${event.toolName}${details ? ` ${details}` : ""}`,
+					);
+				}
+			});
+
 			await this.taskRunner.runTask(taskText);
 			if (!this.sock || !this.active) {
 				this.pushLog("[whatsapp] task aborted");
@@ -944,6 +959,7 @@ export class WhatsAppChannel implements IChannel {
 			}
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
+				baselineFiles: changedFilesBefore,
 				prompt: taskText,
 				outcome: "completed",
 			}));
@@ -993,6 +1009,7 @@ export class WhatsAppChannel implements IChannel {
 			const interrupted = this.stopRequestedTaskId === task.id;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
+				baselineFiles: changedFilesBefore,
 				prompt: taskText,
 				outcome: interrupted ? "interrupted" : "failed",
 				error: interrupted ? "Task cancelled before completion." : message,
@@ -1040,7 +1057,7 @@ export class WhatsAppChannel implements IChannel {
 		} finally {
 			clearInterval(typingInterval);
 			void this.sock?.sendPresenceUpdate("paused", chatId);
-			unsub();
+			unsub?.();
 			this.isProcessing = false;
 			this.activeRemoteTaskId = null;
 			this.stopRequestedTaskId = null;

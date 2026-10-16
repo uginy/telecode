@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { initializeSecretStorage, migrateSecretSettings } from "./config/secrets";
 import {
 	type ChatViewSettings,
 	ChatViewProvider,
@@ -46,7 +47,8 @@ const runtime = new RuntimeController(
 let restoreFetchLogger: (() => void) | null = null;
 let extensionVersion = "0.0.0";
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+	await initializeSecretStorage(context.secrets);
 	extensionVersion =
 		context.extension?.packageJSON &&
 		typeof context.extension.packageJSON.version === "string"
@@ -108,14 +110,22 @@ export function activate(context: vscode.ExtensionContext): void {
 				revertTaskChanges: async () => {
 					await taskReview.revertLatest();
 				},
+				testConnection: async (command) => {
+					try {
+						const model = await CodingAgent.testConnection(command);
+						chatProvider?.notify(`Connected: ${model}`);
+					} catch (error) {
+						chatProvider?.notify(error instanceof Error ? error.message : String(error));
+					} finally {
+						chatProvider?.finishConnectionTest();
+					}
+				},
 				fetchModels: async (command) => {
-					const models = await CodingAgent.fetchModelsFromApi(
-						command.provider,
-						command.baseUrl,
-						command.apiKey,
-					);
-					if (models.length > 0) {
-						chatProvider?.setModels(models);
+					try {
+						const models = await CodingAgent.fetchModelsFromApi(command.provider, command.baseUrl, command.apiKey);
+						chatProvider?.setModels(models, command.provider, command.baseUrl);
+					} catch (error) {
+						chatProvider?.notify(error instanceof Error ? error.message : String(error));
 					}
 				},
 			}),
@@ -186,7 +196,15 @@ export function activate(context: vscode.ExtensionContext): void {
 	});
 
 	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration((event) =>
+		vscode.workspace.onDidChangeConfiguration(async (event) => {
+			if (event.affectsConfiguration("telecode.apiKey") || event.affectsConfiguration("telecode.telegram.botToken")) {
+				try {
+					await migrateSecretSettings();
+				} catch (error) {
+					vscode.window.showErrorMessage(`TeleCode AI: could not migrate credentials: ${error instanceof Error ? error.message : String(error)}`);
+					return;
+				}
+			}
 			configScheduler.handleConfigurationChange(event, {
 				hasRuntime: runtime.hasRuntime(),
 				syncSettings: () => syncSettingsToChatView(chatProvider),
@@ -199,8 +217,8 @@ export function activate(context: vscode.ExtensionContext): void {
 						"[config] Settings changed. Restarting agent with latest configuration.",
 					);
 				},
-			}),
-		),
+			});
+		}),
 	);
 
 	channels.refresh();
@@ -253,8 +271,9 @@ async function saveSettingsFromChatView(
 	settings: ChatViewSettings,
 ): Promise<void> {
 	try {
-		const result = await persistChatViewSettings(settings);
-		runtime.setSessionApiKey(result.sessionApiKey);
+		await persistChatViewSettings(settings);
+		channels.refresh();
+		if (runtime.hasRuntime()) await runtime.start(true);
 		syncSettingsToChatView(chatProvider);
 		notifySettingsViews(chatProvider, "saved to user settings");
 	} catch (error) {

@@ -2,7 +2,22 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
-## [Unreleased]
+## [0.1.22] - 2026-10-16
+
+- Replaced the model dropdown with searchable autocomplete, keyboard navigation and a free-model filter based on OpenRouter pricing.
+- Updated the agent runtime to `@earendil-works/pi-agent-core` and `pi-ai` 1.3.0 with native provider registration and sequential tool execution.
+- Updated WhatsApp to the patched Baileys 6.7.24 release, pinned exactly to avoid resolving the deprecated 6.17.16 version.
+- Added a connection test for the selected model and key without sending workspace contents or running tools.
+- Updated model defaults and discovery, including tool-capable OpenRouter models and built-in lists for direct providers.
+- Migrated existing API keys and Telegram tokens to scoped VS Code SecretStorage; failed migrations preserve plaintext values.
+- Blocked Telegram startup without a valid allowed chat ID and excluded local task/session data from VSIX packages.
+- Enforced tool-call limits and corrected failure propagation so provider errors are not recorded as successful tasks.
+- Guarded task commit/revert against pre-existing work and subsequent file edits; task commits preserve unrelated staged changes.
+- Included the webview in release builds and corrected its TypeScript configuration.
+- Improved WhatsApp QR rendering and stopped reconnect loops when another session replaces the connection.
+- Updated onboarding, permission descriptions and dependency tooling.
+
+## [0.1.20]
 
 - **Remote Control**: Added shared remote task history filters, task lookup helpers, artifacts delivery, lightweight remote git commands, workspace project memory commands, and persisted recurring schedules for Telegram and WhatsApp.
 - **Scheduler**: Lowered the minimum recurring interval to `1` minute for practical testing and lightweight automation.

@@ -1,4 +1,4 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { AgentSettings } from "../config/settings";
 import { createWorkspaceTools, filterToolsByAllowed } from "../tools";
 

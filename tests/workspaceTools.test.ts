@@ -4,7 +4,10 @@ import * as path from 'node:path';
 // Mock vscode API for testing workspaceTools
 vi.mock('vscode', () => {
   return {
+    ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 },
+    env: { language: 'en' },
     workspace: {
+      getConfiguration: () => ({ get: () => undefined }),
       workspaceFolders: [
         {
           uri: { fsPath: '/test/workspace' },
@@ -42,6 +45,14 @@ describe('Workspace Tools', () => {
       expect(toolNames).toContain('write_file');
       expect(toolNames).toContain('edit_file');
       expect(toolNames).toContain('bash');
+    });
+
+    it('rejects shell working directories and workspace switches outside the project', async () => {
+      const tools = createWorkspaceTools();
+      const bash = tools.find((tool) => tool.name === 'bash')!;
+      const openWorkspace = tools.find((tool) => tool.name === 'open_workspace')!;
+      await expect(bash.execute('test', { command: 'pwd', cwd: '/outside' })).rejects.toThrow('restricted to workspace');
+      await expect(openWorkspace.execute('test', { path: '/outside' })).rejects.toThrow('restricted to workspace');
     });
 
     it('all tools have correct shape and descriptions', () => {

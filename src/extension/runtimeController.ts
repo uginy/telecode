@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { saveSecretSetting } from "../config/secrets";
 import type { TaskRunner } from "../agent/taskRunner";
 import {
 	buildRuntimeConfig,
@@ -20,7 +21,6 @@ import type { TaskOutcome } from "./taskReview";
 
 export class RuntimeController {
 	private taskRunner: TaskRunner | null = null;
-	private sessionApiKey = "";
 	private runningConfigSignature = "";
 
 	constructor(
@@ -42,9 +42,6 @@ export class RuntimeController {
 		this.taskRunner?.clearHistorySync();
 	}
 
-	public setSessionApiKey(apiKey: string): void {
-		this.sessionApiKey = apiKey;
-	}
 
 	public stop(): boolean {
 		if (!this.taskRunner?.runtime) {
@@ -61,9 +58,6 @@ export class RuntimeController {
 		const { policy, tools } = resolveAgentTools(settings.agent);
 
 		let apiKey = settings.agent.apiKey;
-		if (!apiKey && this.sessionApiKey) {
-			apiKey = this.sessionApiKey;
-		}
 
 		if (providerRequiresApiKey(settings.agent.provider) && apiKey.length === 0) {
 			const enteredApiKey = await vscode.window.showInputBox({
@@ -79,14 +73,11 @@ export class RuntimeController {
 				return false;
 			}
 
-			this.sessionApiKey = enteredApiKey.trim();
-			apiKey = this.sessionApiKey;
+			apiKey = enteredApiKey.trim();
 
 			try {
 				await saveOpenSettingsFiles();
-				await vscode.workspace
-					.getConfiguration("telecode")
-					.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
+				await saveSecretSetting("apiKey", apiKey);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				this.uiStatus.appendLogLine(

@@ -259,7 +259,7 @@
             <div class="field field-inline">
               <div>
                 <label for="safeModeProfile" data-t="field_safe_mode_profile">Safe Mode Profile</label>
-                <span class="field-hint" data-t="field_safe_mode_profile_hint">Quick permission profile for tools and workspace scope.</span>
+                <span class="field-hint" data-t="field_safe_mode_profile_hint">Strict: read/search. Balanced: edits and shell. Power: paths outside the project. Shell commands are not sandboxed.</span>
               </div>
               <select id="safeModeProfile" style="width:170px">
                 <option value="strict" data-t="safe_mode_strict">Strict</option>
@@ -271,7 +271,7 @@
             <div class="field field-check">
               <div>
                 <label for="allowOutOfWorkspace" data-t="field_allow_out_workspace">Allow Out of Workspace</label>
-                <span class="field-hint" data-t="field_allow_out_workspace_hint">Allow agent to access files and run commands outside the current workspace folder. Disabled by default for security.</span>
+                <span class="field-hint" data-t="field_allow_out_workspace_hint">Controlled by the selected profile. Shell commands are not sandboxed.</span>
               </div>
               <input id="allowOutOfWorkspace" type="checkbox" />
             </div>
@@ -314,21 +314,34 @@
 
             <div class="field">
               <label for="apiKey" data-t="field_api_key">API Key</label>
-              <span class="field-hint" data-t="field_api_key_hint">Secret key for the selected provider. Never shared.</span>
-              <input id="apiKey" type="password" placeholder="sk-…" />
+              <span class="field-hint" data-t="field_api_key_hint">Saved securely by VS Code. Used for requests to your configured provider.</span>
+              <div class="field-rel">
+                <input id="apiKey" type="password" placeholder="sk-…" />
+                <button id="toggleApiKeyBtn" class="toggle-eye" type="button" title="Show API key" aria-label="Show API key">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
             </div>
 
             <div class="field">
               <label for="model" data-t="field_model">Model</label>
-              <span class="field-hint" data-t="field_model_hint">Model ID to use (e.g. gpt-4o, claude-opus-4-5, kimi-k2.5).</span>
+              <span id="modelHint" class="field-hint" data-t="field_model_hint">Type to search models. ↑ ↓ to select, Enter to confirm. Any model ID is allowed. ↻ refreshes the list.</span>
+              <label class="model-free-filter hidden">
+                <input id="freeModelsOnly" type="checkbox" />
+                <span data-t="model_free_only">Free models only</span>
+              </label>
               <div class="input-with-action">
                 <div class="field-rel">
-                  <input id="model" type="text" placeholder="gpt-4o" autocomplete="off" />
-                  <span id="modelChevron" class="chevron">▼</span>
-                  <div id="modelPicker" class="picker hidden"></div>
+                  <input id="model" type="text" placeholder="claude, gemini, gpt…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="modelPicker" aria-describedby="modelHint" />
+                  <div id="modelPicker" class="picker hidden" role="listbox" aria-labelledby="modelHint"></div>
                 </div>
                 <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" data-tooltip-key="tt_fetch_models" data-tooltip-placement="right">↻</button>
               </div>
+            </div>
+
+            <div class="field">
+              <button id="testConnectionBtn" type="button" class="btn btn-ghost" data-t="btn_test_connection">Test connection</button>
+              <span class="field-hint" data-t="test_connection_hint">Sends one short request to the selected model. Provider usage charges may apply.</span>
             </div>
 
             <div class="field">

@@ -9,6 +9,7 @@ import { writeForm } from './settings';
 import type { Settings } from './commands';
 import { renderTaskResultCard } from './task-result';
 import type { TaskReviewSummary } from '../extension/taskReview';
+import type { DiscoveredModel } from '../agent/codingAgent';
 
 type IncomingMessage =
   | { type: 'status';   text: string }
@@ -21,7 +22,8 @@ type IncomingMessage =
   | { type: 'settings'; settings: Settings }
   | { type: 'taskResult'; result: TaskReviewSummary | null }
   | { type: 'activateTab'; tab: string }
-  | { type: 'modelList'; models: string[] }
+  | { type: 'modelList'; models: DiscoveredModel[]; provider: string; baseUrl: string }
+  | { type: 'connectionTestDone' }
   | { type: 'buildInfo'; text: string }
   | { type: 'translate'; translations: Record<string, string> };
 
@@ -83,10 +85,15 @@ export function handleMessage(raw: unknown): void {
       if (msg.tab === 'settings') setTab('settings');
       break;
 
+    case 'connectionTestDone': {
+      const button = document.getElementById('testConnectionBtn') as HTMLButtonElement | null;
+      if (button) button.disabled = false;
+      break;
+    }
+
     case 'modelList':
       if (Array.isArray(msg.models)) {
-        // We'll dispatch this to a UI helper later
-        window.dispatchEvent(new CustomEvent('models-loaded', { detail: msg.models }));
+        window.dispatchEvent(new CustomEvent('models-loaded', { detail: msg }));
       }
       break;
 

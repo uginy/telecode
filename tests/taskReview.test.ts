@@ -127,6 +127,7 @@ describe("taskReview", () => {
 			workspaceRoot,
 			prompt: "update notes",
 			outcome: "completed",
+			baselineFiles: [],
 		});
 
 		expect(summary.hasChanges).toBe(true);
@@ -152,12 +153,14 @@ describe("taskReview", () => {
 			workspaceRoot,
 			prompt: "edit notes",
 			outcome: "completed",
+			baselineFiles: [],
 		});
 		expect(pending.changedFiles).toHaveLength(2);
 
 		const commit = await commitTaskFiles({
 			workspaceRoot,
 			files: pending.changedFiles,
+			changeSnapshot: pending.changeSnapshot,
 			message: "test: commit touched files",
 		});
 		expect(commit.ok).toBe(true);
@@ -166,6 +169,7 @@ describe("taskReview", () => {
 			workspaceRoot,
 			prompt: "edit notes",
 			outcome: "completed",
+			baselineFiles: [],
 		});
 		expect(afterCommit.changedFiles).toHaveLength(0);
 
@@ -175,15 +179,49 @@ describe("taskReview", () => {
 			workspaceRoot,
 			prompt: "edit again",
 			outcome: "completed",
+			baselineFiles: [],
 		});
 
 		const revert = await revertTaskFiles({
 			workspaceRoot,
 			files: toRevert.changedFiles,
+			changeSnapshot: toRevert.changeSnapshot,
 		});
 		expect(revert.ok).toBe(true);
 		await expect(fs.readFile(trackedPath, "utf8")).resolves.toBe("updated\n");
 		await expect(fs.readFile(untrackedPath, "utf8")).resolves.toBe("draft\n");
+	});
+
+	it("refuses to revert pre-existing changes or files edited after completion", async () => {
+		const workspaceRoot = await createGitWorkspace();
+		const file = path.join(workspaceRoot, "notes.txt");
+		await fs.writeFile(file, "user edits\n");
+		const baselineFiles = await collectWorkspaceChangedFiles(workspaceRoot);
+		await fs.writeFile(file, "user and agent edits\n");
+		const dirty = await collectTaskReviewSummary({ workspaceRoot, prompt: "edit", outcome: "completed", baselineFiles });
+		expect(dirty.canCommit).toBe(false);
+		expect((await revertTaskFiles({ workspaceRoot, files: dirty.changedFiles, changeSnapshot: dirty.changeSnapshot })).ok).toBe(false);
+		const recorded = await collectTaskReviewSummary({ workspaceRoot, prompt: "edit", outcome: "completed", baselineFiles: [] });
+		await fs.writeFile(file, "later user edits\n");
+		expect((await revertTaskFiles({ workspaceRoot, files: recorded.changedFiles, changeSnapshot: recorded.changeSnapshot })).ok).toBe(false);
+		expect(await fs.readFile(file, "utf8")).toBe("later user edits\n");
+	});
+
+	it("commits only task files and preserves unrelated staged changes", async () => {
+		const workspaceRoot = await createGitWorkspace();
+		await fs.writeFile(path.join(workspaceRoot, "notes.txt"), "task edit\n");
+		const review = await collectTaskReviewSummary({ workspaceRoot, prompt: "edit", outcome: "completed", baselineFiles: [] });
+		await fs.writeFile(path.join(workspaceRoot, "other.txt"), "user edit\n");
+		execFileSync("git", ["add", "other.txt"], { cwd: workspaceRoot });
+		const result = await commitTaskFiles({ workspaceRoot, files: review.changedFiles, changeSnapshot: review.changeSnapshot, message: "test task" });
+		expect(result.ok).toBe(true);
+		expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: workspaceRoot, encoding: "utf8" })).toBe("other.txt\n");
+	});
+
+	it("parses null-delimited paths without stripping spaces or Unicode", () => {
+		expect(parseGitStatusPorcelain("## main\0 M файл с пробелом \0")).toEqual([
+			{ path: "файл с пробелом ", rawStatus: " M", status: "modified" },
+		]);
 	});
 
 	it("recovers interrupted run marker on startup", async () => {

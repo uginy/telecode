@@ -1,4 +1,4 @@
-import { type AgentEvent, type AgentTool } from '@mariozechner/pi-agent-core';
+import { type AgentEvent, type AgentTool } from '@earendil-works/pi-agent-core';
 import { type TelecodeConfig, CodingAgent, createAgent } from '../agent/codingAgent';
 import type { AgentRuntime, RuntimeConfig, RuntimeEvent, RuntimeListener, ImageContentExt } from './types';
 
@@ -126,7 +126,13 @@ export class PiRuntime implements AgentRuntime {
 
     if (event.type === 'agent_end') {
       this.emit({ type: 'status', message: 'agent_end' });
-      this.emit({ type: 'done' });
+      const lastMessage = event.messages.at(-1);
+      if (lastMessage?.role === 'assistant' &&
+        (lastMessage.stopReason === 'error' || lastMessage.stopReason === 'aborted')) {
+        this.emit({ type: 'error', message: lastMessage.errorMessage || 'Task interrupted.' });
+      } else {
+        this.emit({ type: 'done' });
+      }
       return;
     }
 

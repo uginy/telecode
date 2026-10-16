@@ -1,8 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { Type, type Static } from '@mariozechner/pi-ai';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import { Type, type Static } from '@earendil-works/pi-ai';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { resolveToolPath, checkPathAllowed, renderPath, getWorkspaceRoot } from '../core/utils';
 
 export const listDirectoryParams = Type.Object({
@@ -112,9 +112,7 @@ export function createWorkspaceManagementTools(
         const typed = params as OpenWorkspaceParams;
         const targetPath = resolveToolPath(typed.path, workingDirectory);
 
-        // checkPathAllowed(targetPath, 'open_workspace'); // maybe allow opening anything? 
-        // No, let's keep it safe. Actually, open_workspace is a bit special.
-        
+        checkPathAllowed(targetPath, 'open_workspace');
         const uri = vscode.Uri.file(targetPath);
         await vscode.commands.executeCommand('vscode.openFolder', uri, typed.newWindow === true);
 

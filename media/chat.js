@@ -23,6 +23,7 @@
     resumeTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "resumeTaskChanges" }), "resumeTaskChanges"),
     commitTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "commitTaskChanges" }), "commitTaskChanges"),
     revertTaskChanges: /* @__PURE__ */ __name(() => vscode_api_default.postMessage({ command: "revertTaskChanges" }), "revertTaskChanges"),
+    testConnection: /* @__PURE__ */ __name((settings) => vscode_api_default.postMessage({ command: "testConnection", provider: settings.provider, model: settings.model, baseUrl: settings.baseUrl, apiKey: settings.apiKey }), "testConnection"),
     fetchModels: /* @__PURE__ */ __name((provider, baseUrl, apiKey) => vscode_api_default.postMessage({ command: "fetchModels", provider, baseUrl, apiKey }), "fetchModels")
   };
 
@@ -263,7 +264,16 @@
       }
       if (source === "WHATSAPP" && tag === "qrsvg") {
         const body2 = bodyRaw.trim();
-        const variant = body2.startsWith("PHN2Zy") ? "whatsapp-qr-svg" : "whatsapp-qr-note";
+        let isSvg = body2.startsWith("PHN2Zy") || body2.startsWith("PD94");
+        if (!isSvg && body2.length > 0) {
+          try {
+            const decoded = atob(body2).trim();
+            isSvg = decoded.includes("<svg") || decoded.startsWith("<?xml");
+          } catch {
+            isSvg = false;
+          }
+        }
+        const variant = isSvg ? "whatsapp-qr-svg" : "whatsapp-qr-note";
         return {
           kind,
           message: body2.length > 0 ? body2 : normalized,
@@ -724,7 +734,7 @@
     el.taskRerunBtn().disabled = false;
     el.taskResumeBtn().disabled = result.outcome !== "interrupted";
     el.taskCommitBtn().disabled = !result.canCommit;
-    el.taskRevertBtn().disabled = result.changedFiles.length === 0;
+    el.taskRevertBtn().disabled = !result.canCommit;
   }
   __name(renderTaskResultCard, "renderTaskResultCard");
 
@@ -772,9 +782,14 @@
       case "activateTab":
         if (msg.tab === "settings") setTab("settings");
         break;
+      case "connectionTestDone": {
+        const button = document.getElementById("testConnectionBtn");
+        if (button) button.disabled = false;
+        break;
+      }
       case "modelList":
         if (Array.isArray(msg.models)) {
-          window.dispatchEvent(new CustomEvent("models-loaded", { detail: msg.models }));
+          window.dispatchEvent(new CustomEvent("models-loaded", { detail: msg }));
         }
         break;
       case "buildInfo":
@@ -929,6 +944,121 @@
     }
   }
   __name(applyTooltipTranslations, "applyTooltipTranslations");
+
+  // src/webview/model-autocomplete.ts
+  function filterModels(models, query, freeOnly) {
+    const normalized = query.trim().toLowerCase();
+    const words = normalized.split(/\s+/).filter(Boolean);
+    return models.filter((model) => (!freeOnly || model.free) && words.every((word) => model.id.toLowerCase().includes(word))).sort((a, b) => Number(b.id.toLowerCase().startsWith(normalized)) - Number(a.id.toLowerCase().startsWith(normalized))).slice(0, 12);
+  }
+  __name(filterModels, "filterModels");
+  function initModelAutocomplete(input, picker, freeOnly) {
+    let models = [];
+    let loaded = false;
+    let active = -1;
+    let searching = false;
+    function close() {
+      picker.classList.add("hidden");
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+      active = -1;
+    }
+    __name(close, "close");
+    function select(model) {
+      input.value = model;
+      searching = false;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      close();
+    }
+    __name(select, "select");
+    function render() {
+      close();
+      picker.replaceChildren();
+      if (!loaded || document.activeElement !== input) return;
+      for (const model of filterModels(models, searching ? input.value : "", freeOnly.checked)) {
+        const option = document.createElement("div");
+        option.id = `model-option-${picker.children.length}`;
+        option.className = "picker-item";
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", "false");
+        option.textContent = model.id;
+        option.addEventListener("mousedown", (event) => event.preventDefault());
+        option.addEventListener("click", () => select(model.id));
+        picker.appendChild(option);
+      }
+      if (!picker.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "picker-empty";
+        empty.setAttribute("role", "status");
+        const translations = window.__tcTranslations;
+        empty.textContent = translations?.model_no_matches || "No matches. You can enter a model ID manually.";
+        picker.appendChild(empty);
+      }
+      picker.classList.remove("hidden");
+      input.setAttribute("aria-expanded", "true");
+    }
+    __name(render, "render");
+    input.addEventListener("focus", () => {
+      searching = false;
+      input.select();
+      render();
+    });
+    input.addEventListener("click", () => {
+      if (picker.classList.contains("hidden")) render();
+    });
+    input.addEventListener("input", () => {
+      searching = true;
+      render();
+    });
+    freeOnly.addEventListener("change", () => {
+      const wasSearching = searching;
+      input.focus();
+      searching = wasSearching;
+      render();
+    });
+    input.addEventListener("blur", close);
+    input.addEventListener("keydown", (event) => {
+      if (event.isComposing) return;
+      if (event.key === "Escape") {
+        if (!picker.classList.contains("hidden")) {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
+        }
+        return;
+      }
+      if (event.key === "Tab") {
+        close();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        if (picker.classList.contains("hidden")) render();
+        const options = Array.from(picker.querySelectorAll('[role="option"]'));
+        if (!options.length) return;
+        event.preventDefault();
+        active = active < 0 ? event.key === "ArrowDown" ? 0 : options.length - 1 : (active + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options.forEach((option, index) => option.setAttribute("aria-selected", String(index === active)));
+        input.setAttribute("aria-activedescendant", options[active].id);
+        options[active].scrollIntoView({ block: "nearest" });
+      } else if (event.key === "Enter" && active >= 0 && !picker.classList.contains("hidden")) {
+        event.preventDefault();
+        select(picker.children[active].textContent);
+      }
+    });
+    return {
+      setModels(next) {
+        models = next;
+        loaded = true;
+        render();
+      },
+      clear() {
+        models = [];
+        loaded = false;
+        close();
+      }
+    };
+  }
+  __name(initModelAutocomplete, "initModelAutocomplete");
 
   // src/webview/index.ts
   function deriveAllowOutOfWorkspaceByProfile(profile) {
@@ -1275,11 +1405,51 @@
   whatsappAccessModeSelect?.addEventListener("change", () => {
     syncWhatsappAccessFields();
   });
-  el.fetchModelsBtn().addEventListener("click", () => {
+  document.getElementById("testConnectionBtn")?.addEventListener("click", () => {
+    const button = document.getElementById("testConnectionBtn");
+    button.disabled = true;
+    el.settingsNote().textContent = "\u2026";
+    cmd.testConnection(readForm());
+  });
+  var modelInput = document.getElementById("model");
+  var freeModelsOnly = document.getElementById("freeModelsOnly");
+  var modelAutocomplete = initModelAutocomplete(modelInput, el.modelPicker(), freeModelsOnly);
+  var requestedModelContext = "";
+  function syncModelFilter() {
+    const isOpenRouter = readForm().provider === "openrouter";
+    freeModelsOnly.closest("label").classList.toggle("hidden", !isOpenRouter);
+    if (!isOpenRouter) freeModelsOnly.checked = false;
+  }
+  __name(syncModelFilter, "syncModelFilter");
+  function modelContext(provider, baseUrl) {
+    return JSON.stringify([provider.trim(), baseUrl.trim()]);
+  }
+  __name(modelContext, "modelContext");
+  function fetchModels() {
     const settings = readForm();
+    requestedModelContext = modelContext(settings.provider, settings.baseUrl);
+    modelAutocomplete.clear();
     cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
     el.settingsNote().textContent = "Fetching models...";
+  }
+  __name(fetchModels, "fetchModels");
+  el.fetchModelsBtn().addEventListener("click", () => {
+    fetchModels();
+    modelInput.focus();
   });
+  modelInput.addEventListener("focus", () => {
+    const settings = readForm();
+    if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
+  });
+  modelInput.addEventListener("input", updateComposerMeta);
+  modelInput.addEventListener("change", updateComposerMeta);
+  for (const id of ["provider", "baseUrl", "apiKey"]) {
+    document.getElementById(id)?.addEventListener("input", () => {
+      requestedModelContext = "";
+      modelAutocomplete.clear();
+      syncModelFilter();
+    });
+  }
   function updateSettingsCategory(catId) {
     const cats = Array.from(el.settingsCats());
     const navs = Array.from(el.settingsNavItems());
@@ -1298,8 +1468,10 @@
     });
   }
   window.addEventListener("models-loaded", (e) => {
-    const models = e.detail;
-    updateModelSuggestions(models);
+    const { models, provider, baseUrl } = e.detail;
+    const settings = readForm();
+    if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
+    modelAutocomplete.setModels(models);
     el.settingsNote().textContent = `Loaded ${models.length} models`;
     updateComposerMeta();
   });
@@ -1315,49 +1487,19 @@
   window.addEventListener("run-summary", (e) => {
     updateRunSummaryCard(e.detail);
   });
-  function updateModelSuggestions(models) {
-    const picker = el.modelPicker();
-    picker.innerHTML = "";
-    if (models.length === 0) {
-      picker.classList.add("hidden");
-      return;
-    }
-    for (const m of models) {
-      const div = document.createElement("div");
-      div.className = "picker-item";
-      div.textContent = m;
-      div.addEventListener("click", () => {
-        document.getElementById("model").value = m;
-        picker.classList.add("hidden");
-      });
-      picker.appendChild(div);
-    }
-    picker.classList.remove("hidden");
-  }
-  __name(updateModelSuggestions, "updateModelSuggestions");
-  var modelInput = document.getElementById("model");
-  modelInput?.addEventListener("focus", () => {
-    const picker = el.modelPicker();
-    if (picker.children.length > 0) {
-      picker.classList.remove("hidden");
-    }
-  });
-  document.getElementById("modelChevron")?.addEventListener("click", (e) => {
+  var toggleApiKeyBtn = document.getElementById("toggleApiKeyBtn");
+  var apiKeyInput = document.getElementById("apiKey");
+  var EYE_OPEN_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  var EYE_CLOSED_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  toggleApiKeyBtn?.addEventListener("click", (e) => {
     e.stopPropagation();
-    modelInput.focus();
-    const picker = el.modelPicker();
-    if (picker.children.length > 0) {
-      picker.classList.toggle("hidden");
-    }
-  });
-  document.addEventListener("click", (e) => {
-    const target = e.target;
-    const isModelInput = target.id === "model";
-    const isPicker = target.closest(".picker");
-    const isFetchBtn = target.id === "fetchModelsBtn";
-    if (!isModelInput && !isPicker && !isFetchBtn) {
-      el.modelPicker().classList.add("hidden");
-    }
+    if (!apiKeyInput) return;
+    const isPassword = apiKeyInput.type === "password";
+    apiKeyInput.type = isPassword ? "text" : "password";
+    toggleApiKeyBtn.innerHTML = isPassword ? EYE_CLOSED_SVG : EYE_OPEN_SVG;
+    const label = isPassword ? "Hide API key" : "Show API key";
+    toggleApiKeyBtn.setAttribute("title", label);
+    toggleApiKeyBtn.setAttribute("aria-label", label);
   });
   window.addEventListener("translate", (e) => {
     const translations = e.detail;
@@ -1387,7 +1529,12 @@
   }
   __name(applyTranslations, "applyTranslations");
   window.addEventListener("message", (e) => {
+    if (e.data?.type === "settings") {
+      requestedModelContext = "";
+      modelAutocomplete.clear();
+    }
     handleMessage(e.data);
+    if (e.data?.type === "settings") syncModelFilter();
     const anyExpanded = Array.from(document.querySelectorAll(".grouped-node")).some(
       (node) => node.classList.contains("expanded")
     );

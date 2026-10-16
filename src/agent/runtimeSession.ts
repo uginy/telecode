@@ -1,4 +1,4 @@
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { AgentSettings } from "../config/settings";
 import type { RuntimeConfig, RuntimeEvent } from "../engine/types";
 import { getPromptStackSignature } from "../prompts/promptStack";
@@ -31,7 +31,8 @@ export function createRuntimeSignature(
 		model: config.model,
 		baseUrl: config.baseUrl || "",
 		maxSteps: config.maxSteps,
-		apiKeySet: config.apiKey.length > 0,
+		autoApprove: config.autoApprove,
+		apiKey: config.apiKey,
 		allowedTools: config.allowedTools,
 		tools: tools.map((tool) => tool.name),
 		language: config.language,

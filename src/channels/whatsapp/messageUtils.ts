@@ -1,3 +1,5 @@
+import type { WAMessage } from "@whiskeysockets/baileys";
+
 const WA_MESSAGE_LIMIT = 3000;
 
 export type IncomingCommand =
@@ -26,21 +28,7 @@ export type IncomingCommand =
 	| "run"
 	| null;
 
-/** Minimal shape of a Baileys incoming message. */
-export type BaileysMessage = {
-	key: {
-		id?: string;
-		remoteJid?: string;
-		fromMe?: boolean;
-		participant?: string;
-	};
-	message?: {
-		conversation?: string;
-		extendedTextMessage?: {
-			text?: string;
-		};
-	};
-};
+export type BaileysMessage = Pick<WAMessage, "key" | "message">;
 
 export function splitWhatsappText(
 	input: string,

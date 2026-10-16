@@ -3,16 +3,23 @@ import {
 	type AgentEvent,
 	type AgentMessage,
 	type AgentTool,
-} from "@mariozechner/pi-agent-core";
+} from "@earendil-works/pi-agent-core";
 import {
-	getModel,
-	getModels,
-	type Message,
+	createModels,
+	createProvider,
 	type Model,
 	type ImageContent,
-	type ToolCall,
-	type ToolResultMessage,
-} from "@mariozechner/pi-ai";
+	type Models,
+} from "@earendil-works/pi-ai";
+import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
+import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
+import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
+import { googleProvider } from "@earendil-works/pi-ai/providers/google";
+import { minimaxProvider } from "@earendil-works/pi-ai/providers/minimax";
+import { moonshotaiProvider } from "@earendil-works/pi-ai/providers/moonshotai";
+import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
+import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { buildComposedSystemPrompt } from "../prompts/promptStack";
 
 export interface TelecodeConfig {
@@ -21,6 +28,7 @@ export interface TelecodeConfig {
 	apiKey: string;
 	baseUrl?: string;
 	maxSteps: number;
+	autoApprove?: boolean;
 	cwd?: string;
 	initialMessages?: AgentMessage[];
 	responseStyle?: "concise" | "normal" | "detailed";
@@ -35,20 +43,27 @@ export interface AgentPromptInfo {
 	missing: string[];
 }
 
+export interface DiscoveredModel {
+	id: string;
+	free: boolean;
+}
+
 const PROVIDER_ALIAS: Record<string, string> = {
 	kimi: "kimi-coding",
+	moonshot: "moonshotai",
 };
 
 export const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
 	openai: "https://api.openai.com/v1",
 	openrouter: "https://openrouter.ai/api/v1",
-	moonshot: "https://api.moonshot.ai/v1",
+	moonshotai: "https://api.moonshot.ai/v1",
 	deepseek: "https://api.deepseek.com/v1",
 	ollama: "http://localhost:11434/v1",
 };
 
 const NON_OPENAI_COMPAT_PROVIDERS = new Set([
 	"anthropic",
+	"minimax",
 	"amazon-bedrock",
 	"google",
 	"google-gemini-cli",
@@ -64,19 +79,16 @@ export function normalizeProvider(provider: string): string {
 	return PROVIDER_ALIAS[trimmed] ?? trimmed;
 }
 
-function isModelLike(value: unknown): value is Model<any> {
-	if (!value || typeof value !== "object") {
-		return false;
-	}
-
-	const model = value as Record<string, unknown>;
-	return (
-		typeof model.id === "string" &&
-		typeof model.api === "string" &&
-		typeof model.provider === "string" &&
-		typeof model.baseUrl === "string"
-	);
-}
+const PROVIDERS = {
+	openai: openaiProvider,
+	openrouter: openrouterProvider,
+	anthropic: anthropicProvider,
+	google: googleProvider,
+	minimax: minimaxProvider,
+	moonshotai: moonshotaiProvider,
+	deepseek: deepseekProvider,
+	"kimi-coding": kimiCodingProvider,
+};
 
 function applyBaseUrl(model: Model<any>, baseUrl?: string): Model<any> {
 	const normalizedBaseUrl = typeof baseUrl === "string" ? baseUrl.trim() : "";
@@ -128,7 +140,7 @@ function buildOpenAiCompatibleModel(
 		maxTokens: 16_384,
 		compat: {
 			requiresToolResultName:
-				provider === "moonshot" ||
+				provider === "moonshotai" ||
 				provider === "mistral" ||
 				provider === "deepseek",
 			supportsStrictMode: false,
@@ -140,141 +152,51 @@ function buildOpenAiCompatibleModel(
 	} satisfies Model<"openai-completions">;
 }
 
-function resolveModel(config: TelecodeConfig): Model<any> {
+type ModelConfig = Pick<TelecodeConfig, "provider" | "model" | "apiKey" | "baseUrl">;
+
+function resolveModel(config: ModelConfig, models: Models): Model<any> {
 	const provider = normalizeProvider(config.provider);
-	const modelId = config.model.trim() || "gpt-4o-mini";
+	const modelId = config.model.trim();
 	const baseUrl = (config.baseUrl || "").trim();
+	if (!modelId) throw new Error("Select a model in TeleCode settings before starting the agent.");
 
-	let knownModelCandidate: unknown;
-	try {
-		knownModelCandidate = getModel(
-			provider as never,
-			modelId as never,
-		) as unknown;
-	} catch {
-		knownModelCandidate = undefined;
-	}
-	if (isModelLike(knownModelCandidate)) {
-		return applyBaseUrl(knownModelCandidate, baseUrl);
-	}
-
+	const knownModel = models.getModel(provider, modelId);
+	if (knownModel) return applyBaseUrl(knownModel, baseUrl);
 	if (shouldPreferOpenAiCompatibleModel(provider, baseUrl)) {
 		return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
 	}
+	const template = models.getModels(provider)[0];
+	if (!template) throw new Error(`Unknown provider "${config.provider}". Configure a supported provider or a custom OpenAI-compatible base URL.`);
+	return applyBaseUrl({ ...template, id: modelId, name: modelId }, baseUrl);
+}
 
-	try {
-		const providerModels = getModels(provider as never) as unknown[];
-		const template = providerModels.find((candidate) => isModelLike(candidate));
-		if (template) {
-			const typedTemplate = template as Model<any>;
-			const resolvedInput = typedTemplate.input.includes("image")
-				? typedTemplate.input
-				: [...typedTemplate.input, "image"];
-
-			const resolved: Model<any> = {
-				...typedTemplate,
-				id: modelId,
-				name: modelId,
-				input: resolvedInput as any,
-			};
-			return applyBaseUrl(resolved, baseUrl);
-		}
-	} catch {
-		// provider might not exist in built-in list (e.g. ollama)
+function createModelRuntime(config: ModelConfig) {
+	const models = createModels();
+	const providerId = normalizeProvider(config.provider);
+	const factory = PROVIDERS[providerId as keyof typeof PROVIDERS];
+	if (factory) models.setProvider(factory());
+	const model = resolveModel(config, models);
+	if (!factory) {
+		models.setProvider(createProvider({
+			id: providerId,
+			models: [model],
+			auth: { apiKey: { name: providerId, resolve: async () => ({ auth: { apiKey: config.apiKey.trim() || (providerId === "ollama" ? "ollama" : undefined) } }) } },
+			api: openAICompletionsApi(),
+		}));
 	}
-
-	return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
-}
-
-function isToolCall(block: unknown): block is ToolCall {
-	return (
-		typeof block === "object" &&
-		block !== null &&
-		(block as { type?: string }).type === "toolCall"
-	);
-}
-
-function toMoonshotLlmMessages(messages: AgentMessage[]): Message[] {
-	const filtered = messages.filter(isLlmMessage) as Message[];
-	const result: Message[] = [];
-	const assistantTurnIds = new Map<number, string[]>();
-
-	for (let i = 0; i < filtered.length; i++) {
-		const msg = filtered[i];
-
-		if (msg.role === "assistant") {
-			const turnIds: string[] = [];
-			let turnChanged = false;
-
-			const newContent = msg.content.map((block) => {
-				if (isToolCall(block)) {
-					if (!block.id || block.id.trim() === "") {
-						// Generate a strictly alphanumeric ID (9 chars), similar to Mistral constraints
-						const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-						let fallbackId = "";
-						for (let k = 0; k < 9; k++) {
-							fallbackId += chars.charAt(
-								Math.floor(Math.random() * chars.length),
-							);
-						}
-						turnIds.push(fallbackId);
-						turnChanged = true;
-						return { ...block, id: fallbackId };
-					}
-					turnIds.push(block.id);
-					return block;
-				}
-				return block;
-			});
-
-			assistantTurnIds.set(i, turnIds);
-			result.push(turnChanged ? { ...msg, content: newContent as any } : msg);
-		} else if (msg.role === "toolResult") {
-			const tr = msg as ToolResultMessage;
-			if (!tr.toolCallId || tr.toolCallId.trim() === "") {
-				let matchedId = "";
-				for (let j = i - 1; j >= 0; j--) {
-					const ids = assistantTurnIds.get(j);
-					if (ids && ids.length > 0) {
-						let resultsCountSinceAssistant = 0;
-						for (let k = j + 1; k < i; k++) {
-							if (filtered[k].role === "toolResult")
-								resultsCountSinceAssistant++;
-						}
-						if (resultsCountSinceAssistant < ids.length) {
-							matchedId = ids[resultsCountSinceAssistant];
-						}
-						break;
-					}
-				}
-				result.push({
-					...tr,
-					toolCallId: matchedId || `call_orphan_${Date.now()}`,
-				});
-			} else {
-				result.push(tr);
-			}
-		} else {
-			result.push(msg);
-		}
-	}
-	return result;
-}
-
-function toLlmMessages(messages: AgentMessage[]): Message[] {
-	return messages.filter(isLlmMessage) as Message[];
-}
-
-function isLlmMessage(message: AgentMessage): boolean {
-	const role = (message as { role?: string }).role;
-	return role === "user" || role === "assistant" || role === "toolResult";
+	return { models, model };
 }
 
 export class CodingAgent {
 	private readonly agent: Agent;
 	private readonly promptInfo: AgentPromptInfo;
+	private steps = 0;
+	private runError: string | undefined;
 
 	constructor(config: TelecodeConfig, tools: AgentTool[] = []) {
+		if (config.autoApprove === false) {
+			throw new Error("Interactive tool approvals are not supported. Enable telecode.autoApprove to run the agent; use the strict profile for read-only tasks.");
+		}
 		const promptBuild = buildComposedSystemPrompt({
 			cwd: config.cwd,
 			maxSteps: config.maxSteps,
@@ -290,20 +212,26 @@ export class CodingAgent {
 			missing: [...promptBuild.missing],
 		};
 
-		const resolvedModelObj = resolveModel(config);
+		const { models, model: resolvedModelObj } = createModelRuntime(config);
 
 		this.agent = new Agent({
 			initialState: {
 				systemPrompt: promptBuild.prompt,
 				model: resolvedModelObj,
 				tools,
-				messages: config.initialMessages || [],
+				messages: (config.initialMessages || []).filter((message) => message.role !== "system"),
 			},
-			convertToLlm: (messages) => {
-				if (resolvedModelObj.provider === "moonshot") {
-					return toMoonshotLlmMessages(messages);
+			streamFn: models.streamSimple.bind(models),
+			toolExecution: "sequential",
+			beforeToolCall: async (_context, signal) => {
+				if (signal?.aborted) return { block: true, reason: this.runError || "Task interrupted.", terminate: true };
+				if (this.steps >= config.maxSteps) {
+					this.runError = `Task stopped after reaching the limit of ${config.maxSteps} tool calls.`;
+					this.agent.abort();
+					return { block: true, reason: this.runError, terminate: true };
 				}
-				return toLlmMessages(messages);
+				this.steps++;
+				return undefined;
 			},
 			getApiKey: () => {
 				const apiKey = config.apiKey.trim();
@@ -322,7 +250,15 @@ export class CodingAgent {
 			return;
 		}
 
+		this.steps = 0;
+		this.runError = undefined;
 		await this.agent.prompt(normalized, images);
+		const lastMessage = this.agent.state.messages.at(-1);
+		if (this.runError || this.agent.state.errorMessage) throw new Error(this.runError || this.agent.state.errorMessage);
+		if (lastMessage?.role === "assistant" &&
+			(lastMessage.stopReason === "error" || lastMessage.stopReason === "aborted")) {
+			throw new Error(lastMessage.errorMessage || "Task interrupted.");
+		}
 	}
 
 	abort(): void {
@@ -361,31 +297,47 @@ export class CodingAgent {
 		return this.promptInfo;
 	}
 
+	static async testConnection(config: ModelConfig): Promise<string> {
+		if (normalizeProvider(config.provider) !== "ollama" && !config.apiKey.trim()) {
+			throw new Error("Enter an API key before testing the connection.");
+		}
+		const { models, model } = createModelRuntime(config);
+		const result = await models.completeSimple(model, {
+			messages: [{ role: "user", content: "Reply with OK.", timestamp: Date.now() }],
+		}, { apiKey: config.apiKey.trim() || undefined, maxTokens: 32, signal: AbortSignal.timeout(20_000) });
+		if (result.stopReason === "error" || result.stopReason === "aborted") {
+			throw new Error(result.errorMessage || "Connection test failed.");
+		}
+		return `${config.provider}/${config.model}`;
+	}
+
 	static async fetchModelsFromApi(
 		provider: string,
 		baseUrl: string,
 		apiKey: string,
-	): Promise<string[]> {
+	): Promise<DiscoveredModel[]> {
 		const normalizedProvider = normalizeProvider(provider);
-		const finalBaseUrl =
-			baseUrl.trim() ||
-			OPENAI_COMPAT_BASE_URL_BY_PROVIDER[normalizedProvider] ||
-			"";
-		if (!finalBaseUrl) return [];
-
-		try {
-			const resp = await fetch(`${finalBaseUrl.replace(/\/+$/, "")}/models`, {
-				headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-			});
-			if (!resp.ok) return [];
-			const json = (await resp.json()) as { data?: { id: string }[] };
-			if (Array.isArray(json.data)) {
-				return json.data.map((m) => m.id);
-			}
-		} catch {
-			// ignore
+		const factory = PROVIDERS[normalizedProvider as keyof typeof PROVIDERS];
+		if (factory && !(normalizedProvider in OPENAI_COMPAT_BASE_URL_BY_PROVIDER)) {
+			return factory().getModels().map((model) => ({ id: model.id, free: false }));
 		}
-		return [];
+		const finalBaseUrl = baseUrl.trim() || OPENAI_COMPAT_BASE_URL_BY_PROVIDER[normalizedProvider];
+		if (!finalBaseUrl) throw new Error(`Unknown provider "${provider}". Enter a custom OpenAI-compatible base URL.`);
+
+		const response = await fetch(`${finalBaseUrl.replace(/\/+$/, "")}/models`, {
+			headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+			signal: AbortSignal.timeout(15_000),
+		});
+		if (!response.ok) throw new Error(`Model discovery failed: HTTP ${response.status}.`);
+		const json = (await response.json()) as { data?: { id: string; supported_parameters?: string[]; pricing?: Record<string, string> }[] };
+		if (!Array.isArray(json.data)) throw new Error("Model discovery returned an invalid model list.");
+		return json.data
+			.filter((model) => normalizedProvider !== "openrouter" || model.supported_parameters?.includes("tools"))
+			.map((model) => ({
+				id: model.id,
+				free: normalizedProvider === "openrouter" && model.pricing?.prompt !== undefined && model.pricing?.completion !== undefined
+					&& Object.values(model.pricing).every((price) => price.trim() !== "" && Number(price) === 0),
+			}));
 	}
 }
 

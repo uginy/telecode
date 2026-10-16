@@ -82,5 +82,5 @@ export function renderTaskResultCard(result: TaskReviewSummary | null): void {
   el.taskRerunBtn().disabled = false;
   el.taskResumeBtn().disabled = result.outcome !== 'interrupted';
   el.taskCommitBtn().disabled = !result.canCommit;
-  el.taskRevertBtn().disabled = result.changedFiles.length === 0;
+  el.taskRevertBtn().disabled = !result.canCommit;
 }

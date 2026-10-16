@@ -17,6 +17,7 @@ export interface ChatCommandCallbacks {
 	resumeTaskChanges: () => Promise<void>;
 	commitTaskChanges: () => Promise<void>;
 	revertTaskChanges: () => Promise<void>;
+	testConnection: (command: Extract<ChatViewCommand, { command: "testConnection" }>) => Promise<void>;
 	fetchModels: (command: Extract<ChatViewCommand, { command: "fetchModels" }>) => Promise<void>;
 }
 
@@ -86,6 +87,9 @@ export function createChatViewCommandHandler(
 				return;
 			case "revertTaskChanges":
 				await callbacks.revertTaskChanges();
+				return;
+			case "testConnection":
+				await callbacks.testConnection(command);
 				return;
 			case "fetchModels":
 				await callbacks.fetchModels(command);

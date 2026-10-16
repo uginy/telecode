@@ -1,6 +1,6 @@
 # TeleCode AI — Agent Guidelines
 
-TeleCode AI is an autonomous coding agent embedded inside VS Code. It is built on a pure agentic architecture powered by `@mariozechner/pi-agent-core` and `@mariozechner/pi-ai`, seamlessly integrated with the VS Code extension API.
+TeleCode AI is an autonomous coding agent embedded inside VS Code. It is built on a pure agentic architecture powered by `@earendil-works/pi-agent-core` and `@earendil-works/pi-ai`, seamlessly integrated with the VS Code extension API.
 
 ## 🎯 Architecture
 
@@ -14,7 +14,7 @@ User Request → VS Code Command → CodingAgent (pi-agent-core) → LLM Provide
 
 - **\`src/extension.ts\`**: Thin VS Code composition root. It wires the webview, commands, runtime/channel controllers, settings sync, and lifecycle hooks.
 - **\`src/extension/*Controller.ts\`**: Focused controllers for commands, runtime lifecycle, channels, settings sync, fetch logging, and UI status orchestration.
-- **\`src/agent/codingAgent.ts\`**: Wrapper around `@mariozechner/pi-agent-core` that resolves provider/model setup and drives prompt execution.
+- **\`src/agent/codingAgent.ts\`**: Wrapper around `@earendil-works/pi-agent-core` that resolves provider/model setup and drives prompt execution.
 - **\`src/tools/index.ts\`** and **\`src/tools/definitions/*\`**: The canonical source for agent tools and their VS Code / workspace integrations.
 
 ## ⚠️ Core Philosophy: Agent Over Chat
@@ -35,7 +35,7 @@ To add a new capability to the agent:
 3. Use \`vscode.\*\` APIs for deep IDE integration, or standard Node APIs for external system access.
 4. Ensure the tool returns clear results for the agent to parse.
 
-Example of a tool definition using \`@sinclair/typebox\`:
+Example of a tool definition using \`typebox\`:
 \`\`\`typescript
 {
 name: 'new_tool',

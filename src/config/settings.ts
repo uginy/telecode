@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { readSecretSetting } from './secrets';
 
 export interface AgentSettings {
   provider: string;
@@ -6,6 +7,7 @@ export interface AgentSettings {
   apiKey: string;
   baseUrl?: string;
   maxSteps: number;
+  autoApprove?: boolean;
   allowedTools: string[];
   responseStyle: 'concise' | 'normal' | 'detailed';
   language: 'ru' | 'en' | 'auto';
@@ -82,8 +84,8 @@ export function readTelecodeSettings(): TelecodeSettings {
   const config = vscode.workspace.getConfiguration('telecode');
 
   const provider = (config.get<string>('provider') || 'openrouter').trim();
-  const model = (config.get<string>('model') || 'arcee-ai/trinity-large-preview:free').trim();
-  const apiKey = (config.get<string>('apiKey') || '').trim();
+  const model = (config.get<string>('model') || 'openrouter/free').trim();
+  const apiKey = readSecretSetting('apiKey');
   const baseUrlRaw = (config.get<string>('baseUrl') || '').trim();
 
   const maxSteps = readPositiveNumber(config.get<number>('maxSteps'), 100);
@@ -120,7 +122,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       : 'balanced';
 
   const telegramEnabled = config.get<boolean>('telegram.enabled') === true;
-  const telegramBotToken = (config.get<string>('telegram.botToken') || '').trim();
+  const telegramBotToken = readSecretSetting('telegram.botToken');
   const telegramChatIdRaw = (config.get<string>('telegram.chatId') || '').trim();
   const telegramApiRootRaw = (config.get<string>('telegram.apiRoot') || '').trim();
   const telegramForceIPv4 = config.get<boolean>('telegram.forceIPv4', true) !== false;
@@ -145,6 +147,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       apiKey,
       baseUrl: baseUrlRaw.length > 0 ? baseUrlRaw : undefined,
       maxSteps,
+      autoApprove: config.get<boolean>('autoApprove', true),
       allowedTools,
       responseStyle,
       language,

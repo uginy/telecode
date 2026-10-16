@@ -7,6 +7,7 @@ const RUNTIME_RESTART_CONFIG_KEYS = [
 	"telecode.apiKey",
 	"telecode.baseUrl",
 	"telecode.maxSteps",
+	"telecode.autoApprove",
 	"telecode.logMaxChars",
 	"telecode.channelLogLines",
 	"telecode.telegramMaxLogLines",

@@ -1,12 +1,13 @@
 import * as fs from "node:fs";
 import * as vscode from "vscode";
+import { saveSecretSetting } from "../config/secrets";
 import { readTelecodeSettings } from "../config/settings";
 import type { ChatViewSettings, ChatViewProvider } from "../ui/chatViewProvider";
 import { saveOpenSettingsFiles } from "../utils/vscodeUtils";
 
 export async function persistChatViewSettings(
 	settings: ChatViewSettings,
-): Promise<{ sessionApiKey: string }> {
+): Promise<void> {
 	const config = vscode.workspace.getConfiguration("telecode");
 	const target = vscode.ConfigurationTarget.Global;
 	const apiKey = settings.apiKey.trim();
@@ -16,7 +17,7 @@ export async function persistChatViewSettings(
 
 	await config.update("provider", settings.provider, target);
 	await config.update("model", settings.model, target);
-	await config.update("apiKey", apiKey, target);
+	await saveSecretSetting("apiKey", apiKey);
 	await config.update("baseUrl", settings.baseUrl, target);
 	await config.update("maxSteps", settings.maxSteps, target);
 	await config.update("logMaxChars", settings.logMaxChars, target);
@@ -32,7 +33,7 @@ export async function persistChatViewSettings(
 		target,
 	);
 	await config.update("telegram.enabled", settings.telegramEnabled, target);
-	await config.update("telegram.botToken", telegramBotToken, target);
+	await saveSecretSetting("telegram.botToken", telegramBotToken);
 	await config.update("telegram.chatId", settings.telegramChatId, target);
 	await config.update("telegram.apiRoot", settings.telegramApiRoot, target);
 	await config.update(
@@ -62,7 +63,6 @@ export async function persistChatViewSettings(
 		target,
 	);
 
-	return { sessionApiKey: apiKey };
 }
 
 export function syncSettingsToChatView(

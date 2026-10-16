@@ -1,6 +1,6 @@
-import { Type, type Static } from '@mariozechner/pi-ai';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
-import { DEFAULT_BASH_TIMEOUT_MS, runShellCommand, trimOutput, resolveToolPath } from '../core/utils';
+import { Type, type Static } from '@earendil-works/pi-ai';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
+import { DEFAULT_BASH_TIMEOUT_MS, runShellCommand, trimOutput, resolveToolPath, checkPathAllowed } from '../core/utils';
 
 export const bashParams = Type.Object({
   command: Type.String({ description: 'Shell command to execute' }),
@@ -24,6 +24,7 @@ export function createTerminalTools(getContext: () => { workingDirectory: string
         
         // Use provided cwd or fall back to current working directory
         const execCwd = typed.cwd ? resolveToolPath(typed.cwd, workingDirectory) : workingDirectory;
+        checkPathAllowed(execCwd, 'bash');
 
         const result = await runShellCommand(typed.command, execCwd, timeoutMs, abortSignal);
 

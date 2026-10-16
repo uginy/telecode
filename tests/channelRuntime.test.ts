@@ -29,7 +29,7 @@ vi.mock("vscode", () => ({
 	},
 }));
 
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { ensureChannelRuntime } from "../src/channels/runtime";
 import type { AgentSettings } from "../src/config/settings";
 

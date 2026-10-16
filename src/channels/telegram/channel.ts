@@ -6,7 +6,7 @@ import type {
 	RequestInit as NodeFetchRequestInit,
 	Response as NodeFetchResponse,
 } from "node-fetch";
-import type { AgentTool } from "@mariozechner/pi-agent-core";
+import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { readTelecodeSettings } from "../../config/settings";
 import type {
 	AgentRuntime,
@@ -39,6 +39,7 @@ import {
 	saveTaskReviewSummary,
 	shouldSendAutomaticTaskReview,
 	type TaskReviewSummary,
+	type TaskChangedFile,
 } from "../../extension/taskReview";
 import {
 	appendProjectMemoryNote,
@@ -70,7 +71,6 @@ import {
 	parseTelegramChatId,
 	getWorkspaceRoot,
 	runGitCommand,
-	rollbackWorkingTree,
 	isRecord,
 	shouldLogTelegramStatus,
 	compactTelegramStatus,
@@ -163,10 +163,12 @@ export class TelegramChannel implements IChannel {
 		try {
 			this.lastTaskReview = await loadTaskReviewSummary(this.workspaceRoot);
 			const allowedChatId = parseTelegramChatId(chatId);
-			if (chatId && allowedChatId === null) {
-				const message = `TeleCode AI Telegram: invalid chatId "${chatId}". Use numeric id like 123456789 or -1001234567890.`;
+			if (allowedChatId === null || allowedChatId === 0) {
+				const message = "TeleCode AI Telegram: set a valid numeric telecode.telegram.chatId before connecting.";
 				this.pushLog(`[error] ${message}`);
 				vscode.window.showWarningMessage(message);
+				this.setStatus("Error");
+				return;
 			}
 
 			const preferredMode: NetworkMode = forceIPv4 ? "ipv4" : "auto";
@@ -339,6 +341,7 @@ export class TelegramChannel implements IChannel {
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
+					previousReview: this.lastTaskReview,
 					checks,
 				}));
 				const updatedReview = this.lastTaskReview;
@@ -512,6 +515,7 @@ export class TelegramChannel implements IChannel {
 				const result = await commitTaskFiles({
 					workspaceRoot: this.workspaceRoot,
 					files: this.lastTaskReview.changedFiles,
+					changeSnapshot: this.lastTaskReview.changeSnapshot,
 					message,
 				});
 				if (!result.ok) {
@@ -523,6 +527,7 @@ export class TelegramChannel implements IChannel {
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
+					previousReview: this.lastTaskReview,
 					checks: this.lastTaskReview.checks,
 				}));
 				const updatedReview = this.lastTaskReview;
@@ -545,6 +550,7 @@ export class TelegramChannel implements IChannel {
 				const result = await revertTaskFiles({
 					workspaceRoot: this.workspaceRoot,
 					files: this.lastTaskReview.changedFiles,
+					changeSnapshot: this.lastTaskReview.changeSnapshot,
 				});
 				if (!result.ok) {
 					await ctx.reply(limitText(result.message, 4000));
@@ -555,6 +561,7 @@ export class TelegramChannel implements IChannel {
 					prompt: this.lastTaskReview.prompt,
 					outcome: this.lastTaskReview.outcome,
 					error: this.lastTaskReview.error,
+					previousReview: this.lastTaskReview,
 					checks: this.lastTaskReview.checks,
 				}));
 				const updatedReview = this.lastTaskReview;
@@ -617,7 +624,9 @@ export class TelegramChannel implements IChannel {
 			});
 
 			bot.command("rollback", async (ctx) => {
-				const result = await rollbackWorkingTree();
+				const result = this.lastTaskReview
+					? (await revertTaskFiles({ workspaceRoot: this.workspaceRoot, files: this.lastTaskReview.changedFiles, changeSnapshot: this.lastTaskReview.changeSnapshot })).message
+					: "No recorded task to roll back.";
 				await ctx.reply(result);
 			});
 
@@ -1243,9 +1252,10 @@ export class TelegramChannel implements IChannel {
 		};
 		this.activeTaskCleanup = cleanupTask;
 
+		let changedFilesBefore: TaskChangedFile[] | undefined;
 		try {
+			changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
 			const runtime = this.ensureRuntime();
-			const changedFilesBefore = await collectWorkspaceChangedFiles(this.workspaceRoot);
 			responseBuffer = "";
 			const preview =
 				task.prompt.length > 240 ? `${task.prompt.slice(0, 240)}...` : task.prompt;
@@ -1325,6 +1335,7 @@ export class TelegramChannel implements IChannel {
 			this.lastResponse = responseBuffer;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
+				baselineFiles: changedFilesBefore,
 				prompt: task.prompt,
 				outcome: "completed",
 			}));
@@ -1376,6 +1387,7 @@ export class TelegramChannel implements IChannel {
 			const interrupted = this.stopRequestedTaskId === task.id;
 			await this.setLastTaskReview(await collectTaskReviewSummary({
 				workspaceRoot: this.workspaceRoot,
+				baselineFiles: changedFilesBefore,
 				prompt: task.prompt,
 				outcome: interrupted ? "interrupted" : "failed",
 				error: interrupted ? "Task cancelled before completion." : message,

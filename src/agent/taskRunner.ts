@@ -5,7 +5,7 @@ import type {
 	RuntimeEvent,
 	ImageContentExt,
 } from "../engine/types";
-import type { AgentTool, AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentTool, AgentMessage } from "@earendil-works/pi-agent-core";
 import * as fs from "node:fs/promises";
 import { readFileSync, unlinkSync } from "node:fs";
 import * as path from "node:path";
@@ -22,6 +22,7 @@ export class TaskRunner {
 	private unsubscribeEvents: (() => void) | null = null;
 	private state: TaskRunnerState = "idle";
 	private lastActivityAt = 0;
+	private runError: string | undefined;
 	private watchdogTimer: NodeJS.Timeout | null = null;
 
 	constructor(
@@ -56,6 +57,8 @@ export class TaskRunner {
 		this._runtime = created.runtime;
 		this.unsubscribeEvents = this._runtime.onEvent((e) => {
 			this.lastActivityAt = Date.now();
+			if (e.type === "error") this.runError = e.message;
+			if (e.type === "done" && this.runError) return;
 			if (e.type === "done" || e.type === "error") {
 				this.stopWatchdog();
 				this.setState(e.type === "error" ? "error" : "idle");
@@ -81,12 +84,16 @@ export class TaskRunner {
 			throw new Error("Agent is already running a task.");
 		}
 
+		this.runError = undefined;
+		const runtime = this._runtime;
 		this.setState("running");
 		this.lastActivityAt = Date.now();
 		this.startWatchdog();
 
 		try {
-			await this._runtime.prompt(prompt, images);
+			await runtime.prompt(prompt, images);
+			if (this.runError) throw new Error(this.runError);
+			if (this._runtime !== runtime) throw new Error("Task interrupted.");
 		} catch (e) {
 			this.stopWatchdog();
 			this.setState("error");
@@ -129,12 +136,8 @@ export class TaskRunner {
 		this.watchdogTimer = setInterval(() => {
 			const inactiveForMs = Date.now() - this.lastActivityAt;
 			if (this.state === "running" && inactiveForMs >= this.watchdogTimeoutMs) {
-				this.onEvent({
-					type: "error",
-					message: `Task aborted due to inactivity (> ${
-						this.watchdogTimeoutMs / 1000
-					}s)`,
-				});
+				this.runError = `Task aborted due to inactivity (> ${this.watchdogTimeoutMs / 1000}s)`;
+				this.onEvent({ type: "error", message: this.runError });
 				void this.saveHistoryAsync();
 				this.disposeRuntime("error");
 			}
@@ -174,13 +177,10 @@ export class TaskRunner {
 			let msgs = this._runtime.getMessages();
 			if (!msgs || msgs.length === 0) return;
 
-			// Auto-compress history by keeping only the last N messages
-			// to avoid context window limits (e.g. 40 turns should be enough context)
-			const MAX_HISTORY_MESSAGES = 40;
-			if (msgs.length > MAX_HISTORY_MESSAGES) {
-				// We slice from the end to keep the most recent messages
-				msgs = msgs.slice(-MAX_HISTORY_MESSAGES);
-			}
+			// Keep complete user turns so persisted history never starts with orphaned tool results.
+			let start = Math.max(0, msgs.length - 40);
+			while (start > 0 && msgs[start].role !== "user") start--;
+			msgs = msgs.slice(start);
 
 			const dir = path.dirname(file);
 			await fs.mkdir(dir, { recursive: true });

@@ -1356,27 +1356,42 @@ textarea:focus { border-color: var(--accent); }
   display: flex;
   gap: 4px;
 }
-.input-with-action .field-rel {
+.field-rel {
   position: relative;
-  flex: 1;
-}
-.input-with-action input {
   width: 100%;
 }
-.field-rel .chevron {
-  content: "▼";
+.input-with-action .field-rel {
+  flex: 1;
+  min-width: 0;
+}
+.field-rel input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.field-rel:has(.toggle-eye) input {
+  padding-right: 28px;
+}
+.field-rel .toggle-eye {
   position: absolute;
-  right: 10px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 8px;
-  opacity: 0.3;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-input-foreground, #cccccc);
+  opacity: 0.5;
   cursor: pointer;
-  transition: opacity 0.1s;
-  user-select: none;
+  border-radius: 3px;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
 }
-.field-rel .chevron:hover {
-  opacity: 0.8;
+.field-rel .toggle-eye:hover {
+  opacity: 0.9;
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
 }
 .input-with-action .btn {
   flex-shrink: 0;
@@ -1393,25 +1408,51 @@ textarea:focus { border-color: var(--accent); }
   left: 0;
   right: 0;
   z-index: 1000;
-  background: var(--vscode-dropdown-background, #2d2d2d);
-  border: 1px solid var(--vscode-dropdown-border, #454545);
+  background: var(--vscode-editorSuggestWidget-background);
+  border: 1px solid var(--vscode-editorSuggestWidget-border);
   border-radius: 4px;
   margin-top: 2px;
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 10px var(--vscode-widget-shadow);
 }
 
 .picker-item {
   padding: 6px 10px;
   cursor: pointer;
   font-size: 11px;
-  color: var(--vscode-foreground);
+  color: var(--vscode-editorSuggestWidget-foreground);
+  overflow-wrap: anywhere;
   transition: background 0.1s;
 }
 
 .picker-item:hover {
   background: var(--vscode-list-hoverBackground, #37373d);
+}
+
+.picker-item[aria-selected="true"] {
+  background: var(--vscode-editorSuggestWidget-selectedBackground);
+  color: var(--vscode-editorSuggestWidget-selectedForeground);
+}
+
+.picker-empty {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.field .model-free-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.model-free-filter input[type='checkbox'] {
+  margin: 0;
+  min-height: 0;
 }
 
 /* Actions row */

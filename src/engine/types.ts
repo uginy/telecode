@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@mariozechner/pi-agent-core';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
 
 export type RuntimeEvent =
   | { type: 'text_delta'; delta: string }
@@ -32,6 +32,7 @@ export interface RuntimeConfig {
   apiKey: string;
   baseUrl?: string;
   maxSteps: number;
+  autoApprove?: boolean;
   allowedTools: string[];
   cwd: string;
   initialMessages?: AgentMessage[];

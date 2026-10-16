@@ -1,7 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { Type, type Static } from '@mariozechner/pi-ai';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import { Type, type Static } from '@earendil-works/pi-ai';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { resolveToolPath, checkPathAllowed, renderPath, trimOutput } from '../core/utils';
 
 export const readFileParams = Type.Object({

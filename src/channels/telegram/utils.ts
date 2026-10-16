@@ -478,45 +478,6 @@ export async function runGitCommand(args: string[], timeoutMs = 30_000): Promise
   });
 }
 
-export async function rollbackWorkingTree(): Promise<string> {
-  const root = getWorkspaceRoot();
-  const { stdout } = await runGitCommand(['status', '--porcelain']);
-  const lines = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
-
-  if (lines.length === 0) {
-    return 'No changes to rollback.';
-  }
-
-  const trackedFiles: string[] = [];
-  const untrackedFiles: string[] = [];
-
-  for (const line of lines) {
-    const status = line.slice(0, 2);
-    const file = line.slice(3).trim();
-
-    if (!file) {
-      continue;
-    }
-
-    if (status === '??') {
-      untrackedFiles.push(file);
-    } else {
-      trackedFiles.push(file);
-    }
-  }
-
-  if (trackedFiles.length > 0) {
-    await runGitCommand(['restore', '--staged', '--worktree', '--', ...trackedFiles]);
-  }
-
-  for (const relativeFile of untrackedFiles) {
-    const absolute = path.resolve(root, relativeFile);
-    await fs.rm(absolute, { force: true, recursive: true });
-  }
-
-  return `Rollback complete. restored=${trackedFiles.length}, removed_untracked=${untrackedFiles.length}`;
-}
-
 export function maskToken(token: string): string {
   if (!token) {
     return '(empty)';

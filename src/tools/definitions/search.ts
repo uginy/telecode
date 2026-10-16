@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import * as vscode from 'vscode';
-import { Type, type Static } from '@mariozechner/pi-ai';
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import { Type, type Static } from '@earendil-works/pi-ai';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { DEFAULT_EXCLUDE, renderPath } from '../core/utils';
 
 export const globParams = Type.Object({

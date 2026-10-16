@@ -1,4 +1,4 @@
-import type { AgentTool } from '@mariozechner/pi-agent-core';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { getWorkspaceRoot } from './core/utils';
 import { createDiagnosticsTools } from './definitions/diagnostics';
 import { createFileTools } from './definitions/file';

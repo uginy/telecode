@@ -61,6 +61,7 @@ describe("createChatViewCommandHandler", () => {
 			resumeTaskChanges: vi.fn(async () => calls.push("resumeTaskChanges")),
 			commitTaskChanges: vi.fn(async () => calls.push("commitTaskChanges")),
 			revertTaskChanges: vi.fn(async () => calls.push("revertTaskChanges")),
+			testConnection: vi.fn(async () => calls.push("testConnection")),
 			fetchModels: vi.fn(async () => calls.push("fetchModels")),
 		});
 
@@ -80,6 +81,7 @@ describe("createChatViewCommandHandler", () => {
 			{ command: "resumeTaskChanges" },
 			{ command: "commitTaskChanges" },
 			{ command: "revertTaskChanges" },
+			{ command: "testConnection", provider: "openrouter", model: "model", baseUrl: "", apiKey: "test" },
 			{
 				command: "fetchModels",
 				provider: "openrouter",
@@ -108,6 +110,7 @@ describe("createChatViewCommandHandler", () => {
 			"resumeTaskChanges",
 			"commitTaskChanges",
 			"revertTaskChanges",
+			"testConnection",
 			"fetchModels",
 		]);
 	});

@@ -2,10 +2,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "types": [],
-    "rootDir": "src/webview",
+    "types": ["node"],
+    "rootDir": "src",
     "outDir": "media",
     "noEmit": true
   },
-  "include": ["src/webview/**/*"]
+  "include": ["src/webview/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
