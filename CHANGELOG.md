@@ -2,6 +2,12 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.23] - 2026-10-20
+
+- Added privacy-first, lightweight telemetry using PostHog to monitor extension adoption, geographic regions, and core channel activity.
+- Integrated strict adherence to `vscode.env.isTelemetryEnabled` and anonymized distinct identifiers (zero PII, no code or workspace data tracked).
+- Added web analytics to the landing page with event tracking for language switching and Marketplace install clicks.
+
 ## [0.1.22] - 2026-10-16
 
 - Replaced the model dropdown with searchable autocomplete, keyboard navigation and a free-model filter based on OpenRouter pricing.

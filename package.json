@@ -2,7 +2,7 @@
 	"name": "telecode-ai",
 	"displayName": "TeleCode AI",
 	"description": "Run coding tasks in VS Code from Telegram or WhatsApp.",
-	"version": "0.1.22",
+	"version": "0.1.23",
 	"publisher": "Uginy",
 	"license": "MIT",
 	"repository": {

@@ -2,6 +2,7 @@ import { ChannelRegistry } from "../channels/channelRegistry";
 import { createEnabledChannels } from "../channels/factory";
 import { readTelecodeSettings } from "../config/settings";
 import { resolveAgentTools } from "../agent/runtimePolicy";
+import { TelemetryService } from "../telemetry/telemetryService";
 import type { ChatViewProvider } from "../ui/chatViewProvider";
 import type { UiStatusController } from "./uiStatusController";
 
@@ -35,9 +36,22 @@ export class ChannelController {
 			onStatus: (channelId, status) => {
 				this.uiStatus.setChannelStatus(channelId, status);
 				this.syncConnectedState();
+				if (status.toLowerCase().includes("connected") || status.toLowerCase().includes("ready")) {
+					TelemetryService.get()?.capture("channel_connected", { channel: channelId });
+				}
 			},
 		})) {
 			this.registry.register(channel);
+		}
+
+		if (settings.telegram.enabled) {
+			TelemetryService.get()?.capture("channel_configured", { channel: "telegram" });
+		}
+		if (settings.whatsapp.enabled) {
+			TelemetryService.get()?.capture("channel_configured", {
+				channel: "whatsapp",
+				access_mode: settings.whatsapp.accessMode,
+			});
 		}
 
 		if (this.registry.size === 0) {

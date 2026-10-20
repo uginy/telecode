@@ -23,6 +23,8 @@ import { installLlmFetchLogger } from "./extension/fetchLogger";
 import { RuntimeController } from "./extension/runtimeController";
 import { TaskReviewController } from "./extension/taskReviewController";
 import { UiStatusController } from "./extension/uiStatusController";
+import { TelemetryService } from "./telemetry/telemetryService";
+import { readTelecodeSettings } from "./config/settings";
 
 let chatProvider: ChatViewProvider | null = null;
 const uiStatus = new UiStatusController(() => chatProvider);
@@ -41,8 +43,20 @@ const taskReview = new TaskReviewController(
 const runtime = new RuntimeController(
 	uiStatus,
 	() => channels.refresh(),
-	(prompt) => taskReview.markRunStarted(prompt),
-	(options) => taskReview.captureRunResult(options),
+	async (prompt) => {
+		await taskReview.markRunStarted(prompt);
+		const settings = readTelecodeSettings();
+		TelemetryService.get()?.capture("task_started", {
+			provider: settings.agent.provider,
+			model: settings.agent.model,
+		});
+	},
+	async (options) => {
+		await taskReview.captureRunResult(options);
+		TelemetryService.get()?.capture("task_settled", {
+			outcome: options.outcome,
+		});
+	},
 );
 let restoreFetchLogger: (() => void) | null = null;
 let extensionVersion = "0.0.0";
@@ -54,6 +68,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		typeof context.extension.packageJSON.version === "string"
 			? context.extension.packageJSON.version
 			: "0.0.0";
+	TelemetryService.init(context, extensionVersion).capture("extension_activated");
 	restoreFetchLogger = installLlmFetchLogger((line) => uiStatus.appendLogLine(line));
 	chatProvider = new ChatViewProvider(context.extensionUri);
 
