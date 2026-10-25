@@ -2,6 +2,16 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.24] - 2026-10-25
+
+- The agent now follows repository rules from `AGENTS.md`, `CLAUDE.md` and `.cursorrules` in the workspace root.
+- Long runs stay inside the model context window: older large tool outputs are trimmed before each request.
+- Plain messages sent while a task is running now steer that task instead of queueing a new one; `/run` still queues.
+- Added the `telecode.thinkingLevel` setting and `/think` command for models that support reasoning.
+- Telegram task reviews now carry Commit / Revert / Changes / Rerun buttons.
+- Removed the non-existent `TodoWrite` and `Task` tools from the default allowed tools.
+- Fixed `/task last` and history order when two tasks finish in the same millisecond.
+
 ## [0.1.23] - 2026-10-20
 
 - Added privacy-first, lightweight telemetry using PostHog to monitor extension adoption, geographic regions, and core channel activity.

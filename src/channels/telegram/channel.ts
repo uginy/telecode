@@ -1,13 +1,13 @@
 import * as vscode from "vscode";
 import * as https from "node:https";
 import * as path from "node:path";
-import { Bot, type Context } from "grammy";
+import { Bot, InlineKeyboard, type Context } from "grammy";
 import type {
 	RequestInit as NodeFetchRequestInit,
 	Response as NodeFetchResponse,
 } from "node-fetch";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
-import { readTelecodeSettings } from "../../config/settings";
+import { parseThinkingLevel, readTelecodeSettings } from "../../config/settings";
 import type {
 	AgentRuntime,
 	ImageContentExt,
@@ -15,7 +15,7 @@ import type {
 import type { IChannel } from "../types";
 import { createTaskRunner } from "../../agent/runtimeSession";
 import type { TaskRunner } from "../../agent/taskRunner";
-import { saveOpenSettingsFiles } from "../../utils/vscodeUtils";
+import { updateTelecodeSetting } from "../../utils/vscodeUtils";
 import { i18n, type Translations } from "../../services/i18n";
 import { ensureChannelRuntime } from "../runtime";
 import { TelegramApiService } from "./api";
@@ -104,6 +104,8 @@ export class TelegramChannel implements IChannel {
 	private lastLifecycleNoticeAt = 0;
 	private activeRemoteTaskId: number | null = null;
 	private stopRequestedTaskId: number | null = null;
+	/** Task whose review message carries the current inline buttons. */
+	private lastReviewTaskId: number | null = null;
 
 	private readonly usage = {
 		task: "Usage: /task <id|last|active>",
@@ -118,6 +120,7 @@ export class TelegramChannel implements IChannel {
 		provider: "Usage: /provider <provider-id>",
 		style: "Usage: /style <concise|normal|detailed>",
 		language: "Usage: /language <ru|en>",
+		think: "Usage: /think <off|minimal|low|medium|high>",
 		run: "Usage: /run <task>",
 	};
 
@@ -502,78 +505,42 @@ export class TelegramChannel implements IChannel {
 			});
 
 			bot.command("commit", async (ctx) => {
-				if (!this.lastTaskReview?.canCommit) {
-					await ctx.reply("No changed files from the last task.");
-					return;
-				}
 				const text = ctx.match;
 				const message = typeof text === "string" ? text.trim() : "";
-				if (!message) {
+				if (this.lastTaskReview?.canCommit && !message) {
 					await ctx.reply(this.usage.commit);
 					return;
 				}
-				const result = await commitTaskFiles({
-					workspaceRoot: this.workspaceRoot,
-					files: this.lastTaskReview.changedFiles,
-					changeSnapshot: this.lastTaskReview.changeSnapshot,
-					message,
-				});
-				if (!result.ok) {
-					await ctx.reply(limitText(result.message, 4000));
-					return;
-				}
-				await this.setLastTaskReview(await collectTaskReviewSummary({
-					workspaceRoot: this.workspaceRoot,
-					prompt: this.lastTaskReview.prompt,
-					outcome: this.lastTaskReview.outcome,
-					error: this.lastTaskReview.error,
-					previousReview: this.lastTaskReview,
-					checks: this.lastTaskReview.checks,
-				}));
-				const updatedReview = this.lastTaskReview;
-				if (!updatedReview) {
-					return;
-				}
-				await ctx.reply(
-					limitText(
-						`${result.message}\n\n${renderTelegramTaskReview(updatedReview)}`,
-						4000,
-					),
-				);
+				await ctx.reply(await this.commitLastTask(message));
 			});
 
 			bot.command("revert", async (ctx) => {
-				if (!this.lastTaskReview || this.lastTaskReview.changedFiles.length === 0) {
-					await ctx.reply("No changed files from the last task.");
+				await ctx.reply(await this.revertLastTask());
+			});
+
+			bot.callbackQuery(/^tc:(commit|revert|changes|rerun):(\d+)$/, async (ctx) => {
+				const [, action, taskId] = ctx.match;
+				await ctx.answerCallbackQuery();
+				if (Number(taskId) !== this.lastReviewTaskId) {
+					await ctx.reply("These buttons belong to an older task. Use /review for the latest one.");
 					return;
 				}
-				const result = await revertTaskFiles({
-					workspaceRoot: this.workspaceRoot,
-					files: this.lastTaskReview.changedFiles,
-					changeSnapshot: this.lastTaskReview.changeSnapshot,
-				});
-				if (!result.ok) {
-					await ctx.reply(limitText(result.message, 4000));
+				if (action === "changes") {
+					const { stdout } = await runGitCommand(["status", "--porcelain"]);
+					await ctx.reply(stdout.trim() ? limitText(renderRemoteGitStatus(stdout)) : "No working tree changes.");
 					return;
 				}
-				await this.setLastTaskReview(await collectTaskReviewSummary({
-					workspaceRoot: this.workspaceRoot,
-					prompt: this.lastTaskReview.prompt,
-					outcome: this.lastTaskReview.outcome,
-					error: this.lastTaskReview.error,
-					previousReview: this.lastTaskReview,
-					checks: this.lastTaskReview.checks,
-				}));
-				const updatedReview = this.lastTaskReview;
-				if (!updatedReview) {
+				if (action === "rerun") {
+					await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => undefined);
+					if (this.lastTaskReview?.prompt) await this.enqueueTaskRequest(ctx, this.lastTaskReview.prompt);
 					return;
 				}
-				await ctx.reply(
-					limitText(
-						`${result.message}\n\n${renderTelegramTaskReview(updatedReview)}`,
-						4000,
-					),
-				);
+				const reply = action === "commit"
+					? await this.commitLastTask(`TeleCode: ${(this.lastTaskReview?.prompt.split("\n")[0] ?? "task changes").slice(0, 60)}`)
+					: await this.revertLastTask();
+				// Commit/revert are one-shot: drop the buttons so a second tap cannot repeat them.
+				await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => undefined);
+				await ctx.reply(reply);
 			});
 
 			bot.command("logs", async (ctx) => {
@@ -715,6 +682,18 @@ export class TelegramChannel implements IChannel {
 				await ctx.reply(`Language updated to ${args}`);
 			});
 
+			bot.command("think", async (ctx) => {
+				const text = ctx.match;
+				const level = parseThinkingLevel(text);
+				if (!level) {
+					await ctx.reply(`${this.usage.think}\nCurrent: ${readTelecodeSettings().agent.thinkingLevel}`);
+					return;
+				}
+				// Runtime signature includes thinkingLevel, so the next task picks it up without aborting this one.
+				await updateTelecodeSetting("thinkingLevel", level);
+				await ctx.reply(`Thinking level updated to ${level}`);
+			});
+
 			bot.command("run", async (ctx) => {
 				const text = ctx.match;
 				const task = typeof text === "string" ? text.trim() : "";
@@ -729,6 +708,11 @@ export class TelegramChannel implements IChannel {
 			bot.on("message:text", async (ctx) => {
 				const text = ctx.message?.text?.trim() || "";
 				if (!text || text.startsWith("/")) {
+					return;
+				}
+				if (this.isProcessing && this.taskRunner.steer(text)) {
+					this.pushLog("[telegram] steering message sent to running task");
+					await ctx.reply("↪️ Sent to the running task. Use /run <task> to queue a separate task.");
 					return;
 				}
 				this.pushLog(
@@ -1339,6 +1323,7 @@ export class TelegramChannel implements IChannel {
 				prompt: task.prompt,
 				outcome: "completed",
 			}));
+			this.lastReviewTaskId = task.id;
 			const completedArtifacts = this.lastTaskReview
 				? await createTaskArtifacts({
 						workspaceRoot: this.workspaceRoot,
@@ -1376,6 +1361,7 @@ export class TelegramChannel implements IChannel {
 				await this.sendTextMessage(
 					chatId,
 					limitText(renderTelegramTaskReview(completedReview), 4000),
+					{ reply_markup: this.taskReviewKeyboard(task.id, completedReview) },
 				);
 			}
 		} catch (error) {
@@ -1392,6 +1378,7 @@ export class TelegramChannel implements IChannel {
 				outcome: interrupted ? "interrupted" : "failed",
 				error: interrupted ? "Task cancelled before completion." : message,
 			}));
+			this.lastReviewTaskId = task.id;
 			const failedArtifacts = this.lastTaskReview
 				? await createTaskArtifacts({
 						workspaceRoot: this.workspaceRoot,
@@ -1418,6 +1405,7 @@ export class TelegramChannel implements IChannel {
 						`Task ${interrupted ? "interrupted" : "failed"}: ${interrupted ? "cancelled" : message}\n\n${renderTelegramTaskReview(failedReview)}`,
 						4000,
 					),
+					{ reply_markup: this.taskReviewKeyboard(task.id, failedReview) },
 				);
 			} else {
 				await this.sendTextMessage(
@@ -1538,13 +1526,59 @@ export class TelegramChannel implements IChannel {
 		await this.bot?.api.sendMessage(chatId, text, options);
 	}
 
+	private async refreshLastTaskReview(review: TaskReviewSummary): Promise<TaskReviewSummary> {
+		await this.setLastTaskReview(await collectTaskReviewSummary({
+			workspaceRoot: this.workspaceRoot,
+			prompt: review.prompt,
+			outcome: review.outcome,
+			error: review.error,
+			previousReview: review,
+			checks: review.checks,
+		}));
+		return this.lastTaskReview ?? review;
+	}
+
+	private async commitLastTask(message: string): Promise<string> {
+		const review = this.lastTaskReview;
+		if (!review?.canCommit) return "No changed files from the last task.";
+		const result = await commitTaskFiles({
+			workspaceRoot: this.workspaceRoot,
+			files: review.changedFiles,
+			changeSnapshot: review.changeSnapshot,
+			message,
+		});
+		if (!result.ok) return limitText(result.message, 4000);
+		const updated = await this.refreshLastTaskReview(review);
+		return limitText(`${result.message}\n\n${renderTelegramTaskReview(updated)}`, 4000);
+	}
+
+	private async revertLastTask(): Promise<string> {
+		const review = this.lastTaskReview;
+		if (!review || review.changedFiles.length === 0) return "No changed files from the last task.";
+		const result = await revertTaskFiles({
+			workspaceRoot: this.workspaceRoot,
+			files: review.changedFiles,
+			changeSnapshot: review.changeSnapshot,
+		});
+		if (!result.ok) return limitText(result.message, 4000);
+		const updated = await this.refreshLastTaskReview(review);
+		return limitText(`${result.message}\n\n${renderTelegramTaskReview(updated)}`, 4000);
+	}
+
+	private taskReviewKeyboard(taskId: number, review: TaskReviewSummary): InlineKeyboard {
+		const keyboard = new InlineKeyboard();
+		if (review.canCommit) keyboard.text("✅ Commit", `tc:commit:${taskId}`);
+		if (review.changedFiles.length > 0) {
+			keyboard.text("↩️ Revert", `tc:revert:${taskId}`).text("📄 Changes", `tc:changes:${taskId}`);
+		}
+		return keyboard.text("🔁 Rerun", `tc:rerun:${taskId}`);
+	}
+
 	private async updateSetting(
 		key: string,
 		value: string | boolean,
 	): Promise<void> {
-		await saveOpenSettingsFiles();
-		const config = vscode.workspace.getConfiguration("telecode");
-		await config.update(key, value, vscode.ConfigurationTarget.Global);
+		await updateTelecodeSetting(key, value);
 		this.abortRuntime();
 	}
 

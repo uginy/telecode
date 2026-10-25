@@ -17,6 +17,15 @@ export interface AgentSettings {
   channelLogLines: number;
   statusVerbosity: 'minimal' | 'normal' | 'debug';
   safeModeProfile: 'strict' | 'balanced' | 'power';
+  thinkingLevel: ThinkingLevelSetting;
+}
+
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high'] as const;
+export type ThinkingLevelSetting = (typeof THINKING_LEVELS)[number];
+
+export function parseThinkingLevel(value: unknown): ThinkingLevelSetting | undefined {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return (THINKING_LEVELS as readonly string[]).includes(normalized) ? (normalized as ThinkingLevelSetting) : undefined;
 }
 
 export interface TelegramSettings {
@@ -157,6 +166,7 @@ export function readTelecodeSettings(): TelecodeSettings {
       channelLogLines,
       statusVerbosity,
       safeModeProfile,
+      thinkingLevel: parseThinkingLevel(config.get<string>('thinkingLevel')) ?? 'off',
     },
     telegram: {
       enabled: telegramEnabled,

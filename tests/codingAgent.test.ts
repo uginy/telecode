@@ -104,6 +104,46 @@ describe('CodingAgent', () => {
     expect(execute).toHaveBeenCalledTimes(2);
   });
 
+  it('feeds steering messages into the running task, including ones sent after the last turn', async () => {
+    let agent: CodingAgent;
+    const execute = vi.fn(async () => {
+      agent.steer('also update the docs');
+      return { content: [{ type: 'text' as const, text: 'ok' }], details: {} };
+    });
+    const tools: AgentTool[] = [{ name: 'test', label: 'Test', description: 'Test', parameters: Type.Object({}), execute }];
+    agent = createAgent(baseConfig, tools);
+    const seenUserTexts: string[][] = [];
+    let call = 0;
+    agent.getAgent().streamFunction = (_model, context) => {
+      seenUserTexts.push(context.messages.filter((m) => m.role === 'user').map((m) => String(m.content)));
+      const stream = createAssistantMessageEventStream();
+      call++;
+      if (call === 1) {
+        stream.push({ type: 'done', reason: 'toolUse', message: assistantMessage([{ type: 'toolCall', id: 'one', name: 'test', arguments: {} }], 'toolUse') });
+      } else {
+        // Simulates a message that lands after the model already gave its final answer.
+        if (call === 2) agent.steer('late note');
+        stream.push({ type: 'done', reason: 'stop', message: assistantMessage([{ type: 'text', text: 'done' }], 'stop') });
+      }
+      return stream;
+    };
+    await agent.prompt('fix it');
+    expect(seenUserTexts[1]).toContain('also update the docs');
+    expect(seenUserTexts.at(-1)).toContain('late note');
+    expect(agent.getAgent().hasQueuedMessages()).toBe(false);
+  });
+
+  it('clamps the thinking level to what the model supports', () => {
+    const agent = createAgent({ ...baseConfig, thinkingLevel: 'high' });
+    expect(agent.getAgent().state.thinkingLevel).toBe('off');
+  });
+
+  it('enables reasoning for unknown OpenAI-compatible models only when thinking is requested', () => {
+    const custom = { ...baseConfig, provider: 'openrouter', model: 'vendor/unlisted-model' };
+    expect(createAgent(custom).getAgent().state.thinkingLevel).toBe('off');
+    expect(createAgent({ ...custom, thinkingLevel: 'medium' }).getAgent().state.thinkingLevel).toBe('medium');
+  });
+
   it('fails explicitly when unsupported manual approval is requested', () => {
     expect(() => createAgent({ ...baseConfig, autoApprove: false })).toThrow('Interactive tool approvals');
   });

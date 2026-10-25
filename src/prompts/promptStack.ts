@@ -16,6 +16,10 @@ const PROMPT_FILES = [
   'memory.md',
 ] as const;
 
+// Repository instruction files used by other coding agents; all found files are injected.
+const PROJECT_INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md', '.cursorrules'] as const;
+const MAX_PROJECT_INSTRUCTIONS_CHARS = 12_000;
+
 type PromptLayerName = (typeof PROMPT_FILES)[number];
 
 export interface PromptStackBuildResult {
@@ -133,6 +137,27 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
   ].join(' ');
 }
 
+export function getProjectInstructions(workspaceRoot: string): string {
+  const seen = new Set<string>();
+  const sections: string[] = [];
+  for (const name of PROJECT_INSTRUCTION_FILES) {
+    let content: string;
+    try {
+      content = fs.readFileSync(path.join(workspaceRoot, name), 'utf8').trim();
+    } catch {
+      continue;
+    }
+    // CLAUDE.md is often a copy of AGENTS.md; skip duplicates.
+    if (!content || seen.has(content)) continue;
+    seen.add(content);
+    sections.push(`## ${name}\n${content}`);
+  }
+  const joined = sections.join('\n\n');
+  return joined.length > MAX_PROJECT_INSTRUCTIONS_CHARS
+    ? `${joined.slice(0, MAX_PROJECT_INSTRUCTIONS_CHARS)}\n...[truncated]`
+    : joined;
+}
+
 export function getPromptStackSignature(cwd?: string): string {
   const hash = crypto.createHash('sha1');
   const dir = getBundledPromptDirectory();
@@ -153,6 +178,8 @@ export function getPromptStackSignature(cwd?: string): string {
   const workspaceRoot = typeof cwd === 'string' && cwd.trim().length > 0 ? cwd : process.cwd();
   hash.update('project-memory');
   hash.update(getProjectMemoryForPrompt(workspaceRoot));
+  hash.update('project-instructions');
+  hash.update(getProjectInstructions(workspaceRoot));
 
   return hash.digest('hex').slice(0, 16);
 }
@@ -171,6 +198,7 @@ export function buildComposedSystemPrompt(options: {
   const workspaceHint = cwd;
   const toolInventory = formatToolInventory(options.tools);
   const projectMemory = getProjectMemoryForPrompt(cwd);
+  const projectInstructions = getProjectInstructions(cwd);
 
   const styleInstruction = options.responseStyle === 'detailed' 
     ? '- Provide detailed, comprehensive answers with full explanations.' 
@@ -202,9 +230,18 @@ export function buildComposedSystemPrompt(options: {
       ].join('\n')
     : '';
 
+  const projectInstructionsLayer = projectInstructions
+    ? [
+        '# Project Instructions',
+        '- Repository rules from the workspace. Follow them unless they conflict with the user request.',
+        projectInstructions,
+      ].join('\n')
+    : '';
+
   if (layers.length === 0) {
+    const fallbackPrompt = buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language, options.allowOutOfWorkspace);
     return {
-      prompt: buildFallbackPrompt(options.maxSteps, options.tools, cwd, options.responseStyle, options.language, options.allowOutOfWorkspace),
+      prompt: [fallbackPrompt, projectInstructionsLayer].filter(Boolean).join('\n\n'),
       signature,
       source: 'fallback',
       layerCount: 0,
@@ -217,7 +254,7 @@ export function buildComposedSystemPrompt(options: {
     .join('')
     .trim();
 
-  const prompt = [stackPrompt, runtimeLayer, projectMemoryLayer]
+  const prompt = [stackPrompt, runtimeLayer, projectInstructionsLayer, projectMemoryLayer]
     .filter((section) => section.trim().length > 0)
     .join('\n\n')
     .trim();

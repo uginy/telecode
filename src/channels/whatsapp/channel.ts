@@ -13,7 +13,8 @@ import { Boom } from "@hapi/boom";
 import { createTaskRunner } from "../../agent/runtimeSession";
 import type { TaskRunner } from "../../agent/taskRunner";
 import type { AgentRuntime, RuntimeEvent } from "../../engine/types";
-import { readTelecodeSettings } from "../../config/settings";
+import { parseThinkingLevel, readTelecodeSettings } from "../../config/settings";
+import { updateTelecodeSetting } from "../../utils/vscodeUtils";
 import type { IChannel } from "../types";
 import { ensureChannelRuntime } from "../runtime";
 import {
@@ -116,6 +117,7 @@ export class WhatsAppChannel implements IChannel {
 	private readonly maxReconnectAttempts = 5;
 	private lastTaskReview: TaskReviewSummary | null = null;
 	private activeRemoteTaskId: number | null = null;
+	private activeTaskChatId: string | null = null;
 	private stopRequestedTaskId: number | null = null;
 	private readonly usage = {
 		task: "Usage: /task <id|last|active>",
@@ -790,6 +792,19 @@ export class WhatsAppChannel implements IChannel {
 			return;
 		}
 
+		if (command === "think") {
+			const level = parseThinkingLevel(body.replace(/^\/think\s*/i, ""));
+			if (level) await updateTelecodeSetting("thinkingLevel", level);
+			await this.sendMessageSafe(
+				chatId,
+				level
+					? `Thinking level updated to ${level}`
+					: `Usage: /think <off|minimal|low|medium|high>\nCurrent: ${settings.agent.thinkingLevel}`,
+				"/think",
+			);
+			return;
+		}
+
 		if (command === "stop") {
 			this.stopCurrentTask();
 			await this.sendMessageSafe(chatId, "Stopped current run.", "/stop");
@@ -799,6 +814,16 @@ export class WhatsAppChannel implements IChannel {
 		const taskText = command === "run" ? body.slice(5).trim() : body;
 		if (!taskText) {
 			await this.sendMessageSafe(chatId, this.usage.run, "/run");
+			return;
+		}
+
+		if (command !== "run" && this.activeTaskChatId === chatId && this.taskRunner.steer(taskText)) {
+			this.pushLog("[whatsapp] steering message sent to running task");
+			await this.sendMessageSafe(
+				chatId,
+				"↪️ Sent to the running task. Use /run <task> to queue a separate task.",
+				"/run",
+			);
 			return;
 		}
 
@@ -910,6 +935,7 @@ export class WhatsAppChannel implements IChannel {
 		const taskText = task.prompt;
 		this.isProcessing = true;
 		this.activeRemoteTaskId = task.id;
+		this.activeTaskChatId = chatId;
 		this.stopRequestedTaskId = null;
 		this.currentChatId = chatId;
 		this.setStatus("Running");
@@ -1060,6 +1086,7 @@ export class WhatsAppChannel implements IChannel {
 			unsub?.();
 			this.isProcessing = false;
 			this.activeRemoteTaskId = null;
+			this.activeTaskChatId = null;
 			this.stopRequestedTaskId = null;
 		}
 	}

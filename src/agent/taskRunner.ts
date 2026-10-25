@@ -102,6 +102,17 @@ export class TaskRunner {
 	}
 
 	/**
+	 * Send a correction to the task that is running now. Returns false when nothing is running.
+	 */
+	public steer(message: string): boolean {
+		const text = message.trim();
+		if (this.state !== "running" || !text || !this._runtime?.steer) return false;
+		this._runtime.steer(text);
+		this.lastActivityAt = Date.now();
+		return true;
+	}
+
+	/**
 	 * Forcefully abort the current task.
 	 */
 	public abortCurrentRun(): void {

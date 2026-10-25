@@ -53,4 +53,26 @@ describe("promptStack", () => {
 		expect(result.prompt).toContain("# Project Memory");
 		expect(result.prompt).toContain("- keep checks green");
 	});
+
+	it("injects AGENTS.md and CLAUDE.md, skipping duplicate content", async () => {
+		const workspaceRoot = await fs.mkdtemp(
+			path.join(os.tmpdir(), "telecode-prompt-stack-"),
+		);
+		createdDirs.push(workspaceRoot);
+		await fs.writeFile(path.join(workspaceRoot, "AGENTS.md"), "Use pnpm only.", "utf8");
+		await fs.writeFile(path.join(workspaceRoot, "CLAUDE.md"), "Use pnpm only.", "utf8");
+		await fs.writeFile(path.join(workspaceRoot, ".cursorrules"), "No default exports.", "utf8");
+
+		const result = buildComposedSystemPrompt({
+			cwd: workspaceRoot,
+			maxSteps: 5,
+			tools: [],
+			language: "en",
+		});
+
+		expect(result.prompt).toContain("# Project Instructions");
+		expect(result.prompt).toContain("## AGENTS.md\nUse pnpm only.");
+		expect(result.prompt).not.toContain("## CLAUDE.md");
+		expect(result.prompt).toContain("## .cursorrules\nNo default exports.");
+	});
 });

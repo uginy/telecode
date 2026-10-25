@@ -2,7 +2,7 @@
 	"name": "telecode-ai",
 	"displayName": "TeleCode AI",
 	"description": "Run coding tasks in VS Code from Telegram or WhatsApp.",
-	"version": "0.1.23",
+	"version": "0.1.24",
 	"publisher": "Uginy",
 	"license": "MIT",
 	"repository": {
@@ -302,11 +302,21 @@
 						"Grep",
 						"Fetch",
 						"Diagnostics",
-						"WebFetch",
-						"TodoWrite",
-						"Task"
+						"WebFetch"
 					],
 					"description": "Tools the agent can use"
+				},
+				"telecode.thinkingLevel": {
+					"type": "string",
+					"default": "off",
+					"enum": [
+						"off",
+						"minimal",
+						"low",
+						"medium",
+						"high"
+					],
+					"description": "Reasoning effort for models that support thinking. Unsupported levels fall back to the nearest one the model offers."
 				},
 				"telecode.dev.autoReloadWindow": {
 					"type": "boolean",
@@ -380,7 +390,7 @@
 		"vsix:build": "mkdir -p builds && npx vsce package --no-dependencies --allow-missing-repository -o builds/",
 		"vsix:rebuild:same": "npm run vsix:build",
 		"vsix:rebuild:patch": "npm version patch --no-git-tag-version && npm run vsix:rebuild:same",
-		"landing:deploy:prod": "cd landing && npx vercel --prod --yes",
+		"landing:deploy:prod": "cd landing && npx --yes vercel --prod --yes",
 		"release:patch": "mkdir -p builds && vsce package patch --no-dependencies --allow-missing-repository -o builds/",
 		"release:minor": "mkdir -p builds && vsce package minor --no-dependencies --allow-missing-repository -o builds/",
 		"release:major": "mkdir -p builds && vsce package major --no-dependencies --allow-missing-repository -o builds/"

@@ -12,6 +12,11 @@ export async function saveOpenSettingsFiles(): Promise<void> {
   }
 }
 
+export async function updateTelecodeSetting(key: string, value: string | boolean): Promise<void> {
+  await saveOpenSettingsFiles();
+  await vscode.workspace.getConfiguration('telecode').update(key, value, vscode.ConfigurationTarget.Global);
+}
+
 export function getPrimaryWorkspaceRoot(): string {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return folder ? folder.uri.fsPath : process.cwd();

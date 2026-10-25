@@ -37,6 +37,7 @@ export function createRuntimeSignature(
 		tools: tools.map((tool) => tool.name),
 		language: config.language,
 		responseStyle: config.responseStyle,
+		thinkingLevel: config.thinkingLevel,
 		promptSignature: getPromptStackSignature(config.cwd),
 	});
 }

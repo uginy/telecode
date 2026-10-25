@@ -17,6 +17,7 @@ const RUNTIME_RESTART_CONFIG_KEYS = [
 	"telecode.responseStyle",
 	"telecode.language",
 	"telecode.allowOutOfWorkspace",
+	"telecode.thinkingLevel",
 ] as const;
 
 function affectsAnyConfiguration(

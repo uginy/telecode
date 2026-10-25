@@ -74,6 +74,7 @@ export function renderTelegramHelp(t: Translations): string {
 		`/rollback - ${t.tg_cmd_rollback}`,
 		`/provider <id> - ${t.tg_cmd_provider}`,
 		`/model <id> - ${t.tg_cmd_model}`,
+		"/think <off|minimal|low|medium|high> - reasoning effort",
 		`/help - ${t.tg_cmd_help}`,
 	].join("\n");
 }

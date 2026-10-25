@@ -43,13 +43,17 @@ export class PiRuntime implements AgentRuntime {
     }
     this.emit({
       type: 'status',
-      message: `llm_config api=${modelInfo.api} provider=${modelInfo.provider} model=${modelInfo.id} baseUrl=${modelInfo.baseUrl}`,
+      message: `llm_config api=${modelInfo.api} provider=${modelInfo.provider} model=${modelInfo.id} baseUrl=${modelInfo.baseUrl} thinking=${this.agent.getAgent().state.thinkingLevel}`,
     });
     await this.agent.prompt(message, images);
   }
 
   abort(): void {
     this.agent.abort();
+  }
+
+  steer(message: string): void {
+    this.agent.steer(message);
   }
 
   onEvent(listener: RuntimeListener): () => void {

@@ -60,6 +60,11 @@ const STORE_DIR = ".telecode";
 const STORE_FILE = "remote-tasks.json";
 const MAX_HISTORY_ITEMS = 100;
 
+// Tasks finishing in the same millisecond tie on timestamp; the higher id is newer.
+function byNewest(a: RemoteTaskRecord, b: RemoteTaskRecord): number {
+	return (b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt) || b.id - a.id;
+}
+
 export class RemoteTaskManager {
 	private readonly executors = new Map<RemoteChannelId, RemoteTaskExecutor>();
 	private state: RemoteTaskState | null = null;
@@ -253,9 +258,7 @@ export class RemoteTaskManager {
 					: 10;
 			return this.state!.tasks
 				.filter((item) => matchesHistoryQuery(item, normalized))
-				.sort((a, b) =>
-					(b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt),
-				)
+				.sort(byNewest)
 				.slice(0, limit)
 				.map((item) => ({ ...item }));
 		});
@@ -293,9 +296,7 @@ export class RemoteTaskManager {
 
 			const last = filtered
 				.filter((item) => item.status !== "queued" && item.status !== "running")
-				.sort((a, b) =>
-					(b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt),
-				)[0];
+				.sort(byNewest)[0];
 			return last ? { ...last } : null;
 		});
 	}
@@ -442,9 +443,7 @@ export class RemoteTaskManager {
 		);
 		const finished = this.state.tasks
 			.filter((task) => task.status !== "running" && task.status !== "queued")
-			.sort((a, b) =>
-				(b.finishedAt || b.createdAt).localeCompare(a.finishedAt || a.createdAt),
-			)
+			.sort(byNewest)
 			.slice(0, MAX_HISTORY_ITEMS);
 		this.state.tasks = [...activeOrQueued, ...finished];
 	}

@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { AgentMessage, ThinkingLevel } from '@earendil-works/pi-agent-core';
 
 export type RuntimeEvent =
   | { type: 'text_delta'; delta: string }
@@ -20,6 +20,7 @@ export interface AgentRuntime {
   readonly engine: 'pi';
   prompt(message: string, images?: ImageContentExt[]): Promise<void>;
   abort(): void;
+  steer?(message: string): void;
   onEvent(listener: RuntimeListener): () => void;
   getModelInfo?(): { id: string; provider: string; api: string; baseUrl: string };
   getPromptInfo?(): { source: 'stack' | 'fallback'; signature: string; layerCount: number; missing: string[] };
@@ -39,4 +40,5 @@ export interface RuntimeConfig {
   responseStyle?: 'concise' | 'normal' | 'detailed';
   language?: 'ru' | 'en';
   allowOutOfWorkspace?: boolean;
+  thinkingLevel?: ThinkingLevel;
 }

@@ -3,8 +3,10 @@ import {
 	type AgentEvent,
 	type AgentMessage,
 	type AgentTool,
+	type ThinkingLevel,
 } from "@earendil-works/pi-agent-core";
 import {
+	clampThinkingLevel,
 	createModels,
 	createProvider,
 	type Model,
@@ -21,6 +23,7 @@ import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
 import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { buildComposedSystemPrompt } from "../prompts/promptStack";
+import { compactContext } from "./contextCompaction";
 
 export interface TelecodeConfig {
 	provider: string;
@@ -34,6 +37,7 @@ export interface TelecodeConfig {
 	responseStyle?: "concise" | "normal" | "detailed";
 	language?: "ru" | "en" | "auto";
 	allowOutOfWorkspace?: boolean;
+	thinkingLevel?: ThinkingLevel;
 }
 
 export interface AgentPromptInfo {
@@ -47,6 +51,8 @@ export interface DiscoveredModel {
 	id: string;
 	free: boolean;
 }
+
+const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 const PROVIDER_ALIAS: Record<string, string> = {
 	kimi: "kimi-coding",
@@ -121,6 +127,7 @@ function buildOpenAiCompatibleModel(
 	provider: string,
 	modelId: string,
 	baseUrl?: string,
+	reasoning = false,
 ): Model<"openai-completions"> {
 	const normalizedBaseUrl = (baseUrl || "").trim();
 
@@ -133,10 +140,11 @@ function buildOpenAiCompatibleModel(
 			normalizedBaseUrl ||
 			OPENAI_COMPAT_BASE_URL_BY_PROVIDER[provider] ||
 			OPENAI_COMPAT_BASE_URL_BY_PROVIDER.openai,
-		reasoning: false,
+		// Unknown models only get reasoning params when the user opted into thinking.
+		reasoning,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 128_000,
+		contextWindow: DEFAULT_CONTEXT_WINDOW,
 		maxTokens: 16_384,
 		compat: {
 			requiresToolResultName:
@@ -152,7 +160,7 @@ function buildOpenAiCompatibleModel(
 	} satisfies Model<"openai-completions">;
 }
 
-type ModelConfig = Pick<TelecodeConfig, "provider" | "model" | "apiKey" | "baseUrl">;
+type ModelConfig = Pick<TelecodeConfig, "provider" | "model" | "apiKey" | "baseUrl" | "thinkingLevel">;
 
 function resolveModel(config: ModelConfig, models: Models): Model<any> {
 	const provider = normalizeProvider(config.provider);
@@ -163,7 +171,7 @@ function resolveModel(config: ModelConfig, models: Models): Model<any> {
 	const knownModel = models.getModel(provider, modelId);
 	if (knownModel) return applyBaseUrl(knownModel, baseUrl);
 	if (shouldPreferOpenAiCompatibleModel(provider, baseUrl)) {
-		return buildOpenAiCompatibleModel(provider, modelId, baseUrl);
+		return buildOpenAiCompatibleModel(provider, modelId, baseUrl, (config.thinkingLevel ?? "off") !== "off");
 	}
 	const template = models.getModels(provider)[0];
 	if (!template) throw new Error(`Unknown provider "${config.provider}". Configure a supported provider or a custom OpenAI-compatible base URL.`);
@@ -218,10 +226,13 @@ export class CodingAgent {
 			initialState: {
 				systemPrompt: promptBuild.prompt,
 				model: resolvedModelObj,
+				thinkingLevel: clampThinkingLevel(resolvedModelObj, config.thinkingLevel ?? "off"),
 				tools,
 				messages: (config.initialMessages || []).filter((message) => message.role !== "system"),
 			},
 			streamFn: models.streamSimple.bind(models),
+			transformContext: async (messages) =>
+				compactContext(messages, this.agent.state.model.contextWindow || DEFAULT_CONTEXT_WINDOW),
 			toolExecution: "sequential",
 			beforeToolCall: async (_context, signal) => {
 				if (signal?.aborted) return { block: true, reason: this.runError || "Task interrupted.", terminate: true };
@@ -253,6 +264,20 @@ export class CodingAgent {
 		this.steps = 0;
 		this.runError = undefined;
 		await this.agent.prompt(normalized, images);
+		this.throwIfRunFailed();
+		// A steering message that arrived after the final turn is handled now instead of leaking into the next task.
+		while (this.agent.hasQueuedMessages()) {
+			await this.agent.continue();
+			this.throwIfRunFailed();
+		}
+	}
+
+	/** Inject a user message into the running task; it is read after the current tool calls finish. */
+	steer(message: string): void {
+		this.agent.steer({ role: "user", content: message, timestamp: Date.now() });
+	}
+
+	private throwIfRunFailed(): void {
 		const lastMessage = this.agent.state.messages.at(-1);
 		if (this.runError || this.agent.state.errorMessage) throw new Error(this.runError || this.agent.state.errorMessage);
 		if (lastMessage?.role === "assistant" &&
@@ -262,6 +287,7 @@ export class CodingAgent {
 	}
 
 	abort(): void {
+		this.agent.clearAllQueues();
 		this.agent.abort();
 	}
 

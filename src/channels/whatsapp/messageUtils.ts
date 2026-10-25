@@ -25,6 +25,7 @@ export type IncomingCommand =
 	| "commit"
 	| "revert"
 	| "stop"
+	| "think"
 	| "run"
 	| null;
 
@@ -89,6 +90,7 @@ export function parseWhatsappCommand(body: string): IncomingCommand {
 	if (body.startsWith("/commit")) return "commit";
 	if (body.startsWith("/revert")) return "revert";
 	if (body.startsWith("/stop")) return "stop";
+	if (body.startsWith("/think")) return "think";
 	if (body.startsWith("/run ")) return "run";
 	return null;
 }

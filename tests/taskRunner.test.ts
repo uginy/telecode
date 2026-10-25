@@ -121,4 +121,18 @@ describe("TaskRunner", () => {
 		await expect(runner.runTask("test")).rejects.toThrow("Invalid API key");
 		expect(runner.currentState).toBe("error");
 	});
+	it("steers only while a task is running", () => {
+		const runtime = createRuntimeDouble();
+		const steer = vi.fn();
+		createRuntimeMock.mockReturnValue({ runtime: { ...runtime, steer }, engine: "pi" });
+		const runner = new TaskRunner(() => {}, () => {});
+		runner.initRuntime(createConfig(), []);
+
+		expect(runner.steer("too early")).toBe(false);
+		void runner.runTask("task");
+		expect(runner.steer("  use pnpm  ")).toBe(true);
+		expect(runner.steer("   ")).toBe(false);
+		expect(steer).toHaveBeenCalledExactlyOnceWith("use pnpm");
+		runner.abortCurrentRun();
+	});
 });
