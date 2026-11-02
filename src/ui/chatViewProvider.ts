@@ -233,7 +233,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 							typeof raw.responseStyle === "string"
 								? raw.responseStyle
 								: "concise",
-						language: typeof raw.language === "string" ? raw.language : "ru",
+						language: typeof raw.language === "string" ? raw.language : "auto",
 						uiLanguage:
 							raw.uiLanguage === "ru" ||
 							raw.uiLanguage === "en" ||

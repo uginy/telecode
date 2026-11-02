@@ -7,7 +7,7 @@ import type {
 	Response as NodeFetchResponse,
 } from "node-fetch";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
-import { parseThinkingLevel, readTelecodeSettings } from "../../config/settings";
+import { parseThinkingLevel, readTelecodeSettings, resolveUiLanguage } from "../../config/settings";
 import type {
 	AgentRuntime,
 	ImageContentExt,
@@ -1180,7 +1180,9 @@ export class TelegramChannel implements IChannel {
 	): Promise<void> {
 		const settings = readTelecodeSettings();
 		i18n.setLanguage(
-			settings.agent.language === "auto" ? "ru" : settings.agent.language,
+			settings.agent.language === "auto"
+				? resolveUiLanguage(settings.agent.uiLanguage)
+				: settings.agent.language,
 		);
 		const t = i18n.t;
 
@@ -1585,7 +1587,9 @@ export class TelegramChannel implements IChannel {
 	private getT(): Translations {
 		const settings = readTelecodeSettings();
 		const lang =
-			settings.agent.language === "auto" ? "ru" : settings.agent.language;
+			settings.agent.language === "auto"
+				? resolveUiLanguage(settings.agent.uiLanguage)
+				: settings.agent.language;
 		i18n.setLanguage(lang);
 		return i18n.t;
 	}

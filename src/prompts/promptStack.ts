@@ -107,6 +107,13 @@ function loadPromptLayers(): { layers: LoadedLayer[]; missing: PromptLayerName[]
   return { layers, missing };
 }
 
+// Anything but an explicit 'ru'/'en' (including 'auto' mapped to undefined by the runtime) means auto-detect.
+function languageInstruction(language?: string): string {
+  if (language === 'ru') return 'ALWAYS respond to the USER in Russian.';
+  if (language === 'en') return 'ALWAYS respond to the USER in English.';
+  return "Detect the language of the user's query and ALWAYS respond in that SAME language.";
+}
+
 function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cwd?: string, responseStyle?: string, language?: string, allowOutOfWorkspace?: boolean): string {
   const workspaceHint = typeof cwd === 'string' && cwd.trim().length > 0 ? cwd.trim() : '(unknown)';
   const toolInventory = formatToolInventory(tools);
@@ -132,7 +139,7 @@ function buildFallbackPrompt(maxSteps: number, tools: PromptToolDescriptor[], cw
     'Choose runtime by availability: node (.js), else python3 (.py), else shell by OS (bash on macOS/Linux, powershell on Windows).',
     `Do not exceed ${maxSteps} tool-assisted reasoning steps for a single task.`,
     `Response style: ${styleInstruction}`,
-    `Language: ${language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${language === 'en' ? 'English' : 'Russian'}.`}`,
+    `Language: ${languageInstruction(language)}`,
     outOfWorkspaceInstruction
   ].join(' ');
 }
@@ -212,7 +219,7 @@ export function buildComposedSystemPrompt(options: {
     `- Max steps: ${options.maxSteps}`,
     `- Response style: ${options.responseStyle || 'concise'}`,
     styleInstruction,
-    `- Language: ${options.language === 'auto' ? "Detect the language of the user's query and ALWAYS respond in that SAME language." : `ALWAYS respond to the USER in ${options.language === 'en' ? 'English' : 'Russian'}.`}`,
+    `- Language: ${languageInstruction(options.language)}`,
     `- Tools available: ${toolInventory}`,
     '- Custom tools directory: ~/.telecode/tools',
     `- Out of Workspace allowed: ${options.allowOutOfWorkspace === true ? 'YES' : 'NO'}`,

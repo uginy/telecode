@@ -13,6 +13,19 @@ afterEach(async () => {
 });
 
 describe("promptStack", () => {
+	it("auto-detects language when language is auto or unset instead of forcing Russian", () => {
+		for (const language of ["auto", undefined] as const) {
+			const { prompt } = buildComposedSystemPrompt({
+				cwd: "/tmp/telecode-workspace-without-prompts",
+				maxSteps: 5,
+				tools: [],
+				language,
+			});
+			expect(prompt).toContain("Detect the language of the user's query");
+			expect(prompt).not.toContain("in Russian");
+		}
+	});
+
 	it("loads bundled prompt layers even when workspace has no prompts directory", () => {
 		const result = buildComposedSystemPrompt({
 			cwd: "/tmp/telecode-workspace-without-prompts",

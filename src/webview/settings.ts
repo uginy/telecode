@@ -64,8 +64,8 @@ export function writeForm(s: Settings): void {
   setStr( 'baseUrl',          s.baseUrl ?? '');
   setStr( 'maxSteps',         String(s.maxSteps ?? 100));
   setStr( 'responseStyle',    s.responseStyle ?? 'concise');
-  setStr( 'language',         s.language ?? 'ru');
-  setStr( 'uiLanguage',       s.uiLanguage ?? 'ru');
+  setStr( 'language',         s.language ?? 'auto');
+  setStr( 'uiLanguage',       s.uiLanguage ?? 'auto');
   setStr( 'statusVerbosity',  s.statusVerbosity ?? 'normal');
   setStr( 'safeModeProfile',  s.safeModeProfile ?? 'balanced');
   setBool('allowOutOfWorkspace', s.allowOutOfWorkspace === true);
