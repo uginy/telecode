@@ -2,6 +2,11 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [0.1.25] - 2026-11-02
+
+- Fixed the agent always replying in Russian when the language setting is `auto` (the default): it now answers in the language of the request.
+- Telegram status messages now follow the UI language / VS Code locale instead of defaulting to Russian.
+
 ## [0.1.24] - 2026-10-25
 
 - The agent now follows repository rules from `AGENTS.md`, `CLAUDE.md` and `.cursorrules` in the workspace root.
