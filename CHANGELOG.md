@@ -2,7 +2,7 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-21
 
 - Added subscriptions through local CLIs: pick Claude Code, Codex or Antigravity CLI as the provider to run tasks on the plan you are signed in to in that CLI. The CLI takes the whole task with its own tools, continues its session between tasks, and gets its permission mode from the Safe Mode Profile. TeleCode tools, prompt stack, `maxSteps`, steering and images do not apply to CLI runs.
 - The provider is now a grouped dropdown instead of a text field. Added xAI, DeepSeek, Mistral, Groq, Cerebras, Z.AI, Fireworks, Together, Kimi For Coding, LM Studio and a Custom OpenAI-compatible entry; old values such as `moonshot` keep working.
