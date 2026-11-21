@@ -179,7 +179,7 @@ describe('Claude Code model list', () => {
     { id: 'claude-opus-5', reasoning: true },
   ] as never[];
 
-  it('lists aliases, then the cached ids of the account newest first, with family reasoning levels', async () => {
+  it('lists the cached versioned ids of the account newest first, with family reasoning levels', async () => {
     const { listClaudeCodeModels } = await import('../src/engine/cliModels');
     const config = JSON.stringify({
       additionalModelCostsCache: { 'claude-haiku-4-5': {}, 'claude-fable-5-1': {}, 'claude-fable-5-2': {}, 'claude-opus-5': {} },
@@ -187,10 +187,9 @@ describe('Claude Code model list', () => {
     });
     const models = listClaudeCodeModels(config, catalog);
     expect(models.map((model) => model.id)).toEqual([
-      'fable', 'opus', 'haiku',
       'claude-fable-5-2', 'claude-fable-5-1[1m]', 'claude-fable-5-1', 'claude-opus-5', 'claude-haiku-4-5',
     ]);
-    // The alias carries the levels of the model it resolves to; "off" is the CLI default.
+    // "off" is the CLI default (no --effort flag).
     expect(models[0].thinking?.[0]).toBe('off');
     expect(models.every((model) => !model.thinking?.includes('minimal'))).toBe(true);
   });

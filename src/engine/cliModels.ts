@@ -41,7 +41,7 @@ function compareClaudeModels(a: string, b: string): number {
 /**
  * Claude Code has no command that lists models. Its config (~/.claude.json) caches the models
  * of the signed-in account: prices per model id and extra picker options such as the 1M-context
- * Fable. Aliases (fable, opus, sonnet, haiku) let the CLI pick the latest model of a family.
+ * Fable. Only versioned ids are listed; "default" (added by the caller) covers the CLI's own choice.
  * Reasoning levels come from the closest model in pi-ai's Anthropic catalog.
  */
 export function listClaudeCodeModels(rawConfig: string, catalog: readonly Model<any>[]): DiscoveredModel[] {
@@ -64,9 +64,7 @@ export function listClaudeCodeModels(rawConfig: string, catalog: readonly Model<
     // "off" is the CLI default (no --effort); the CLI has no "minimal".
     return ['off', ...supported.filter((level) => KNOWN_LEVELS.has(level))] as ThinkingLevel[];
   };
-  const latestOf = (family: string) => ids.find((id) => id.startsWith(`claude-${family}-`) && !id.includes('['));
-  const aliases = CLAUDE_FAMILIES.filter(latestOf).map((family) => ({ id: family, free: false, thinking: levelsFor(latestOf(family)!) }));
-  return [...aliases, ...ids.map((id) => ({ id, free: false, thinking: levelsFor(id) }))];
+  return ids.map((id) => ({ id, free: false, thinking: levelsFor(id) }));
 }
 
 /** `agy models` prints one "id<TAB>label" line per model. */

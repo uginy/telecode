@@ -2,6 +2,10 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [Unreleased]
+
+- Claude Code CLI model list: dropped the bare `fable`/`opus`/`sonnet`/`haiku` aliases; it shows `default` and the versioned models only.
+
 ## [0.2.1] - 2026-11-21
 
 - Claude Code CLI now lists every model of the signed-in account (read from the CLI's own model cache, e.g. `claude-fable-5-2` and Fable 1M) after the `fable`/`opus`/`sonnet`/`haiku` aliases, newest first, with the reasoning levels of each model. Before, it offered only `opus`, `sonnet` and `haiku`.
