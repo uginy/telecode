@@ -49,6 +49,8 @@ export interface Translations {
   tt_clear_filters: string;
   tt_save_settings: string;
   tt_fetch_models: string;
+  models_loading: string;
+  models_loaded: string;
   btn_test_connection: string;
   test_connection_hint: string;
   btn_view_grouped: string;
@@ -262,7 +264,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_safe_mode: 'Профиль прав агента',
     tt_clear_filters: 'Сбросить фильтры логов',
     tt_save_settings: 'Сохранить настройки',
-    tt_fetch_models: 'Загрузить модели',
+    tt_fetch_models: 'Обновить список моделей',
+    models_loading: 'Загрузка моделей…',
+    models_loaded: 'Загружено моделей: {count}',
     btn_test_connection: 'Проверить подключение',
     test_connection_hint: 'Один короткий запрос к выбранной модели без файлов проекта. Может тарифицироваться провайдером.',
     btn_view_grouped: 'Группа',
@@ -469,7 +473,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tt_safe_mode: 'Agent permission profile',
     tt_clear_filters: 'Clear log filters',
     tt_save_settings: 'Save settings',
-    tt_fetch_models: 'Load models',
+    tt_fetch_models: 'Refresh model list',
+    models_loading: 'Loading models…',
+    models_loaded: 'Models loaded: {count}',
     btn_test_connection: 'Test connection',
     test_connection_hint: 'One short request to the selected model without project files. Provider usage charges may apply.',
     btn_view_grouped: 'Group',

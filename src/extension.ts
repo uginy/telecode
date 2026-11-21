@@ -156,6 +156,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 							chatProvider?.setModels(error.fallback, command.provider, command.baseUrl);
 							chatProvider?.notify(`${message} Showing the bundled model list, which may miss new models.`);
 						} else {
+							// An empty list ends the picker's loading state; the note explains why.
+							chatProvider?.setModels([], command.provider, command.baseUrl);
 							chatProvider?.notify(message);
 						}
 					}

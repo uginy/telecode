@@ -6,12 +6,14 @@ export function filterModels(models: DiscoveredModel[], query: string, freeOnly:
   return models
     .filter((model) => (!freeOnly || model.free) && words.every((word) => model.id.toLowerCase().includes(word)))
     .sort((a, b) => Number(b.id.toLowerCase().startsWith(normalized)) - Number(a.id.toLowerCase().startsWith(normalized)))
-    .slice(0, 12);
+    // The picker scrolls; the cap only keeps huge lists (OpenRouter) from flooding the DOM.
+    .slice(0, 100);
 }
 
 export function initModelAutocomplete(input: HTMLInputElement, picker: HTMLElement, freeOnly: HTMLInputElement) {
   let models: DiscoveredModel[] = [];
   let loaded = false;
+  let loading = false;
   let active = -1;
   let searching = false;
 
@@ -32,7 +34,19 @@ export function initModelAutocomplete(input: HTMLInputElement, picker: HTMLEleme
   function render(): void {
     close();
     picker.replaceChildren();
-    if (!loaded || document.activeElement !== input) return;
+    if (document.activeElement !== input) return;
+    if (!loaded) {
+      if (!loading) return;
+      const status = document.createElement('div');
+      status.className = 'picker-empty';
+      status.setAttribute('role', 'status');
+      const translations = (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations;
+      status.textContent = translations?.models_loading || 'Loading models…';
+      picker.appendChild(status);
+      picker.classList.remove('hidden');
+      input.setAttribute('aria-expanded', 'true');
+      return;
+    }
     for (const model of filterModels(models, searching ? input.value : '', freeOnly.checked)) {
       const option = document.createElement('div');
       option.id = `model-option-${picker.children.length}`;
@@ -110,12 +124,15 @@ export function initModelAutocomplete(input: HTMLInputElement, picker: HTMLEleme
     setModels(next: DiscoveredModel[]): void {
       models = next;
       loaded = true;
+      loading = false;
       render();
     },
-    clear(): void {
+    /** Empties the list; with `pending`, shows a loading row until setModels arrives. */
+    clear(pending = false): void {
       models = [];
       loaded = false;
-      close();
+      loading = pending;
+      render();
     },
   };
 }

@@ -16,7 +16,7 @@ describe('model autocomplete', () => {
   });
 
   it('keeps suggestions short and returns no match for a custom ID', () => {
-    expect(filterModels(Array.from({ length: 30 }, (_, i) => ({ id: `provider/model-${i}`, free: false })), '', false)).toHaveLength(12);
+    expect(filterModels(Array.from({ length: 150 }, (_, i) => ({ id: `provider/model-${i}`, free: false })), '', false)).toHaveLength(100);
     expect(filterModels(models, 'my-custom-model', false)).toEqual([]);
   });
 

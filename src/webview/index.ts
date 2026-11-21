@@ -421,12 +421,22 @@ function modelContext(provider: string, baseUrl: string): string {
   return JSON.stringify([provider.trim(), baseUrl.trim()]);
 }
 
+function tr(key: string, fallback: string): string {
+  return (window as unknown as { __tcTranslations?: Record<string, string> }).__tcTranslations?.[key] || fallback;
+}
+
+function setModelsLoading(loading: boolean): void {
+  el.fetchModelsBtn().disabled = loading;
+  el.fetchModelsBtn().classList.toggle('loading', loading);
+}
+
 function fetchModels(): void {
   const settings = readForm();
   requestedModelContext = modelContext(settings.provider, settings.baseUrl);
-  modelAutocomplete.clear();
+  modelAutocomplete.clear(true);
+  setModelsLoading(true);
   cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
-  el.settingsNote().textContent = 'Fetching models...';
+  el.settingsNote().textContent = tr('models_loading', 'Loading models…');
 }
 
 el.fetchModelsBtn().addEventListener('click', () => {
@@ -510,11 +520,13 @@ for (const btn of Array.from(el.settingsNavItems())) {
 window.addEventListener('models-loaded', (e: Event) => {
   const { models, provider, baseUrl } = (e as CustomEvent).detail as { models: DiscoveredModel[]; provider: string; baseUrl: string };
   const settings = readForm();
+  // Any answer ends the spinner, even a stale one after the provider or key changed meanwhile.
+  setModelsLoading(false);
   if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
   modelAutocomplete.setModels(models);
   loadedModels = models;
   syncThinkingOptions();
-  el.settingsNote().textContent = `Loaded ${models.length} models`;
+  el.settingsNote().textContent = tr('models_loaded', 'Models loaded: {count}').replace('{count}', String(models.length));
   updateComposerMeta();
 });
 

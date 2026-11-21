@@ -1077,12 +1077,13 @@
   function filterModels(models, query, freeOnly) {
     const normalized = query.trim().toLowerCase();
     const words = normalized.split(/\s+/).filter(Boolean);
-    return models.filter((model) => (!freeOnly || model.free) && words.every((word) => model.id.toLowerCase().includes(word))).sort((a, b) => Number(b.id.toLowerCase().startsWith(normalized)) - Number(a.id.toLowerCase().startsWith(normalized))).slice(0, 12);
+    return models.filter((model) => (!freeOnly || model.free) && words.every((word) => model.id.toLowerCase().includes(word))).sort((a, b) => Number(b.id.toLowerCase().startsWith(normalized)) - Number(a.id.toLowerCase().startsWith(normalized))).slice(0, 100);
   }
   __name(filterModels, "filterModels");
   function initModelAutocomplete(input, picker, freeOnly) {
     let models = [];
     let loaded = false;
+    let loading = false;
     let active = -1;
     let searching = false;
     function close() {
@@ -1102,7 +1103,19 @@
     function render() {
       close();
       picker.replaceChildren();
-      if (!loaded || document.activeElement !== input) return;
+      if (document.activeElement !== input) return;
+      if (!loaded) {
+        if (!loading) return;
+        const status = document.createElement("div");
+        status.className = "picker-empty";
+        status.setAttribute("role", "status");
+        const translations = window.__tcTranslations;
+        status.textContent = translations?.models_loading || "Loading models\u2026";
+        picker.appendChild(status);
+        picker.classList.remove("hidden");
+        input.setAttribute("aria-expanded", "true");
+        return;
+      }
       for (const model of filterModels(models, searching ? input.value : "", freeOnly.checked)) {
         const option = document.createElement("div");
         option.id = `model-option-${picker.children.length}`;
@@ -1177,12 +1190,15 @@
       setModels(next) {
         models = next;
         loaded = true;
+        loading = false;
         render();
       },
-      clear() {
+      /** Empties the list; with `pending`, shows a loading row until setModels arrives. */
+      clear(pending = false) {
         models = [];
         loaded = false;
-        close();
+        loading = pending;
+        render();
       }
     };
   }
@@ -1553,12 +1569,22 @@
     return JSON.stringify([provider.trim(), baseUrl.trim()]);
   }
   __name(modelContext, "modelContext");
+  function tr(key, fallback) {
+    return window.__tcTranslations?.[key] || fallback;
+  }
+  __name(tr, "tr");
+  function setModelsLoading(loading) {
+    el.fetchModelsBtn().disabled = loading;
+    el.fetchModelsBtn().classList.toggle("loading", loading);
+  }
+  __name(setModelsLoading, "setModelsLoading");
   function fetchModels() {
     const settings = readForm();
     requestedModelContext = modelContext(settings.provider, settings.baseUrl);
-    modelAutocomplete.clear();
+    modelAutocomplete.clear(true);
+    setModelsLoading(true);
     cmd.fetchModels(settings.provider, settings.baseUrl, settings.apiKey);
-    el.settingsNote().textContent = "Fetching models...";
+    el.settingsNote().textContent = tr("models_loading", "Loading models\u2026");
   }
   __name(fetchModels, "fetchModels");
   el.fetchModelsBtn().addEventListener("click", () => {
@@ -1633,11 +1659,12 @@
   window.addEventListener("models-loaded", (e) => {
     const { models, provider, baseUrl } = e.detail;
     const settings = readForm();
+    setModelsLoading(false);
     if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
     modelAutocomplete.setModels(models);
     loadedModels = models;
     syncThinkingOptions();
-    el.settingsNote().textContent = `Loaded ${models.length} models`;
+    el.settingsNote().textContent = tr("models_loaded", "Models loaded: {count}").replace("{count}", String(models.length));
     updateComposerMeta();
   });
   window.addEventListener("build-info", (e) => {

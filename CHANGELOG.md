@@ -2,6 +2,12 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [Unreleased]
+
+- Claude Code CLI now lists every model of the signed-in account (read from the CLI's own model cache, e.g. `claude-fable-5-2` and Fable 1M) after the `fable`/`opus`/`sonnet`/`haiku` aliases, newest first, with the reasoning levels of each model. Before, it offered only `opus`, `sonnet` and `haiku`.
+- The model picker shows up to 100 models (it scrolls) instead of cutting the list at 12.
+- Refreshing the model list shows "Loading models…" in the picker and spins the refresh button until the list arrives; a failed load no longer leaves the picker stuck. Status notes are translated.
+
 ## [0.2.0] - 2026-11-21
 
 - Added subscriptions through local CLIs: pick Claude Code, Codex or Antigravity CLI as the provider to run tasks on the plan you are signed in to in that CLI. The CLI takes the whole task with its own tools, continues its session between tasks, and gets its permission mode from the Safe Mode Profile. TeleCode tools, prompt stack, `maxSteps`, steering and images do not apply to CLI runs.
