@@ -2,7 +2,7 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
-## [Unreleased]
+## [0.2.2] - 2026-11-21
 
 - Claude Code CLI model list: dropped the bare `fable`/`opus`/`sonnet`/`haiku` aliases; it shows `default` and the versioned models only.
 
