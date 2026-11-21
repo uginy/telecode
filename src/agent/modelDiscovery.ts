@@ -9,6 +9,13 @@ const BASE_THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium"
 /** /models of OpenAI-style APIs also lists embedding, audio and image models the agent cannot use. */
 const NON_CHAT_MODEL = /(embed|whisper|tts|dall-e|gpt-image|moderation|transcribe|audio|realtime|davinci|babbage|sora|rerank|ocr)/i;
 
+/** Live listing failed for a reason other than the key; `fallback` is the bundled list, if any. */
+export class ModelDiscoveryError extends Error {
+	constructor(message: string, readonly fallback: DiscoveredModel[], options?: ErrorOptions) {
+		super(message, options);
+	}
+}
+
 interface ListedModel {
 	id?: string;
 	name?: string;
@@ -57,22 +64,24 @@ export async function discoverModels(provider: string, baseUrl: string, apiKey: 
 	const api = !template || providerId in OPENAI_COMPAT_BASE_URL_BY_PROVIDER ? "openai-completions" : String(template.api);
 	const request = listRequest(api, base, key);
 
+	// Some providers (e.g. Anthropic-compatible gateways) have no listing endpoint or answer it oddly.
+	const fail = (reason: string, cause?: unknown): never => {
+		throw new ModelDiscoveryError(`Model discovery failed: ${reason}`, fromCatalog(), { cause });
+	};
 	let response: Response;
 	try {
 		response = await fetch(request.url, { headers: request.headers, signal: AbortSignal.timeout(15_000) });
 	} catch (error) {
-		throw new Error(`Model discovery failed: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+		return fail(error instanceof Error ? error.message : String(error), error);
 	}
 	if (response.status === 401 || response.status === 403) {
 		throw new Error(`Model discovery failed: HTTP ${response.status}. Check the API key for ${provider}.`);
 	}
-	// Some providers (e.g. Anthropic-compatible gateways) have no listing endpoint.
-	if (response.status === 404 && catalog.length > 0) return fromCatalog();
-	if (!response.ok) throw new Error(`Model discovery failed: HTTP ${response.status}.`);
+	if (!response.ok) return fail(`HTTP ${response.status}.`);
 
-	const json = (await response.json()) as { data?: ListedModel[]; models?: ListedModel[] } | ListedModel[];
-	const listed = Array.isArray(json) ? json : json.data ?? json.models;
-	if (!Array.isArray(listed)) throw new Error("Model discovery returned an invalid model list.");
+	const json = (await response.json().catch(() => undefined)) as { data?: ListedModel[]; models?: ListedModel[] } | ListedModel[] | undefined;
+	const listed = Array.isArray(json) ? json : json?.data ?? json?.models;
+	if (!Array.isArray(listed)) return fail("the provider returned an invalid model list.");
 
 	const catalogLevels = new Map(catalog.map((model) => [model.id, getSupportedThinkingLevels(model)]));
 	return listed

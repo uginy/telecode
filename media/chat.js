@@ -1595,6 +1595,7 @@
     currentProvider = providerSelect.value;
     syncModelFilter();
     syncThinkingOptions();
+    if (!document.getElementById("catInference")?.classList.contains("hidden")) fetchModels();
   });
   providerSelect.addEventListener("change", () => {
     swapProviderKey(currentProvider, providerSelect.value);

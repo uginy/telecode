@@ -465,6 +465,8 @@ window.addEventListener('settings-applied', () => {
   currentProvider = providerSelect.value;
   syncModelFilter();
   syncThinkingOptions();
+  // A settings sync (e.g. after Save) drops the loaded list; reload it while the model settings are on screen.
+  if (!document.getElementById('catInference')?.classList.contains('hidden')) fetchModels();
 });
 providerSelect.addEventListener('change', () => {
   swapProviderKey(currentProvider, providerSelect.value);

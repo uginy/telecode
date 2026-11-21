@@ -26,10 +26,10 @@ const options = { prompt: 'fix it', model: 'default', thinkingLevel: 'high', saf
 describe('Claude Code adapter', () => {
   it('builds a headless command that keeps the CLI default model', () => {
     expect(claudeCodeBackend.buildArgs(options)).toEqual([
-      '-p', 'fix it', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'auto', '--effort', 'high',
+      '-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'auto', '--effort', 'high', '--', 'fix it',
     ]);
     expect(claudeCodeBackend.buildArgs({ ...options, model: 'opus', safeMode: 'strict', thinkingLevel: 'off', sessionId: 's1' }))
-      .toEqual(['-p', 'fix it', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'plan', '--model', 'opus', '--resume', 's1']);
+      .toEqual(['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'plan', '--model', 'opus', '--resume', 's1', '--', 'fix it']);
   });
 
   it('turns tool calls, results and the final result into runtime events', () => {
@@ -60,11 +60,11 @@ describe('Codex adapter', () => {
   it('passes the sandbox through config so resume accepts it', () => {
     expect(codexBackend.buildArgs({ ...options, sessionId: 'th1' })).toEqual([
       'exec', 'resume', '--json', '--skip-git-repo-check', '-c', 'sandbox_mode="workspace-write"',
-      '-c', 'model_reasoning_effort="high"', 'th1', 'fix it',
+      '-c', 'model_reasoning_effort="high"', '--', 'th1', 'fix it',
     ]);
     expect(codexBackend.buildArgs({ ...options, safeMode: 'power', model: 'gpt-6.2-sol' })).toEqual([
       'exec', '--json', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox',
-      '-m', 'gpt-6.2-sol', '-c', 'model_reasoning_effort="high"', 'fix it',
+      '-m', 'gpt-6.2-sol', '-c', 'model_reasoning_effort="high"', '--', 'fix it',
     ]);
   });
 

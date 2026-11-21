@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CodingAgent, createAgent, getLastAssistantText, type TelecodeConfig } from '../src/agent/codingAgent';
+import { ModelDiscoveryError } from '../src/agent/modelDiscovery';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { Type, createAssistantMessageEventStream, type AssistantMessage } from '@earendil-works/pi-ai';
 
@@ -189,10 +190,16 @@ describe('CodingAgent', () => {
     expect(models.map((model) => model.id)).toEqual(['gpt-9']);
   });
 
-  it('uses the bundled catalog when the provider has no listing endpoint', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
-    const models = await CodingAgent.fetchModelsFromApi('minimax', '', 'key');
-    expect(models.length).toBeGreaterThan(0);
+  it('offers the bundled catalog when live listing fails for a reason other than the key', async () => {
+    for (const status of [404, 405, 500]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status }));
+      const error = await CodingAgent.fetchModelsFromApi('minimax', '', 'key').catch((caught) => caught);
+      expect(error).toBeInstanceOf(ModelDiscoveryError);
+      expect(error.message).toContain(`HTTP ${status}`);
+      expect(error.fallback.length).toBeGreaterThan(0);
+    }
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNRESET')));
+    await expect(CodingAgent.fetchModelsFromApi('minimax', '', 'key')).rejects.toBeInstanceOf(ModelDiscoveryError);
   });
 
   it('identifies free OpenRouter models by all advertised prices rather than their IDs', async () => {

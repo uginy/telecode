@@ -6,6 +6,7 @@ import {
 } from "./ui/chatViewProvider";
 import { CodingAgent } from "./agent/codingAgent";
 import { normalizeProvider } from "./agent/providerCatalog";
+import { ModelDiscoveryError } from "./agent/modelDiscovery";
 import { CLI_BACKENDS } from "./engine/cliBackends";
 import { listCliModels } from "./engine/cliModels";
 import { testCliConnection } from "./engine/cliRuntime";
@@ -150,7 +151,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 							: await CodingAgent.fetchModelsFromApi(command.provider, command.baseUrl, command.apiKey);
 						chatProvider?.setModels(models, command.provider, command.baseUrl);
 					} catch (error) {
-						chatProvider?.notify(error instanceof Error ? error.message : String(error));
+						const message = error instanceof Error ? error.message : String(error);
+						if (error instanceof ModelDiscoveryError && error.fallback.length > 0) {
+							chatProvider?.setModels(error.fallback, command.provider, command.baseUrl);
+							chatProvider?.notify(`${message} Showing the bundled model list, which may miss new models.`);
+						} else {
+							chatProvider?.notify(message);
+						}
 					}
 				},
 			}),

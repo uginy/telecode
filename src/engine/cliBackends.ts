@@ -69,12 +69,14 @@ export const claudeCodeBackend: CliBackend = {
     const mode = { strict: 'plan', balanced: 'auto', power: 'bypassPermissions' }[options.safeMode];
     const effort = cliEffort(options.thinkingLevel, this.levels);
     return [
-      '-p', options.prompt,
+      '-p',
       '--output-format', 'stream-json', '--verbose',
       '--permission-mode', mode,
       ...(useModel(options.model) ? ['--model', options.model.trim()] : []),
       ...(effort ? ['--effort', effort] : []),
       ...(options.sessionId ? ['--resume', options.sessionId] : []),
+      // A task often starts with "- " (a list); without "--" it would be read as a flag.
+      '--', options.prompt,
     ];
   },
   parseLine(event, state) {
@@ -137,9 +139,10 @@ export const codexBackend: CliBackend = {
       ...(useModel(options.model) ? ['-m', options.model.trim()] : []),
       ...(effort ? ['-c', `model_reasoning_effort="${effort}"`] : []),
     ];
+    // "--" keeps a prompt that starts with "-" from being parsed as a flag.
     return options.sessionId
-      ? ['exec', 'resume', ...flags, options.sessionId, options.prompt]
-      : ['exec', ...flags, options.prompt];
+      ? ['exec', 'resume', ...flags, '--', options.sessionId, options.prompt]
+      : ['exec', ...flags, '--', options.prompt];
   },
   parseLine(event, state) {
     if (event.type === 'thread.started') {
