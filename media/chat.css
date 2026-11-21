@@ -177,6 +177,12 @@ body {
   color: var(--vscode-foreground);
 }
 
+.about-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
+
 .about-features li .dot {
   color: var(--accent);
   font-size: 10px;

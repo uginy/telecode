@@ -33,13 +33,16 @@ Ask it to investigate a bug, edit code, or run checks. Follow progress from your
 /commit fix: correct login validation
 ```
 
-You bring your own model API key. VS Code must remain open on the machine with your project.
+You bring your own model API key, or run tasks on a subscription through a locally installed Claude Code, Codex or Antigravity CLI. VS Code must remain open on the machine with your project.
 
 ## 🚀 Features
 
 - **Autonomous Agent Loop**: Continuously plans and executes multi-step tasks. The agent reads your workspace, runs bash commands, edits files, and loops until the task is done.
 - **Remote Control Channels**: Use Telegram and WhatsApp channels for remote task execution from your phone.
-- **Multi-Provider AI**: Works with OpenRouter, OpenAI, Anthropic Claude, Google Gemini, MiniMax, Moonshot (Kimi), and self-hosted Ollama models.
+- **Multi-Provider AI**: Pick a provider from a grouped list: OpenRouter, OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Mistral, Groq, Cerebras, Moonshot, Kimi For Coding, MiniMax, Z.AI, Fireworks, Together, local Ollama and LM Studio, or any OpenAI-compatible server. Each provider keeps its own API key.
+- **Subscriptions through local CLIs**: Claude Code, Codex and Antigravity run the task on the plan you are signed in to in that CLI. See [Subscriptions (local CLIs)](#subscriptions-local-clis).
+- **Live model lists**: Models load from the provider's API when you pick the provider, newest first, so new releases show up without an extension update.
+- **Per-model reasoning**: The Reasoning list shows the levels the selected model supports (`off` to `max`).
 - **Structured Logs UI**:
   - Grouped log view with typed rows (`status`, `tool:start`, `tool:done`, `channel`, `llm`, etc.)
   - Tool invocations are visible in the task timeline, including remote channel runs
@@ -57,7 +60,7 @@ You bring your own model API key. VS Code must remain open on the machine with y
 - **Configurable Response Style**: `concise`, `normal`, `detailed`.
 - **Session History**: Recent conversation history is saved per workspace.
 - **Connection Check**: Test the selected model and API key before running a task; the check sends no project files and runs no tools.
-- **Model Autocomplete**: Search current model choices as you type, use the keyboard to select, and filter OpenRouter to free models.
+- **Model Autocomplete**: Search the live model list as you type, use the keyboard to select, and filter OpenRouter to free models.
 - **Credential Storage**: API keys and Telegram tokens are kept in VS Code SecretStorage.
 
 ## 💡 Why a VS Code Extension?
@@ -74,11 +77,30 @@ You bring your own model API key. VS Code must remain open on the machine with y
 
 1. Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Uginy.telecode-ai) and open a project folder.
 2. Open **TeleCode AI** from the Activity Bar, then **Settings → Inference**.
-3. Choose a provider and enter its API key. Click the model field to load choices, then type to filter; use **↑/↓** and **Enter** to select. OpenRouter also has a **Free models only** filter. You can enter any model ID manually or use **↻** to refresh the list. The default is OpenRouter's `openrouter/free`; free models have provider rate limits and varying availability.
-4. Click **Test connection**. This makes one short model request, which may incur provider usage charges.
-5. Save settings, start the agent, and send a small task such as `Explain the project structure without changing files`.
+3. Choose a provider and enter its API key. The model list loads from the provider's API; type to filter and use **↑/↓** and **Enter** to select. Without a key you see the bundled list, which may miss new models. OpenRouter also has a **Free models only** filter. You can enter any model ID manually or use **↻** to refresh the list. The default is OpenRouter's `openrouter/free`; free models have provider rate limits and varying availability.
+4. Pick a **Reasoning** level. The list shows only the levels the selected model supports.
+5. Click **Test connection**. This makes one short model request, which may incur provider usage charges.
+6. Save settings, start the agent, and send a small task such as `Explain the project structure without changing files`.
 
-Requires **VS Code 1.107+**. Other compatible IDEs need an extension host running **Node.js 22.19+**. Ollama uses your local server and does not require an API key.
+Requires **VS Code 1.107+**. Other compatible IDEs need an extension host running **Node.js 22.19+**. Ollama and LM Studio use your local server and do not require an API key.
+
+### Subscriptions (local CLIs)
+
+Pick **Claude Code CLI**, **Codex CLI** or **Antigravity CLI** under *Subscription (local CLI)* to run tasks on the plan you are signed in to in that CLI. TeleCode does not handle your subscription login.
+
+1. Install the CLI (`claude`, `codex` or `agy`) and sign in to it once in a terminal.
+2. Select it as the provider. TeleCode finds the CLI through your login shell `PATH`. The model list comes from the CLI; `default` keeps the CLI's own choice, and *CLI default* reasoning passes no effort flag.
+3. Click **Test connection**. It runs one short read-only turn.
+
+The CLI takes the whole task with its own tools, and its session continues from task to task until the runtime restarts. The Safe Mode Profile sets its permission mode:
+
+| Profile  | Claude Code                         | Codex                                          | Antigravity                       |
+| -------- | ----------------------------------- | ---------------------------------------------- | --------------------------------- |
+| Strict   | `--permission-mode plan`            | `sandbox_mode="read-only"`                     | `--mode plan`                     |
+| Balanced | `--permission-mode auto`            | `sandbox_mode="workspace-write"`               | `--mode auto`                     |
+| Power    | `--permission-mode bypassPermissions` | `--dangerously-bypass-approvals-and-sandbox` | `--dangerously-skip-permissions`  |
+
+With a CLI provider, TeleCode's own tools, prompt stack (project memory and rules, response style), `maxSteps`, steering and image attachments do not apply. Check that your provider's terms allow this use of your plan.
 
 ### Telegram
 
@@ -139,9 +161,10 @@ For hot reload: open `Run and Debug` → start **Run Extension (Watch)**.
 
 | Setting                               | Description                                                                            |
 | ------------------------------------- | -------------------------------------------------------------------------------------- |
-| `telecode.provider`                   | AI provider (`openrouter`, `openai`, `anthropic`, `google`, `moonshot`, `ollama`, ...) |
+| `telecode.provider`                   | AI provider: an API provider (`openrouter`, `openai`, `anthropic`, `google`, `xai`, ...), `ollama`, `lmstudio`, `custom`, or a local CLI (`claude-code`, `codex`, `antigravity`) |
 | `telecode.model`                      | Model ID (e.g. `openrouter/free` for OpenRouter; use provider-specific IDs for direct APIs)                 |
-| `telecode.apiKey`                     | Legacy input; use the panel to save the key in SecretStorage                                                      |
+| `telecode.apiKey`                     | Legacy input; moved to the selected provider's key in SecretStorage. Use the panel: each provider keeps its own key |
+| `telecode.thinkingLevel`              | Reasoning effort (`off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`); clamped to what the model supports |
 | `telecode.baseUrl`                    | Custom base URL for OpenAI-compatible endpoints                                        |
 | `telecode.maxSteps`                   | Max agent steps per task (default: `100`)                                              |
 | `telecode.responseStyle`              | Response style (`concise`, `normal`, `detailed`)                                       |

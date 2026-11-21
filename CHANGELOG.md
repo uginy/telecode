@@ -2,6 +2,17 @@
 
 All notable changes to the "telecode-ai" extension will be documented in this file.
 
+## [Unreleased]
+
+- Added subscriptions through local CLIs: pick Claude Code, Codex or Antigravity CLI as the provider to run tasks on the plan you are signed in to in that CLI. The CLI takes the whole task with its own tools, continues its session between tasks, and gets its permission mode from the Safe Mode Profile. TeleCode tools, prompt stack, `maxSteps`, steering and images do not apply to CLI runs.
+- The provider is now a grouped dropdown instead of a text field. Added xAI, DeepSeek, Mistral, Groq, Cerebras, Z.AI, Fireworks, Together, Kimi For Coding, LM Studio and a Custom OpenAI-compatible entry; old values such as `moonshot` keep working.
+- Each provider keeps its own API key in SecretStorage; the previous single key moves to the selected provider.
+- Model lists load live from the provider's API (OpenAI-style `/models`, Anthropic, Google, Mistral) as soon as the provider is picked, newest first. The bundled list is used only without a key or when listing fails, with a note.
+- Models newer than the bundled catalog (e.g. `claude-fable-5-2`) take the API and reasoning settings of their closest family member.
+- The Reasoning dropdown shows the levels the selected model supports; `xhigh` and `max` were added to `telecode.thinkingLevel` and `/think`.
+- Model discovery now names the API key on HTTP 401/403.
+- The About tab lists what is new.
+
 ## [0.1.25] - 2026-11-02
 
 - Fixed the agent always replying in Russian when the language setting is `auto` (the default): it now answers in the language of the request.

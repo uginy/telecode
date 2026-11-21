@@ -84,6 +84,13 @@ export interface Translations {
   about_feature_terminal: string;
   about_feature_remote: string;
   about_feature_multimodal: string;
+  about_feature_subscriptions: string;
+  about_whatsnew_title: string;
+  about_new_cli: string;
+  about_new_providers: string;
+  about_new_models: string;
+  about_new_reasoning: string;
+  about_new_keys: string;
   about_feature_i18n: string;
 
   // UI - Settings Inference
@@ -288,7 +295,14 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_feature_files: 'Нативный coding-toolchain: read/write/edit, glob/grep, bash и контекст workspace.',
     about_feature_terminal: 'Выполнение shell-команд с таймаутом и прозрачными логами.',
     about_feature_remote: 'Удалённое управление через Telegram и WhatsApp, пока VS Code открыт на вашей машине.',
-    about_feature_multimodal: 'Поддержка нескольких LLM-провайдеров: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
+    about_feature_multimodal: '15 провайдеров по API-ключу, локальные Ollama и LM Studio и любой OpenAI-совместимый сервер.',
+    about_feature_subscriptions: 'Подписки через локальные CLI: Claude Code, Codex и Antigravity выполняют задачи по тарифу, под которым вы в них вошли.',
+    about_whatsnew_title: 'Что нового',
+    about_new_cli: 'Подписки через локальные CLI: Claude Code, Codex и Antigravity берут задачу целиком и работают по вашему тарифу. «Профиль безопасности» задаёт их режим разрешений, а сессия CLI продолжается от задачи к задаче.',
+    about_new_providers: 'Выбор провайдера из списка с группами. Добавлены xAI, DeepSeek, Mistral, Groq, Cerebras, Z.AI, Fireworks, Together, Kimi For Coding и LM Studio.',
+    about_new_models: 'Список моделей загружается из API провайдера сразу при его выборе, новые сверху, поэтому свежие модели появляются без обновления TeleCode.',
+    about_new_reasoning: 'В списке Reasoning только уровни, которые поддерживает выбранная модель, теперь вплоть до «Очень высокий» и «Максимальный».',
+    about_new_keys: 'У каждого провайдера свой API-ключ: при переключении ключи больше не нужно вводить заново.',
     about_feature_i18n: 'Полная многоязычность (интерфейс и ответы агента).',
 
     settings_inference_title: 'Инференс',
@@ -488,7 +502,14 @@ const TRANSLATIONS: Record<Language, Translations> = {
     about_feature_files: 'Native coding toolchain: read/write/edit, glob/grep, bash, workspace context.',
     about_feature_terminal: 'Shell commands with timeouts and transparent execution logs.',
     about_feature_remote: 'Telegram and WhatsApp remote control: run tasks from your phone while VS Code stays open.',
-    about_feature_multimodal: 'Multi-provider LLM support: OpenAI, Anthropic, Gemini, Moonshot, OpenRouter, Ollama.',
+    about_feature_multimodal: '15 API providers, local Ollama and LM Studio, and any OpenAI-compatible server.',
+    about_feature_subscriptions: 'Subscriptions through local CLIs: Claude Code, Codex and Antigravity run tasks on the plan you are signed in to.',
+    about_whatsnew_title: "What's new",
+    about_new_cli: 'Subscriptions through local CLIs: Claude Code, Codex and Antigravity take the whole task on your own plan. The Safe Mode Profile sets their permission mode, and the CLI session continues from task to task.',
+    about_new_providers: 'Provider dropdown grouped by type. Added xAI, DeepSeek, Mistral, Groq, Cerebras, Z.AI, Fireworks, Together, Kimi For Coding and LM Studio.',
+    about_new_models: "Models load live from the provider's API as soon as you pick it, newest first, so new releases appear without a TeleCode update.",
+    about_new_reasoning: 'The Reasoning list shows only the levels the selected model supports, now up to Extra high and Max.',
+    about_new_keys: 'Each provider keeps its own API key, so switching providers no longer means retyping keys.',
     about_feature_i18n: 'Full multi-language support (UI and responses).',
 
     settings_inference_title: 'Inference',
