@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { i18n } from "../services/i18n";
-import { readTelecodeSettings, resolveUiLanguage } from "../config/settings";
+import { parseThinkingLevel, readTelecodeSettings, resolveUiLanguage, type ThinkingLevelSetting } from "../config/settings";
 import type { TaskReviewSummary } from "../extension/taskReview";
 import type { DiscoveredModel } from "../agent/codingAgent";
 
@@ -34,6 +34,9 @@ export interface ChatViewSettings {
 	provider: string;
 	model: string;
 	apiKey: string;
+	/** Keys by provider id, so switching providers in the form does not lose them. */
+	apiKeys: Record<string, string>;
+	thinkingLevel: ThinkingLevelSetting;
 	baseUrl: string;
 	maxSteps: number;
 	responseStyle: string;
@@ -227,6 +230,11 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 						provider: typeof raw.provider === "string" ? raw.provider : "",
 						model: typeof raw.model === "string" ? raw.model : "",
 						apiKey: typeof raw.apiKey === "string" ? raw.apiKey : "",
+						apiKeys: Object.fromEntries(
+							Object.entries(raw.apiKeys && typeof raw.apiKeys === "object" ? raw.apiKeys : {})
+								.filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+						),
+						thinkingLevel: parseThinkingLevel(raw.thinkingLevel) ?? "off",
 						baseUrl: typeof raw.baseUrl === "string" ? raw.baseUrl : "",
 						maxSteps,
 						responseStyle:

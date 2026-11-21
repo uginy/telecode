@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { initializeSecretStorage, migrateSecretSettings } from "./config/secrets";
+import { initializeSecretStorage, loadProviderApiKeys, migrateSecretSettings } from "./config/secrets";
 import {
 	type ChatViewSettings,
 	ChatViewProvider,
@@ -212,6 +212,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (event) => {
+			if (event.affectsConfiguration("telecode.provider")) {
+				await loadProviderApiKeys([readTelecodeSettings().agent.provider]);
+			}
 			if (event.affectsConfiguration("telecode.apiKey") || event.affectsConfiguration("telecode.telegram.botToken")) {
 				try {
 					await migrateSecretSettings();

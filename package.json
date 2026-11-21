@@ -149,20 +149,42 @@
 						"openai",
 						"anthropic",
 						"google",
+						"xai",
+						"deepseek",
+						"mistral",
+						"groq",
+						"cerebras",
+						"moonshotai",
+						"kimi-coding",
 						"minimax",
-						"moonshot",
-						"ollama"
+						"zai",
+						"fireworks",
+						"together",
+						"ollama",
+						"lmstudio",
+						"custom"
 					],
 					"enumDescriptions": [
-						"OpenRouter (free models available)",
+						"OpenRouter",
 						"OpenAI",
-						"Anthropic Claude",
+						"Anthropic (Claude)",
 						"Google Gemini",
+						"xAI (Grok)",
+						"DeepSeek",
+						"Mistral",
+						"Groq",
+						"Cerebras",
+						"Moonshot AI (Kimi API)",
+						"Kimi For Coding",
 						"MiniMax",
-						"Moonshot (Kimi)",
-						"Ollama (local)"
+						"Z.AI (GLM Coding Plan)",
+						"Fireworks",
+						"Together AI",
+						"Ollama",
+						"LM Studio",
+						"Custom (OpenAI-compatible)"
 					],
-					"description": "AI provider"
+					"description": "AI provider. Pick it in the TeleCode settings panel; Custom uses telecode.baseUrl."
 				},
 				"telecode.model": {
 					"type": "string",
@@ -314,7 +336,9 @@
 						"minimal",
 						"low",
 						"medium",
-						"high"
+						"high",
+						"xhigh",
+						"max"
 					],
 					"description": "Reasoning effort for models that support thinking. Unsupported levels fall back to the nearest one the model offers."
 				},

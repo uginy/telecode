@@ -99,6 +99,19 @@ export interface Translations {
   field_model_hint: string;
   model_no_matches: string;
   model_free_only: string;
+  field_thinking: string;
+  field_thinking_hint: string;
+  thinking_unsupported: string;
+  thinking_off: string;
+  thinking_minimal: string;
+  thinking_low: string;
+  thinking_medium: string;
+  thinking_high: string;
+  thinking_xhigh: string;
+  thinking_max: string;
+  provider_group_api: string;
+  provider_group_local: string;
+  provider_group_custom: string;
   field_response_style: string;
   field_response_style_hint: string;
   field_language: string;
@@ -278,7 +291,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_inference_title: 'Инференс',
     settings_inference_desc: 'Настройка модели и API для работы агента.',
     field_provider: 'Провайдер',
-    field_provider_hint: 'Имя провайдера (например: openai, anthropic, moonshot).',
+    field_provider_hint: 'Где работает модель агента. У каждого провайдера свой API-ключ.',
     field_base_url: 'Base URL',
     field_base_url_hint: 'Кастомный эндпоинт API. Оставьте пустым для значений по умолчанию.',
     field_api_key: 'API Key',
@@ -287,6 +300,19 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_model_hint: 'Начните вводить название. ↑ ↓ — выбор, Enter — подтвердить. Можно ввести любой ID. ↻ — обновить список.',
     model_no_matches: 'Совпадений нет. Можно ввести ID модели вручную.',
     model_free_only: 'Только бесплатные модели',
+    field_thinking: 'Reasoning',
+    field_thinking_hint: 'Сколько модель думает перед действием. В списке только уровни, которые поддерживает выбранная модель.',
+    thinking_unsupported: 'Модель не поддерживает reasoning',
+    thinking_off: 'Выкл',
+    thinking_minimal: 'Минимальный',
+    thinking_low: 'Низкий',
+    thinking_medium: 'Средний',
+    thinking_high: 'Высокий',
+    thinking_xhigh: 'Очень высокий',
+    thinking_max: 'Максимальный',
+    provider_group_api: 'По API-ключу',
+    provider_group_local: 'Локальные модели',
+    provider_group_custom: 'Свой сервер',
     field_response_style: 'Стиль ответов',
     field_response_style_hint: 'Насколько подробными должны быть ответы агента.',
     field_language: 'Язык общения',
@@ -462,7 +488,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     settings_inference_title: 'Inference',
     settings_inference_desc: 'Model and API configuration for the agent loop.',
     field_provider: 'Provider',
-    field_provider_hint: 'Provider name (e.g. openai, anthropic, moonshot).',
+    field_provider_hint: "Where the agent's model runs. Each provider keeps its own API key.",
     field_base_url: 'Base URL',
     field_base_url_hint: 'Custom API endpoint. Leave blank to use provider default.',
     field_api_key: 'API Key',
@@ -471,6 +497,19 @@ const TRANSLATIONS: Record<Language, Translations> = {
     field_model_hint: 'Type to search models. ↑ ↓ to select, Enter to confirm. Any model ID is allowed. ↻ refreshes the list.',
     model_no_matches: 'No matches. You can enter a model ID manually.',
     model_free_only: 'Free models only',
+    field_thinking: 'Reasoning',
+    field_thinking_hint: 'How long the model thinks before acting. The list shows the levels the selected model supports.',
+    thinking_unsupported: 'This model does not support reasoning',
+    thinking_off: 'Off',
+    thinking_minimal: 'Minimal',
+    thinking_low: 'Low',
+    thinking_medium: 'Medium',
+    thinking_high: 'High',
+    thinking_xhigh: 'Extra high',
+    thinking_max: 'Max',
+    provider_group_api: 'API key',
+    provider_group_local: 'Local models',
+    provider_group_custom: 'Custom server',
     field_response_style: 'Response Style',
     field_response_style_hint: 'Style of text responses from the agent.',
     field_language: 'Response Language',

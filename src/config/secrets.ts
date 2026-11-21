@@ -1,9 +1,15 @@
 import * as vscode from 'vscode';
+import { PROVIDER_CATALOG, normalizeProvider } from '../agent/providerCatalog';
 
 type SecretSetting = 'apiKey' | 'telegram.botToken';
 const names: SecretSetting[] = ['apiKey', 'telegram.botToken'];
 const cache = new Map<string, string>();
+const providerKeys = new Map<string, string>();
 let storage: vscode.SecretStorage;
+
+const providerKeyName = (provider: string) => `telecode.apiKey.provider:${provider}`;
+const currentProvider = () =>
+  normalizeProvider(vscode.workspace.getConfiguration('telecode').get<string>('provider') || 'openrouter');
 
 function scopes() {
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
@@ -39,6 +45,36 @@ export async function migrateSecretSettings(): Promise<void> {
       }
     }
   }
+  await loadProviderApiKeys([...PROVIDER_CATALOG.map((option) => option.id), currentProvider()]);
+  // The old single key (also set by editing telecode.apiKey by hand) belongs to the selected provider.
+  const legacyKey = readSecretSetting('apiKey');
+  if (legacyKey) {
+    await saveProviderApiKey(currentProvider(), legacyKey);
+    await saveSecretSetting('apiKey', '');
+  }
+}
+
+export async function loadProviderApiKeys(providers: string[]): Promise<void> {
+  for (const provider of new Set(providers.map(normalizeProvider))) {
+    const value = await storage.get(providerKeyName(provider));
+    if (value !== undefined) providerKeys.set(provider, value);
+  }
+}
+
+export function readProviderApiKey(provider: string): string {
+  return providerKeys.get(normalizeProvider(provider)) ?? '';
+}
+
+/** Non-empty keys by provider id, for the settings form. */
+export function readProviderApiKeys(): Record<string, string> {
+  return Object.fromEntries([...providerKeys].filter(([, value]) => value));
+}
+
+export async function saveProviderApiKey(provider: string, value: string): Promise<void> {
+  const id = normalizeProvider(provider);
+  if (!id || (providerKeys.get(id) ?? '') === value.trim()) return;
+  await storage.store(providerKeyName(id), value.trim());
+  providerKeys.set(id, value.trim());
 }
 
 export function readSecretSetting(name: SecretSetting): string {

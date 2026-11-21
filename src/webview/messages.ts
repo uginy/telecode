@@ -74,7 +74,10 @@ export function handleMessage(raw: unknown): void {
       break;
 
     case 'settings':
-      if (msg.settings) writeForm(msg.settings);
+      if (msg.settings) {
+        writeForm(msg.settings);
+        window.dispatchEvent(new CustomEvent('settings-applied'));
+      }
       break;
 
     case 'taskResult':

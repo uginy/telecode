@@ -7,7 +7,9 @@ import api from './vscode-api';
 import { cmd } from './commands';
 import { el, setStatus, setControlState, setTab, isAgentToggleOn, refreshToggleLabels } from './ui-state';
 import { replaceOutput, collapseAllGroups, expandAllGroups } from './log';
-import { readForm } from './settings';
+import { getWantedThinking, readForm, setWantedThinking, swapProviderKey } from './settings';
+import { renderProviderOptions, renderThinkingOptions, syncProviderFields } from './provider-picker';
+import { findProvider } from '../agent/providerCatalog';
 import { handleMessage } from './messages';
 import { makeIcon } from './icon-service';
 import { bindTaskResultActions } from './task-result';
@@ -435,15 +437,48 @@ modelInput.addEventListener('focus', () => {
   const settings = readForm();
   if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
 });
+const thinkingSelect = document.getElementById('thinkingLevel') as HTMLSelectElement;
+let loadedModels: DiscoveredModel[] = [];
+
+function syncThinkingOptions(): void {
+  const model = loadedModels.find((item) => item.id === modelInput.value.trim());
+  renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking());
+}
+
+thinkingSelect.addEventListener('change', () => setWantedThinking(thinkingSelect.value));
 modelInput.addEventListener('input', updateComposerMeta);
-modelInput.addEventListener('change', updateComposerMeta);
-for (const id of ['provider', 'baseUrl', 'apiKey']) {
+modelInput.addEventListener('change', () => {
+  updateComposerMeta();
+  syncThinkingOptions();
+});
+for (const id of ['baseUrl', 'apiKey']) {
   document.getElementById(id)?.addEventListener('input', () => {
     requestedModelContext = '';
     modelAutocomplete.clear();
     syncModelFilter();
   });
 }
+
+const providerSelect = document.getElementById('provider') as HTMLSelectElement;
+let currentProvider = providerSelect.value;
+window.addEventListener('settings-applied', () => {
+  currentProvider = providerSelect.value;
+  syncModelFilter();
+  syncThinkingOptions();
+});
+providerSelect.addEventListener('change', () => {
+  swapProviderKey(currentProvider, providerSelect.value);
+  currentProvider = providerSelect.value;
+  // A base URL or model of the previous provider would point the new one at the wrong place.
+  (document.getElementById('baseUrl') as HTMLInputElement).value = '';
+  modelInput.value = findProvider(currentProvider)?.defaultModel ?? '';
+  loadedModels = [];
+  syncProviderFields(currentProvider, '');
+  syncModelFilter();
+  syncThinkingOptions();
+  updateComposerMeta();
+  fetchModels();
+});
 
 // ── Settings Sub-tabs ─────────────────────────────────────────────────────────
 function updateSettingsCategory(catId: string): void {
@@ -470,6 +505,8 @@ window.addEventListener('models-loaded', (e: Event) => {
   const settings = readForm();
   if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
   modelAutocomplete.setModels(models);
+  loadedModels = models;
+  syncThinkingOptions();
   el.settingsNote().textContent = `Loaded ${models.length} models`;
   updateComposerMeta();
 });
@@ -510,6 +547,9 @@ toggleApiKeyBtn?.addEventListener('click', (e) => {
 window.addEventListener('translate', (e: Event) => {
   const translations = (e as CustomEvent).detail as Record<string, string>;
   applyTranslations(translations);
+  // Option labels are built in code, so rebuild them in the new language.
+  renderProviderOptions(providerSelect, providerSelect.value);
+  syncThinkingOptions();
 });
 
 function applyTranslations(t: Record<string, string>): void {
@@ -545,6 +585,7 @@ window.addEventListener('message', (e: MessageEvent) => {
   if (e.data?.type === 'settings') {
     requestedModelContext = '';
     modelAutocomplete.clear();
+    loadedModels = [];
   }
   handleMessage(e.data);
   if (e.data?.type === 'settings') syncModelFilter();

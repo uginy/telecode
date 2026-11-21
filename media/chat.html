@@ -302,17 +302,17 @@
 
             <div class="field">
               <label for="provider" data-t="field_provider">Provider</label>
-              <span class="field-hint" data-t="field_provider_hint">Provider name matching your API key (e.g. openai, anthropic, moonshot).</span>
-              <input id="provider" type="text" placeholder="openai" />
+              <span class="field-hint" data-t="field_provider_hint">Where the agent's model runs. Each provider keeps its own API key.</span>
+              <select id="provider"></select>
             </div>
 
-            <div class="field">
+            <div class="field" id="baseUrlField">
               <label for="baseUrl" data-t="field_base_url">Base URL</label>
               <span class="field-hint" data-t="field_base_url_hint">Custom API endpoint. Leave blank to use the provider default.</span>
               <input id="baseUrl" type="text" placeholder="https://api.openai.com/v1" />
             </div>
 
-            <div class="field">
+            <div class="field" id="apiKeyField">
               <label for="apiKey" data-t="field_api_key">API Key</label>
               <span class="field-hint" data-t="field_api_key_hint">Saved securely by VS Code. Used for requests to your configured provider.</span>
               <div class="field-rel">
@@ -337,6 +337,12 @@
                 </div>
                 <button id="fetchModelsBtn" class="btn btn-ghost btn-sm" type="button" data-tooltip-key="tt_fetch_models" data-tooltip-placement="right">↻</button>
               </div>
+            </div>
+
+            <div class="field">
+              <label for="thinkingLevel" data-t="field_thinking">Reasoning</label>
+              <span id="thinkingHint" class="field-hint" data-t="field_thinking_hint">How long the model thinks before acting. The list shows the levels the selected model supports.</span>
+              <select id="thinkingLevel"></select>
             </div>
 
             <div class="field">

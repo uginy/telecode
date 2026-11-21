@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as vscode from "vscode";
-import { saveSecretSetting } from "../config/secrets";
+import { readProviderApiKeys, saveProviderApiKey, saveSecretSetting } from "../config/secrets";
 import { readTelecodeSettings } from "../config/settings";
 import type { ChatViewSettings, ChatViewProvider } from "../ui/chatViewProvider";
 import { saveOpenSettingsFiles } from "../utils/vscodeUtils";
@@ -10,14 +10,17 @@ export async function persistChatViewSettings(
 ): Promise<void> {
 	const config = vscode.workspace.getConfiguration("telecode");
 	const target = vscode.ConfigurationTarget.Global;
-	const apiKey = settings.apiKey.trim();
 	const telegramBotToken = settings.telegramBotToken.trim();
 
 	await saveOpenSettingsFiles();
 
+	// Keys typed for other providers before switching back are kept too.
+	for (const [provider, key] of Object.entries({ ...settings.apiKeys, [settings.provider]: settings.apiKey })) {
+		await saveProviderApiKey(provider, key);
+	}
 	await config.update("provider", settings.provider, target);
 	await config.update("model", settings.model, target);
-	await saveSecretSetting("apiKey", apiKey);
+	await config.update("thinkingLevel", settings.thinkingLevel, target);
 	await config.update("baseUrl", settings.baseUrl, target);
 	await config.update("maxSteps", settings.maxSteps, target);
 	await config.update("logMaxChars", settings.logMaxChars, target);
@@ -73,6 +76,8 @@ export function syncSettingsToChatView(
 		provider: settings.agent.provider,
 		model: settings.agent.model,
 		apiKey: settings.agent.apiKey,
+		apiKeys: readProviderApiKeys(),
+		thinkingLevel: settings.agent.thinkingLevel,
 		baseUrl: settings.agent.baseUrl || "",
 		maxSteps: settings.agent.maxSteps,
 		logMaxChars: settings.agent.logMaxChars,

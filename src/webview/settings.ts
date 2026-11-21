@@ -4,8 +4,27 @@
  */
 
 import type { Settings } from './commands';
+import { renderProviderOptions, renderThinkingOptions, syncProviderFields } from './provider-picker';
 
 const $ = (id: string) => document.getElementById(id);
+
+/** Saved keys of every provider; the API key field shows only the selected one. */
+let apiKeys: Record<string, string> = {};
+/** Level the user asked for; the select may show a lower one the current model supports. */
+let wantedThinking = 'off';
+
+export function getWantedThinking(): string {
+  return wantedThinking;
+}
+export function setWantedThinking(level: string): void {
+  wantedThinking = level;
+}
+
+/** Keeps the key typed for `from` and shows the one saved for `to`. */
+export function swapProviderKey(from: string, to: string): void {
+  apiKeys[from] = strVal('apiKey');
+  setStr('apiKey', apiKeys[to] ?? '');
+}
 
 function strVal(id: string): string {
   return (($(id) as HTMLInputElement)?.value ?? '').trim();
@@ -30,10 +49,13 @@ export function readForm(): Settings {
   const channelLogLinesRaw = Number.parseInt(strVal('channelLogLines') || '300', 10);
   const channelLogLines = Number.isFinite(channelLogLinesRaw) && channelLogLinesRaw > 0 ? channelLogLinesRaw : 300;
 
+  const provider = strVal('provider');
   return {
-    provider:          strVal('provider'),
+    provider,
     model:             strVal('model'),
     apiKey:            strVal('apiKey'),
+    apiKeys:           { ...apiKeys, [provider]: strVal('apiKey') },
+    thinkingLevel:     strVal('thinkingLevel') || 'off',
     baseUrl:           strVal('baseUrl'),
     maxSteps,
     responseStyle:     strVal('responseStyle'),
@@ -58,10 +80,16 @@ export function readForm(): Settings {
 }
 
 export function writeForm(s: Settings): void {
-  setStr( 'provider',         s.provider ?? '');
+  apiKeys = { ...(s.apiKeys ?? {}) };
+  wantedThinking = s.thinkingLevel ?? 'off';
+  const providerSelect = $('provider') as HTMLSelectElement | null;
+  if (providerSelect) renderProviderOptions(providerSelect, s.provider ?? '');
   setStr( 'model',            s.model ?? '');
   setStr( 'apiKey',           s.apiKey ?? '');
   setStr( 'baseUrl',          s.baseUrl ?? '');
+  syncProviderFields(s.provider ?? '', s.baseUrl ?? '');
+  const thinkingSelect = $('thinkingLevel') as HTMLSelectElement | null;
+  if (thinkingSelect) renderThinkingOptions(thinkingSelect, undefined, wantedThinking);
   setStr( 'maxSteps',         String(s.maxSteps ?? 100));
   setStr( 'responseStyle',    s.responseStyle ?? 'concise');
   setStr( 'language',         s.language ?? 'auto');

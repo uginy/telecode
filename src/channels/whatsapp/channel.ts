@@ -799,7 +799,7 @@ export class WhatsAppChannel implements IChannel {
 				chatId,
 				level
 					? `Thinking level updated to ${level}`
-					: `Usage: /think <off|minimal|low|medium|high>\nCurrent: ${settings.agent.thinkingLevel}`,
+					: `Usage: /think <off|minimal|low|medium|high|xhigh|max>\nCurrent: ${settings.agent.thinkingLevel}`,
 				"/think",
 			);
 			return;

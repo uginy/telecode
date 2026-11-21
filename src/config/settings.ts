@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { readSecretSetting } from './secrets';
+import { readProviderApiKey, readSecretSetting } from './secrets';
+export { providerRequiresApiKey } from '../agent/providerCatalog';
 
 export interface AgentSettings {
   provider: string;
@@ -20,7 +21,7 @@ export interface AgentSettings {
   thinkingLevel: ThinkingLevelSetting;
 }
 
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high'] as const;
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type ThinkingLevelSetting = (typeof THINKING_LEVELS)[number];
 
 export function parseThinkingLevel(value: unknown): ThinkingLevelSetting | undefined {
@@ -76,11 +77,6 @@ function readPositiveNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-export function providerRequiresApiKey(provider: string): boolean {
-  const normalized = provider.trim().toLowerCase();
-  return normalized !== 'ollama';
-}
-
 export function resolveUiLanguage(uiLanguage: 'ru' | 'en' | 'auto'): 'ru' | 'en' {
   if (uiLanguage === 'auto') {
     const vscLang = vscode.env.language.toLowerCase();
@@ -94,7 +90,7 @@ export function readTelecodeSettings(): TelecodeSettings {
 
   const provider = (config.get<string>('provider') || 'openrouter').trim();
   const model = (config.get<string>('model') || 'openrouter/free').trim();
-  const apiKey = readSecretSetting('apiKey');
+  const apiKey = readProviderApiKey(provider);
   const baseUrlRaw = (config.get<string>('baseUrl') || '').trim();
 
   const maxSteps = readPositiveNumber(config.get<number>('maxSteps'), 100);

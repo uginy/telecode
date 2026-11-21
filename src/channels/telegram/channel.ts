@@ -120,7 +120,7 @@ export class TelegramChannel implements IChannel {
 		provider: "Usage: /provider <provider-id>",
 		style: "Usage: /style <concise|normal|detailed>",
 		language: "Usage: /language <ru|en>",
-		think: "Usage: /think <off|minimal|low|medium|high>",
+		think: "Usage: /think <off|minimal|low|medium|high|xhigh|max>",
 		run: "Usage: /run <task>",
 	};
 

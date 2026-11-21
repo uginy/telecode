@@ -7,6 +7,7 @@ import {
 } from "@earendil-works/pi-agent-core";
 import {
 	clampThinkingLevel,
+	getSupportedThinkingLevels,
 	createModels,
 	createProvider,
 	type Model,
@@ -21,9 +22,19 @@ import { minimaxProvider } from "@earendil-works/pi-ai/providers/minimax";
 import { moonshotaiProvider } from "@earendil-works/pi-ai/providers/moonshotai";
 import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
 import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
+import { xaiProvider } from "@earendil-works/pi-ai/providers/xai";
+import { mistralProvider } from "@earendil-works/pi-ai/providers/mistral";
+import { groqProvider } from "@earendil-works/pi-ai/providers/groq";
+import { cerebrasProvider } from "@earendil-works/pi-ai/providers/cerebras";
+import { zaiProvider } from "@earendil-works/pi-ai/providers/zai";
+import { fireworksProvider } from "@earendil-works/pi-ai/providers/fireworks";
+import { togetherProvider } from "@earendil-works/pi-ai/providers/together";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { buildComposedSystemPrompt } from "../prompts/promptStack";
 import { compactContext } from "./contextCompaction";
+import { PROVIDER_CATALOG, normalizeProvider, providerRequiresApiKey } from "./providerCatalog";
+
+export { normalizeProvider };
 
 export interface TelecodeConfig {
 	provider: string;
@@ -50,21 +61,21 @@ export interface AgentPromptInfo {
 export interface DiscoveredModel {
 	id: string;
 	free: boolean;
+	/** Reasoning levels the model accepts; absent when the endpoint does not say. */
+	thinking?: ThinkingLevel[];
 }
 
-const DEFAULT_CONTEXT_WINDOW = 128_000;
+/** Levels every reasoning model accepts; xhigh and max are opt-in per model. */
+const BASE_THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high"];
 
-const PROVIDER_ALIAS: Record<string, string> = {
-	kimi: "kimi-coding",
-	moonshot: "moonshotai",
-};
+const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 export const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
 	openai: "https://api.openai.com/v1",
 	openrouter: "https://openrouter.ai/api/v1",
 	moonshotai: "https://api.moonshot.ai/v1",
 	deepseek: "https://api.deepseek.com/v1",
-	ollama: "http://localhost:11434/v1",
+	...Object.fromEntries(PROVIDER_CATALOG.flatMap((option) => (option.baseUrl ? [[option.id, option.baseUrl]] : []))),
 };
 
 const NON_OPENAI_COMPAT_PROVIDERS = new Set([
@@ -80,12 +91,14 @@ const NON_OPENAI_COMPAT_PROVIDERS = new Set([
 	"kimi-coding",
 ]);
 
-export function normalizeProvider(provider: string): string {
-	const trimmed = provider.trim().toLowerCase();
-	return PROVIDER_ALIAS[trimmed] ?? trimmed;
-}
-
 const PROVIDERS = {
+	xai: xaiProvider,
+	mistral: mistralProvider,
+	groq: groqProvider,
+	cerebras: cerebrasProvider,
+	zai: zaiProvider,
+	fireworks: fireworksProvider,
+	together: togetherProvider,
 	openai: openaiProvider,
 	openrouter: openrouterProvider,
 	anthropic: anthropicProvider,
@@ -188,7 +201,8 @@ function createModelRuntime(config: ModelConfig) {
 		models.setProvider(createProvider({
 			id: providerId,
 			models: [model],
-			auth: { apiKey: { name: providerId, resolve: async () => ({ auth: { apiKey: config.apiKey.trim() || (providerId === "ollama" ? "ollama" : undefined) } }) } },
+			// Local servers ignore the key, but the OpenAI client still needs a non-empty one.
+			auth: { apiKey: { name: providerId, resolve: async () => ({ auth: { apiKey: config.apiKey.trim() || (providerRequiresApiKey(providerId) ? undefined : "local") } }) } },
 			api: openAICompletionsApi(),
 		}));
 	}
@@ -324,7 +338,7 @@ export class CodingAgent {
 	}
 
 	static async testConnection(config: ModelConfig): Promise<string> {
-		if (normalizeProvider(config.provider) !== "ollama" && !config.apiKey.trim()) {
+		if (providerRequiresApiKey(config.provider) && !config.apiKey.trim()) {
 			throw new Error("Enter an API key before testing the connection.");
 		}
 		const { models, model } = createModelRuntime(config);
@@ -343,27 +357,41 @@ export class CodingAgent {
 		apiKey: string,
 	): Promise<DiscoveredModel[]> {
 		const normalizedProvider = normalizeProvider(provider);
-		const factory = PROVIDERS[normalizedProvider as keyof typeof PROVIDERS];
-		if (factory && !(normalizedProvider in OPENAI_COMPAT_BASE_URL_BY_PROVIDER)) {
-			return factory().getModels().map((model) => ({ id: model.id, free: false }));
+		const factory = (PROVIDERS as Record<string, (() => { getModels(): readonly Model<any>[] }) | undefined>)[normalizedProvider];
+		// Live /models needs a key everywhere except OpenRouter; without one the bundled catalog is the better answer.
+		const useCatalog = !(normalizedProvider in OPENAI_COMPAT_BASE_URL_BY_PROVIDER) || (!apiKey.trim() && normalizedProvider !== "openrouter");
+		const catalog = factory?.().getModels() ?? [];
+		if (factory && useCatalog) {
+			return catalog.map((model) => ({ id: model.id, free: false, thinking: getSupportedThinkingLevels(model) }));
 		}
+		const catalogLevels = new Map(catalog.map((model) => [model.id, getSupportedThinkingLevels(model)]));
 		const finalBaseUrl = baseUrl.trim() || OPENAI_COMPAT_BASE_URL_BY_PROVIDER[normalizedProvider];
-		if (!finalBaseUrl) throw new Error(`Unknown provider "${provider}". Enter a custom OpenAI-compatible base URL.`);
+		if (!finalBaseUrl) throw new Error(`Enter the OpenAI-compatible base URL for "${provider}" to load its models.`);
 
 		const response = await fetch(`${finalBaseUrl.replace(/\/+$/, "")}/models`, {
 			headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
 			signal: AbortSignal.timeout(15_000),
 		});
+		if (response.status === 401 || response.status === 403) {
+			throw new Error(`Model discovery failed: HTTP ${response.status}. Check the API key for ${provider}.`);
+		}
 		if (!response.ok) throw new Error(`Model discovery failed: HTTP ${response.status}.`);
 		const json = (await response.json()) as { data?: { id: string; supported_parameters?: string[]; pricing?: Record<string, string> }[] };
 		if (!Array.isArray(json.data)) throw new Error("Model discovery returned an invalid model list.");
 		return json.data
 			.filter((model) => normalizedProvider !== "openrouter" || model.supported_parameters?.includes("tools"))
-			.map((model) => ({
-				id: model.id,
-				free: normalizedProvider === "openrouter" && model.pricing?.prompt !== undefined && model.pricing?.completion !== undefined
-					&& Object.values(model.pricing).every((price) => price.trim() !== "" && Number(price) === 0),
-			}));
+			.map((model) => {
+				const thinking = catalogLevels.get(model.id)
+					?? (normalizedProvider === "openrouter" && model.supported_parameters
+						? (model.supported_parameters.includes("reasoning") ? BASE_THINKING_LEVELS : ["off" as const])
+						: undefined);
+				return {
+					id: model.id,
+					free: normalizedProvider === "openrouter" && model.pricing?.prompt !== undefined && model.pricing?.completion !== undefined
+						&& Object.values(model.pricing).every((price) => price.trim() !== "" && Number(price) === 0),
+					...(thinking ? { thinking } : {}),
+				};
+			});
 	}
 }
 

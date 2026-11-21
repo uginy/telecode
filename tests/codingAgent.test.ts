@@ -153,7 +153,7 @@ describe('CodingAgent', () => {
       { id: 'chat-only', supported_parameters: [] }, { id: 'coding', supported_parameters: ['tools'] },
     ] }) }).mockResolvedValueOnce({ ok: false, status: 401 });
     vi.stubGlobal('fetch', fetch);
-    await expect(CodingAgent.fetchModelsFromApi('openrouter', '', 'test')).resolves.toEqual([{ id: 'coding', free: false }]);
+    await expect(CodingAgent.fetchModelsFromApi('openrouter', '', 'test')).resolves.toEqual([{ id: 'coding', free: false, thinking: ['off'] }]);
     await expect(CodingAgent.fetchModelsFromApi('openrouter', '', 'bad')).rejects.toThrow('HTTP 401');
   });
 
@@ -177,7 +177,33 @@ describe('CodingAgent', () => {
     await expect(CodingAgent.fetchModelsFromApi('openrouter', '', '')).resolves.toEqual([
       { id: 'free-without-suffix', free: true }, { id: 'paid:free', free: false },
       { id: 'request-fee', free: false }, { id: 'unknown', free: false }, { id: 'automatic-price', free: false },
+    ].map((model) => ({ ...model, thinking: ['off'] })));
+  });
+
+  it('reports reasoning levels per model', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [
+      { id: 'thinker', supported_parameters: ['tools', 'reasoning'] },
+    ] }) }));
+    await expect(CodingAgent.fetchModelsFromApi('openrouter', '', '')).resolves.toEqual([
+      { id: 'thinker', free: false, thinking: ['off', 'minimal', 'low', 'medium', 'high'] },
     ]);
+    const anthropic = await CodingAgent.fetchModelsFromApi('anthropic', '', '');
+    // Levels are per model: some always think (no "off"), only newer ones offer xhigh/max.
+    expect(anthropic.find((model) => model.id === 'claude-opus-5-5')?.thinking).not.toContain('off');
+    expect(anthropic.find((model) => model.id === 'claude-haiku-4-5')?.thinking).toEqual(['off', 'minimal', 'low', 'medium', 'high']);
+  });
+
+  it('lists the bundled catalog instead of calling /models when the key is missing', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const models = await CodingAgent.fetchModelsFromApi('openai', '', '');
+    expect(models.length).toBeGreaterThan(0);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('points at the API key when model discovery is rejected', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    await expect(CodingAgent.fetchModelsFromApi('openai', '', 'stale')).rejects.toThrow('Check the API key for openai');
   });
 
   describe('getLastAssistantText', () => {

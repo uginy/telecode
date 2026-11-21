@@ -5,6 +5,8 @@ export type Settings = {
   provider: string;
   model: string;
   apiKey: string;
+  apiKeys?: Record<string, string>;
+  thinkingLevel?: string;
   baseUrl: string;
   maxSteps: number;
   responseStyle?: string;

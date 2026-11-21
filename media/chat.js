@@ -587,8 +587,115 @@
   }
   __name(expandAllGroups, "expandAllGroups");
 
+  // src/agent/providerCatalog.ts
+  var PROVIDER_CATALOG = [
+    { id: "openrouter", label: "OpenRouter", kind: "api", defaultModel: "openrouter/free" },
+    { id: "openai", label: "OpenAI", kind: "api" },
+    { id: "anthropic", label: "Anthropic (Claude)", kind: "api" },
+    { id: "google", label: "Google Gemini", kind: "api" },
+    { id: "xai", label: "xAI (Grok)", kind: "api" },
+    { id: "deepseek", label: "DeepSeek", kind: "api" },
+    { id: "mistral", label: "Mistral", kind: "api" },
+    { id: "groq", label: "Groq", kind: "api" },
+    { id: "cerebras", label: "Cerebras", kind: "api" },
+    { id: "moonshotai", label: "Moonshot AI (Kimi API)", kind: "api" },
+    { id: "kimi-coding", label: "Kimi For Coding", kind: "api" },
+    { id: "minimax", label: "MiniMax", kind: "api" },
+    { id: "zai", label: "Z.AI (GLM Coding Plan)", kind: "api" },
+    { id: "fireworks", label: "Fireworks", kind: "api" },
+    { id: "together", label: "Together AI", kind: "api" },
+    { id: "ollama", label: "Ollama", kind: "local", keyless: true, baseUrl: "http://localhost:11434/v1" },
+    { id: "lmstudio", label: "LM Studio", kind: "local", keyless: true, baseUrl: "http://localhost:1234/v1" },
+    { id: "custom", label: "Custom (OpenAI-compatible)", kind: "custom", keyless: true }
+  ];
+  var PROVIDER_ALIAS = {
+    kimi: "kimi-coding",
+    moonshot: "moonshotai"
+  };
+  function normalizeProvider(provider) {
+    const trimmed = provider.trim().toLowerCase();
+    return PROVIDER_ALIAS[trimmed] ?? trimmed;
+  }
+  __name(normalizeProvider, "normalizeProvider");
+  function findProvider(provider) {
+    const id = normalizeProvider(provider);
+    return PROVIDER_CATALOG.find((option) => option.id === id);
+  }
+  __name(findProvider, "findProvider");
+
+  // src/webview/provider-picker.ts
+  var THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+  var GROUPS = [
+    { kind: "api", key: "provider_group_api", fallback: "API key" },
+    { kind: "local", key: "provider_group_local", fallback: "Local models" },
+    { kind: "custom", key: "provider_group_custom", fallback: "Custom server" }
+  ];
+  function t(key, fallback) {
+    return window.__tcTranslations?.[key] || fallback;
+  }
+  __name(t, "t");
+  function renderProviderOptions(select, current) {
+    const selected = normalizeProvider(current);
+    select.replaceChildren();
+    if (selected && !findProvider(selected)) select.append(new Option(selected, selected));
+    for (const group of GROUPS) {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = t(group.key, group.fallback);
+      for (const option of PROVIDER_CATALOG.filter((item) => item.kind === group.kind)) {
+        optgroup.append(new Option(option.label, option.id));
+      }
+      select.append(optgroup);
+    }
+    select.value = selected || "openrouter";
+  }
+  __name(renderProviderOptions, "renderProviderOptions");
+  function syncProviderFields(provider, baseUrl) {
+    const option = findProvider(provider);
+    const needsBaseUrl = !option || option.kind !== "api";
+    document.getElementById("baseUrlField")?.classList.toggle("hidden", !needsBaseUrl && baseUrl.trim() === "");
+    document.getElementById("apiKeyField")?.classList.toggle("hidden", option?.kind === "local");
+    const baseUrlInput = document.getElementById("baseUrl");
+    if (baseUrlInput) baseUrlInput.placeholder = option?.baseUrl ?? "https://api.example.com/v1";
+  }
+  __name(syncProviderFields, "syncProviderFields");
+  function pickThinkingLevel(levels, wanted) {
+    if (levels.includes(wanted)) return wanted;
+    const limit = THINKING_LEVELS.indexOf(wanted);
+    const below = levels.filter((level) => THINKING_LEVELS.indexOf(level) <= limit);
+    return below.at(-1) ?? levels[0] ?? "off";
+  }
+  __name(pickThinkingLevel, "pickThinkingLevel");
+  function renderThinkingOptions(select, levels, wanted) {
+    const available = levels && levels.length > 0 ? levels : THINKING_LEVELS;
+    select.replaceChildren();
+    if (available.length === 1 && available[0] === "off") {
+      select.append(new Option(t("thinking_unsupported", "This model does not support reasoning"), "off"));
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    for (const level of available) select.append(new Option(t(`thinking_${level}`, level), level));
+    select.value = pickThinkingLevel(available, wanted);
+  }
+  __name(renderThinkingOptions, "renderThinkingOptions");
+
   // src/webview/settings.ts
   var $ = /* @__PURE__ */ __name((id) => document.getElementById(id), "$");
+  var apiKeys = {};
+  var wantedThinking = "off";
+  function getWantedThinking() {
+    return wantedThinking;
+  }
+  __name(getWantedThinking, "getWantedThinking");
+  function setWantedThinking(level) {
+    wantedThinking = level;
+  }
+  __name(setWantedThinking, "setWantedThinking");
+  function swapProviderKey(from, to) {
+    apiKeys[from] = strVal("apiKey");
+    setStr("apiKey", apiKeys[to] ?? "");
+  }
+  __name(swapProviderKey, "swapProviderKey");
   function strVal(id) {
     return ($(id)?.value ?? "").trim();
   }
@@ -614,10 +721,13 @@
     const logMaxChars = Number.isFinite(logMaxCharsRaw) && logMaxCharsRaw > 0 ? logMaxCharsRaw : 5e5;
     const channelLogLinesRaw = Number.parseInt(strVal("channelLogLines") || "300", 10);
     const channelLogLines = Number.isFinite(channelLogLinesRaw) && channelLogLinesRaw > 0 ? channelLogLinesRaw : 300;
+    const provider = strVal("provider");
     return {
-      provider: strVal("provider"),
+      provider,
       model: strVal("model"),
       apiKey: strVal("apiKey"),
+      apiKeys: { ...apiKeys, [provider]: strVal("apiKey") },
+      thinkingLevel: strVal("thinkingLevel") || "off",
       baseUrl: strVal("baseUrl"),
       maxSteps,
       responseStyle: strVal("responseStyle"),
@@ -642,10 +752,16 @@
   }
   __name(readForm, "readForm");
   function writeForm(s) {
-    setStr("provider", s.provider ?? "");
+    apiKeys = { ...s.apiKeys ?? {} };
+    wantedThinking = s.thinkingLevel ?? "off";
+    const providerSelect2 = $("provider");
+    if (providerSelect2) renderProviderOptions(providerSelect2, s.provider ?? "");
     setStr("model", s.model ?? "");
     setStr("apiKey", s.apiKey ?? "");
     setStr("baseUrl", s.baseUrl ?? "");
+    syncProviderFields(s.provider ?? "", s.baseUrl ?? "");
+    const thinkingSelect2 = $("thinkingLevel");
+    if (thinkingSelect2) renderThinkingOptions(thinkingSelect2, void 0, wantedThinking);
     setStr("maxSteps", String(s.maxSteps ?? 100));
     setStr("responseStyle", s.responseStyle ?? "concise");
     setStr("language", s.language ?? "auto");
@@ -774,7 +890,10 @@
         }
         break;
       case "settings":
-        if (msg.settings) writeForm(msg.settings);
+        if (msg.settings) {
+          writeForm(msg.settings);
+          window.dispatchEvent(new CustomEvent("settings-applied"));
+        }
         break;
       case "taskResult":
         renderTaskResultCard(msg.result);
@@ -926,20 +1045,20 @@
     });
     document.addEventListener("click", (e) => {
       if (tooltipEl && tooltipEl.dataset.open === "1") {
-        const t = e.target;
-        if (!tooltipEl.contains(t) && (!activeTarget || !activeTarget.contains(t))) {
+        const t2 = e.target;
+        if (!tooltipEl.contains(t2) && (!activeTarget || !activeTarget.contains(t2))) {
           hideTooltip();
         }
       }
     });
   }
   __name(initTooltips, "initTooltips");
-  function applyTooltipTranslations(t) {
+  function applyTooltipTranslations(t2) {
     const all = Array.from(document.querySelectorAll("[data-tooltip-key]"));
     for (const el2 of all) {
       const key = el2.dataset.tooltipKey || "";
-      if (key && t[key]) {
-        el2.dataset.tooltip = t[key];
+      if (key && t2[key]) {
+        el2.dataset.tooltip = t2[key];
       }
     }
   }
@@ -1112,8 +1231,8 @@
     if (!btn) return;
     btn.dataset.action = collapseAction ? "collapse" : "expand";
     const key = collapseAction ? "btn_collapse_all" : "btn_expand_all";
-    const t = window.__tcTranslations || {};
-    const text = t[key] || (collapseAction ? "Collapse all" : "Expand all");
+    const t2 = window.__tcTranslations || {};
+    const text = t2[key] || (collapseAction ? "Collapse all" : "Expand all");
     btn.dataset.tooltipKey = key;
     btn.dataset.tooltip = text;
     btn.setAttribute("aria-label", text);
@@ -1370,17 +1489,17 @@
     }
     const raw = document.getElementById("whatsappAllowedPhones")?.value || "";
     const tokens = raw.split(",").map((item) => item.trim()).filter((item) => item.length > 0);
-    const t = window.__tcTranslations || {};
+    const t2 = window.__tcTranslations || {};
     if (tokens.length === 0) {
       setWhatsappAllowlistValidationError(
-        t.field_whatsapp_allowed_phones_error_required || "Add at least one phone for allowlist mode."
+        t2.field_whatsapp_allowed_phones_error_required || "Add at least one phone for allowlist mode."
       );
       return false;
     }
     const invalid = tokens.find((item) => normalizePhoneCandidate(item) === null);
     if (invalid) {
       setWhatsappAllowlistValidationError(
-        t.field_whatsapp_allowed_phones_error || "Enter valid phone list for allowlist mode."
+        t2.field_whatsapp_allowed_phones_error || "Enter valid phone list for allowlist mode."
       );
       return false;
     }
@@ -1441,15 +1560,45 @@
     const settings = readForm();
     if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
   });
+  var thinkingSelect = document.getElementById("thinkingLevel");
+  var loadedModels = [];
+  function syncThinkingOptions() {
+    const model = loadedModels.find((item) => item.id === modelInput.value.trim());
+    renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking());
+  }
+  __name(syncThinkingOptions, "syncThinkingOptions");
+  thinkingSelect.addEventListener("change", () => setWantedThinking(thinkingSelect.value));
   modelInput.addEventListener("input", updateComposerMeta);
-  modelInput.addEventListener("change", updateComposerMeta);
-  for (const id of ["provider", "baseUrl", "apiKey"]) {
+  modelInput.addEventListener("change", () => {
+    updateComposerMeta();
+    syncThinkingOptions();
+  });
+  for (const id of ["baseUrl", "apiKey"]) {
     document.getElementById(id)?.addEventListener("input", () => {
       requestedModelContext = "";
       modelAutocomplete.clear();
       syncModelFilter();
     });
   }
+  var providerSelect = document.getElementById("provider");
+  var currentProvider = providerSelect.value;
+  window.addEventListener("settings-applied", () => {
+    currentProvider = providerSelect.value;
+    syncModelFilter();
+    syncThinkingOptions();
+  });
+  providerSelect.addEventListener("change", () => {
+    swapProviderKey(currentProvider, providerSelect.value);
+    currentProvider = providerSelect.value;
+    document.getElementById("baseUrl").value = "";
+    modelInput.value = findProvider(currentProvider)?.defaultModel ?? "";
+    loadedModels = [];
+    syncProviderFields(currentProvider, "");
+    syncModelFilter();
+    syncThinkingOptions();
+    updateComposerMeta();
+    fetchModels();
+  });
   function updateSettingsCategory(catId) {
     const cats = Array.from(el.settingsCats());
     const navs = Array.from(el.settingsNavItems());
@@ -1472,6 +1621,8 @@
     const settings = readForm();
     if (modelContext(provider, baseUrl) !== modelContext(settings.provider, settings.baseUrl)) return;
     modelAutocomplete.setModels(models);
+    loadedModels = models;
+    syncThinkingOptions();
     el.settingsNote().textContent = `Loaded ${models.length} models`;
     updateComposerMeta();
   });
@@ -1504,26 +1655,28 @@
   window.addEventListener("translate", (e) => {
     const translations = e.detail;
     applyTranslations(translations);
+    renderProviderOptions(providerSelect, providerSelect.value);
+    syncThinkingOptions();
   });
-  function applyTranslations(t) {
-    window.__tcTranslations = t;
+  function applyTranslations(t2) {
+    window.__tcTranslations = t2;
     const textElements = Array.from(document.querySelectorAll("[data-t]"));
     for (const element of textElements) {
       const key = element.getAttribute("data-t");
-      if (key && t[key]) {
-        element.textContent = t[key];
+      if (key && t2[key]) {
+        element.textContent = t2[key];
       }
     }
     const placeholderElements = Array.from(document.querySelectorAll("[data-t-placeholder]"));
     for (const element of placeholderElements) {
       const key = element.getAttribute("data-t-placeholder");
-      if (key && t[key]) {
-        element.placeholder = t[key];
+      if (key && t2[key]) {
+        element.placeholder = t2[key];
       }
     }
     setControlState(el.status().textContent ?? "");
     refreshToggleLabels();
-    applyTooltipTranslations(t);
+    applyTooltipTranslations(t2);
     const toggleAll = document.getElementById("toggleAllGroupsBtn");
     updateGroupsToggleButton((toggleAll?.dataset.action || "collapse") === "collapse");
   }
@@ -1532,6 +1685,7 @@
     if (e.data?.type === "settings") {
       requestedModelContext = "";
       modelAutocomplete.clear();
+      loadedModels = [];
     }
     handleMessage(e.data);
     if (e.data?.type === "settings") syncModelFilter();

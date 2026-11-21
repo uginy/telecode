@@ -14,6 +14,7 @@ vi.mock('vscode', () => ({
     getConfiguration: () => ({
       inspect: (name: string) => values.get(name),
       get: (name: string) => {
+        if (name === 'provider') return 'openai';
         const value = values.get(name);
         return value?.workspaceFolderValue ?? value?.workspaceValue ?? value?.globalValue;
       },
@@ -22,7 +23,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { initializeSecretStorage, readSecretSetting, saveSecretSetting } from '../src/config/secrets';
+import { initializeSecretStorage, readProviderApiKey, readProviderApiKeys, readSecretSetting, saveProviderApiKey, saveSecretSetting } from '../src/config/secrets';
 
 describe('credential storage', () => {
   beforeEach(() => { values.clear(); update.mockClear(); });
@@ -36,12 +37,17 @@ describe('credential storage', () => {
     };
     await initializeSecretStorage(secrets as never);
     expect(saved.get('telecode.apiKey:global')).toBe('global-key');
-    expect(saved.get('telecode.apiKey:workspace:file:///project')).toBe('workspace-key');
+    // Emptied after its value moved to the provider slot below.
+    expect(saved.get('telecode.apiKey:workspace:file:///project')).toBe('');
     expect(values.get('apiKey')).toEqual({});
-    expect(readSecretSetting('apiKey')).toBe('workspace-key');
-    await saveSecretSetting('apiKey', 'new-workspace-key');
-    expect(readSecretSetting('apiKey')).toBe('new-workspace-key');
-    expect(saved.get('telecode.apiKey:global')).toBe('global-key');
+    // The effective legacy key moves to the selected provider and the shared slot is emptied.
+    expect(readProviderApiKey('openai')).toBe('workspace-key');
+    expect(readSecretSetting('apiKey')).toBe('');
+    expect(readProviderApiKey('anthropic')).toBe('');
+    await saveProviderApiKey('anthropic', 'claude-key');
+    expect(readProviderApiKey('anthropic')).toBe('claude-key');
+    expect(readProviderApiKeys()).toEqual({ openai: 'workspace-key', anthropic: 'claude-key' });
+    expect(saved.get('telecode.apiKey.provider:anthropic')).toBe('claude-key');
     await saveSecretSetting('telegram.botToken', 'bot-token');
     expect(readSecretSetting('telegram.botToken')).toBe('bot-token');
     await saveSecretSetting('telegram.botToken', '');
