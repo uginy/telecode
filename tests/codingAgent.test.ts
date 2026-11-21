@@ -66,7 +66,8 @@ describe('CodingAgent', () => {
         baseUrl: '   ',
       });
       const info = agent.getModelInfo();
-      expect(info.baseUrl).toBe('https://api.deepseek.com/v1');
+      // An unlisted model takes its family's native settings, including the default endpoint.
+      expect(info.baseUrl).toBe('https://api.deepseek.com');
     });
   });
 
@@ -157,12 +158,41 @@ describe('CodingAgent', () => {
     await expect(CodingAgent.fetchModelsFromApi('openrouter', '', 'bad')).rejects.toThrow('HTTP 401');
   });
 
-  it('loads native model choices for direct providers without probing an OpenAI endpoint', async () => {
-    const fetch = vi.fn();
+  it('lists Anthropic models live, newest first, with family reasoning levels for unreleased ids', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [
+      { id: 'claude-haiku-4-5', created_at: '2025-10-01T00:00:00Z' },
+      { id: 'claude-fable-5-2', created_at: '2026-11-01T00:00:00Z' },
+    ] }) });
     vi.stubGlobal('fetch', fetch);
-    const models = await CodingAgent.fetchModelsFromApi('anthropic', 'http://localhost:12345/v1', 'test');
+    const models = await CodingAgent.fetchModelsFromApi('anthropic', '', 'key');
+    expect(fetch).toHaveBeenCalledWith('https://api.anthropic.com/v1/models?limit=1000', expect.objectContaining({
+      headers: { 'x-api-key': 'key', 'anthropic-version': '2023-06-01' },
+    }));
+    expect(models.map((model) => model.id)).toEqual(['claude-fable-5-2', 'claude-haiku-4-5']);
+    expect(models[0].thinking).toEqual(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+  });
+
+  it('lists Google models that can chat, without the models/ prefix', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ models: [
+      { name: 'models/gemini-9-pro', supportedGenerationMethods: ['generateContent'] },
+      { name: 'models/text-embedding-9', supportedGenerationMethods: ['embedContent'] },
+    ] }) }));
+    const models = await CodingAgent.fetchModelsFromApi('google', '', 'key');
+    expect(models.map((model) => model.id)).toEqual(['gemini-9-pro']);
+  });
+
+  it('drops embedding and audio models from OpenAI-style lists', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [
+      { id: 'gpt-9', created: 2 }, { id: 'text-embedding-3-large', created: 3 }, { id: 'whisper-1', created: 1 },
+    ] }) }));
+    const models = await CodingAgent.fetchModelsFromApi('openai', '', 'key');
+    expect(models.map((model) => model.id)).toEqual(['gpt-9']);
+  });
+
+  it('uses the bundled catalog when the provider has no listing endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+    const models = await CodingAgent.fetchModelsFromApi('minimax', '', 'key');
     expect(models.length).toBeGreaterThan(0);
-    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('identifies free OpenRouter models by all advertised prices rather than their IDs', async () => {

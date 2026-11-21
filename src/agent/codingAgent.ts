@@ -7,34 +7,20 @@ import {
 } from "@earendil-works/pi-agent-core";
 import {
 	clampThinkingLevel,
-	getSupportedThinkingLevels,
 	createModels,
 	createProvider,
 	type Model,
 	type ImageContent,
 	type Models,
 } from "@earendil-works/pi-ai";
-import { openaiProvider } from "@earendil-works/pi-ai/providers/openai";
-import { openrouterProvider } from "@earendil-works/pi-ai/providers/openrouter";
-import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
-import { googleProvider } from "@earendil-works/pi-ai/providers/google";
-import { minimaxProvider } from "@earendil-works/pi-ai/providers/minimax";
-import { moonshotaiProvider } from "@earendil-works/pi-ai/providers/moonshotai";
-import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
-import { kimiCodingProvider } from "@earendil-works/pi-ai/providers/kimi-coding";
-import { xaiProvider } from "@earendil-works/pi-ai/providers/xai";
-import { mistralProvider } from "@earendil-works/pi-ai/providers/mistral";
-import { groqProvider } from "@earendil-works/pi-ai/providers/groq";
-import { cerebrasProvider } from "@earendil-works/pi-ai/providers/cerebras";
-import { zaiProvider } from "@earendil-works/pi-ai/providers/zai";
-import { fireworksProvider } from "@earendil-works/pi-ai/providers/fireworks";
-import { togetherProvider } from "@earendil-works/pi-ai/providers/together";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { buildComposedSystemPrompt } from "../prompts/promptStack";
 import { compactContext } from "./contextCompaction";
-import { PROVIDER_CATALOG, normalizeProvider, providerRequiresApiKey } from "./providerCatalog";
+import { normalizeProvider, providerRequiresApiKey } from "./providerCatalog";
+import { NON_OPENAI_COMPAT_PROVIDERS, OPENAI_COMPAT_BASE_URL_BY_PROVIDER, PROVIDERS, findClosestModel } from "./providerFactories";
+import { discoverModels } from "./modelDiscovery";
 
-export { normalizeProvider };
+export { normalizeProvider, OPENAI_COMPAT_BASE_URL_BY_PROVIDER };
 
 export interface TelecodeConfig {
 	provider: string;
@@ -65,49 +51,8 @@ export interface DiscoveredModel {
 	thinking?: ThinkingLevel[];
 }
 
-/** Levels every reasoning model accepts; xhigh and max are opt-in per model. */
-const BASE_THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high"];
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
-
-export const OPENAI_COMPAT_BASE_URL_BY_PROVIDER: Record<string, string> = {
-	openai: "https://api.openai.com/v1",
-	openrouter: "https://openrouter.ai/api/v1",
-	moonshotai: "https://api.moonshot.ai/v1",
-	deepseek: "https://api.deepseek.com/v1",
-	...Object.fromEntries(PROVIDER_CATALOG.flatMap((option) => (option.baseUrl ? [[option.id, option.baseUrl]] : []))),
-};
-
-const NON_OPENAI_COMPAT_PROVIDERS = new Set([
-	"anthropic",
-	"minimax",
-	"amazon-bedrock",
-	"google",
-	"google-gemini-cli",
-	"google-vertex",
-	"openai-codex",
-	"azure-openai-responses",
-	"github-copilot",
-	"kimi-coding",
-]);
-
-const PROVIDERS = {
-	xai: xaiProvider,
-	mistral: mistralProvider,
-	groq: groqProvider,
-	cerebras: cerebrasProvider,
-	zai: zaiProvider,
-	fireworks: fireworksProvider,
-	together: togetherProvider,
-	openai: openaiProvider,
-	openrouter: openrouterProvider,
-	anthropic: anthropicProvider,
-	google: googleProvider,
-	minimax: minimaxProvider,
-	moonshotai: moonshotaiProvider,
-	deepseek: deepseekProvider,
-	"kimi-coding": kimiCodingProvider,
-};
 
 function applyBaseUrl(model: Model<any>, baseUrl?: string): Model<any> {
 	const normalizedBaseUrl = typeof baseUrl === "string" ? baseUrl.trim() : "";
@@ -183,6 +128,10 @@ function resolveModel(config: ModelConfig, models: Models): Model<any> {
 
 	const knownModel = models.getModel(provider, modelId);
 	if (knownModel) return applyBaseUrl(knownModel, baseUrl);
+	// A model newer than the bundled catalog takes its family's API and reasoning settings.
+	// OpenRouter and custom endpoints serve many vendors, so a name match there means little.
+	const sibling = provider === "openrouter" || baseUrl ? undefined : findClosestModel(models.getModels(provider), modelId);
+	if (sibling) return { ...sibling, id: modelId, name: modelId };
 	if (shouldPreferOpenAiCompatibleModel(provider, baseUrl)) {
 		return buildOpenAiCompatibleModel(provider, modelId, baseUrl, (config.thinkingLevel ?? "off") !== "off");
 	}
@@ -356,42 +305,7 @@ export class CodingAgent {
 		baseUrl: string,
 		apiKey: string,
 	): Promise<DiscoveredModel[]> {
-		const normalizedProvider = normalizeProvider(provider);
-		const factory = (PROVIDERS as Record<string, (() => { getModels(): readonly Model<any>[] }) | undefined>)[normalizedProvider];
-		// Live /models needs a key everywhere except OpenRouter; without one the bundled catalog is the better answer.
-		const useCatalog = !(normalizedProvider in OPENAI_COMPAT_BASE_URL_BY_PROVIDER) || (!apiKey.trim() && normalizedProvider !== "openrouter");
-		const catalog = factory?.().getModels() ?? [];
-		if (factory && useCatalog) {
-			return catalog.map((model) => ({ id: model.id, free: false, thinking: getSupportedThinkingLevels(model) }));
-		}
-		const catalogLevels = new Map(catalog.map((model) => [model.id, getSupportedThinkingLevels(model)]));
-		const finalBaseUrl = baseUrl.trim() || OPENAI_COMPAT_BASE_URL_BY_PROVIDER[normalizedProvider];
-		if (!finalBaseUrl) throw new Error(`Enter the OpenAI-compatible base URL for "${provider}" to load its models.`);
-
-		const response = await fetch(`${finalBaseUrl.replace(/\/+$/, "")}/models`, {
-			headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-			signal: AbortSignal.timeout(15_000),
-		});
-		if (response.status === 401 || response.status === 403) {
-			throw new Error(`Model discovery failed: HTTP ${response.status}. Check the API key for ${provider}.`);
-		}
-		if (!response.ok) throw new Error(`Model discovery failed: HTTP ${response.status}.`);
-		const json = (await response.json()) as { data?: { id: string; supported_parameters?: string[]; pricing?: Record<string, string> }[] };
-		if (!Array.isArray(json.data)) throw new Error("Model discovery returned an invalid model list.");
-		return json.data
-			.filter((model) => normalizedProvider !== "openrouter" || model.supported_parameters?.includes("tools"))
-			.map((model) => {
-				const thinking = catalogLevels.get(model.id)
-					?? (normalizedProvider === "openrouter" && model.supported_parameters
-						? (model.supported_parameters.includes("reasoning") ? BASE_THINKING_LEVELS : ["off" as const])
-						: undefined);
-				return {
-					id: model.id,
-					free: normalizedProvider === "openrouter" && model.pricing?.prompt !== undefined && model.pricing?.completion !== undefined
-						&& Object.values(model.pricing).every((price) => price.trim() !== "" && Number(price) === 0),
-					...(thinking ? { thinking } : {}),
-				};
-			});
+		return discoverModels(provider, baseUrl, apiKey);
 	}
 }
 

@@ -3,7 +3,8 @@
  * Pure data: imported by both the extension host and the webview bundle, so it must not import pi-ai.
  */
 
-export type ProviderKind = "api" | "local" | "custom";
+/** "cli" runs a locally installed agent CLI on the user's own subscription login instead of pi-ai. */
+export type ProviderKind = "cli" | "api" | "local" | "custom";
 
 export interface ProviderOption {
 	id: string;
@@ -18,6 +19,9 @@ export interface ProviderOption {
 }
 
 export const PROVIDER_CATALOG: readonly ProviderOption[] = [
+	{ id: "claude-code", label: "Claude Code CLI (Claude subscription)", kind: "cli", keyless: true, defaultModel: "default" },
+	{ id: "codex", label: "Codex CLI (ChatGPT subscription)", kind: "cli", keyless: true, defaultModel: "default" },
+	{ id: "antigravity", label: "Antigravity CLI (Google subscription)", kind: "cli", keyless: true, defaultModel: "default" },
 	{ id: "openrouter", label: "OpenRouter", kind: "api", defaultModel: "openrouter/free" },
 	{ id: "openai", label: "OpenAI", kind: "api" },
 	{ id: "anthropic", label: "Anthropic (Claude)", kind: "api" },
@@ -43,6 +47,10 @@ const PROVIDER_ALIAS: Record<string, string> = {
 	kimi: "kimi-coding",
 	moonshot: "moonshotai",
 };
+
+export function isCliProvider(provider: string): boolean {
+	return findProvider(provider)?.kind === "cli";
+}
 
 export function normalizeProvider(provider: string): string {
 	const trimmed = provider.trim().toLowerCase();

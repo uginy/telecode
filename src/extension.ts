@@ -5,6 +5,11 @@ import {
 	ChatViewProvider,
 } from "./ui/chatViewProvider";
 import { CodingAgent } from "./agent/codingAgent";
+import { normalizeProvider } from "./agent/providerCatalog";
+import { CLI_BACKENDS } from "./engine/cliBackends";
+import { listCliModels } from "./engine/cliModels";
+import { testCliConnection } from "./engine/cliRuntime";
+import { homedir } from "node:os";
 import { getPrimaryWorkspaceRoot, saveOpenSettingsFiles } from "./utils/vscodeUtils";
 import {
 	notifySettingsViews,
@@ -127,7 +132,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				},
 				testConnection: async (command) => {
 					try {
-						const model = await CodingAgent.testConnection(command);
+						const cliBackend = CLI_BACKENDS[normalizeProvider(command.provider)];
+						const model = cliBackend
+							? await testCliConnection(cliBackend, command.provider, command.model, getPrimaryWorkspaceRoot() ?? homedir())
+							: await CodingAgent.testConnection(command);
 						chatProvider?.notify(`Connected: ${model}`);
 					} catch (error) {
 						chatProvider?.notify(error instanceof Error ? error.message : String(error));
@@ -137,7 +145,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				},
 				fetchModels: async (command) => {
 					try {
-						const models = await CodingAgent.fetchModelsFromApi(command.provider, command.baseUrl, command.apiKey);
+						const models = CLI_BACKENDS[normalizeProvider(command.provider)]
+							? await listCliModels(normalizeProvider(command.provider))
+							: await CodingAgent.fetchModelsFromApi(command.provider, command.baseUrl, command.apiKey);
 						chatProvider?.setModels(models, command.provider, command.baseUrl);
 					} catch (error) {
 						chatProvider?.notify(error instanceof Error ? error.message : String(error));

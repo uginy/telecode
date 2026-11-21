@@ -442,7 +442,7 @@ let loadedModels: DiscoveredModel[] = [];
 
 function syncThinkingOptions(): void {
   const model = loadedModels.find((item) => item.id === modelInput.value.trim());
-  renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking());
+  renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking(), findProvider(providerSelect.value)?.kind === 'cli');
 }
 
 thinkingSelect.addEventListener('change', () => setWantedThinking(thinkingSelect.value));

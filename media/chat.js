@@ -589,6 +589,9 @@
 
   // src/agent/providerCatalog.ts
   var PROVIDER_CATALOG = [
+    { id: "claude-code", label: "Claude Code CLI (Claude subscription)", kind: "cli", keyless: true, defaultModel: "default" },
+    { id: "codex", label: "Codex CLI (ChatGPT subscription)", kind: "cli", keyless: true, defaultModel: "default" },
+    { id: "antigravity", label: "Antigravity CLI (Google subscription)", kind: "cli", keyless: true, defaultModel: "default" },
     { id: "openrouter", label: "OpenRouter", kind: "api", defaultModel: "openrouter/free" },
     { id: "openai", label: "OpenAI", kind: "api" },
     { id: "anthropic", label: "Anthropic (Claude)", kind: "api" },
@@ -626,6 +629,7 @@
   // src/webview/provider-picker.ts
   var THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
   var GROUPS = [
+    { kind: "cli", key: "provider_group_cli", fallback: "Subscription (local CLI)" },
     { kind: "api", key: "provider_group_api", fallback: "API key" },
     { kind: "local", key: "provider_group_local", fallback: "Local models" },
     { kind: "custom", key: "provider_group_custom", fallback: "Custom server" }
@@ -651,9 +655,11 @@
   __name(renderProviderOptions, "renderProviderOptions");
   function syncProviderFields(provider, baseUrl) {
     const option = findProvider(provider);
-    const needsBaseUrl = !option || option.kind !== "api";
-    document.getElementById("baseUrlField")?.classList.toggle("hidden", !needsBaseUrl && baseUrl.trim() === "");
-    document.getElementById("apiKeyField")?.classList.toggle("hidden", option?.kind === "local");
+    const needsBaseUrl = !option || option.kind === "local" || option.kind === "custom";
+    const isCli = option?.kind === "cli";
+    document.getElementById("baseUrlField")?.classList.toggle("hidden", isCli || !needsBaseUrl && baseUrl.trim() === "");
+    document.getElementById("apiKeyField")?.classList.toggle("hidden", isCli || option?.kind === "local");
+    document.getElementById("cliHint")?.classList.toggle("hidden", !isCli);
     const baseUrlInput = document.getElementById("baseUrl");
     if (baseUrlInput) baseUrlInput.placeholder = option?.baseUrl ?? "https://api.example.com/v1";
   }
@@ -665,7 +671,7 @@
     return below.at(-1) ?? levels[0] ?? "off";
   }
   __name(pickThinkingLevel, "pickThinkingLevel");
-  function renderThinkingOptions(select, levels, wanted) {
+  function renderThinkingOptions(select, levels, wanted, isCli = false) {
     const available = levels && levels.length > 0 ? levels : THINKING_LEVELS;
     select.replaceChildren();
     if (available.length === 1 && available[0] === "off") {
@@ -674,7 +680,10 @@
       return;
     }
     select.disabled = false;
-    for (const level of available) select.append(new Option(t(`thinking_${level}`, level), level));
+    for (const level of available) {
+      const label = isCli && level === "off" ? t("thinking_cli_default", "CLI default") : t(`thinking_${level}`, level);
+      select.append(new Option(label, level));
+    }
     select.value = pickThinkingLevel(available, wanted);
   }
   __name(renderThinkingOptions, "renderThinkingOptions");
@@ -1564,7 +1573,7 @@
   var loadedModels = [];
   function syncThinkingOptions() {
     const model = loadedModels.find((item) => item.id === modelInput.value.trim());
-    renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking());
+    renderThinkingOptions(thinkingSelect, model?.thinking, getWantedThinking(), findProvider(providerSelect.value)?.kind === "cli");
   }
   __name(syncThinkingOptions, "syncThinkingOptions");
   thinkingSelect.addEventListener("change", () => setWantedThinking(thinkingSelect.value));

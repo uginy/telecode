@@ -8,6 +8,7 @@ import { PROVIDER_CATALOG, findProvider, normalizeProvider, type ProviderKind } 
 export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 const GROUPS: { kind: ProviderKind; key: string; fallback: string }[] = [
+  { kind: 'cli', key: 'provider_group_cli', fallback: 'Subscription (local CLI)' },
   { kind: 'api', key: 'provider_group_api', fallback: 'API key' },
   { kind: 'local', key: 'provider_group_local', fallback: 'Local models' },
   { kind: 'custom', key: 'provider_group_custom', fallback: 'Custom server' },
@@ -36,9 +37,12 @@ export function renderProviderOptions(select: HTMLSelectElement, current: string
 /** Base URL only matters for local and custom endpoints, or when the user already overrides it. */
 export function syncProviderFields(provider: string, baseUrl: string): void {
   const option = findProvider(provider);
-  const needsBaseUrl = !option || option.kind !== 'api';
-  document.getElementById('baseUrlField')?.classList.toggle('hidden', !needsBaseUrl && baseUrl.trim() === '');
-  document.getElementById('apiKeyField')?.classList.toggle('hidden', option?.kind === 'local');
+  const needsBaseUrl = !option || option.kind === 'local' || option.kind === 'custom';
+  const isCli = option?.kind === 'cli';
+  document.getElementById('baseUrlField')?.classList.toggle('hidden', isCli || (!needsBaseUrl && baseUrl.trim() === ''));
+  document.getElementById('apiKeyField')?.classList.toggle('hidden', isCli || option?.kind === 'local');
+  // CLI agents sign in on their own; say so where the key field would be.
+  document.getElementById('cliHint')?.classList.toggle('hidden', !isCli);
   const baseUrlInput = document.getElementById('baseUrl') as HTMLInputElement | null;
   if (baseUrlInput) baseUrlInput.placeholder = option?.baseUrl ?? 'https://api.example.com/v1';
 }
@@ -52,7 +56,13 @@ export function pickThinkingLevel(levels: readonly string[], wanted: string): st
 }
 
 /** `levels` is undefined when the endpoint does not report reasoning support: offer every level then. */
-export function renderThinkingOptions(select: HTMLSelectElement, levels: readonly string[] | undefined, wanted: string): void {
+export function renderThinkingOptions(
+  select: HTMLSelectElement,
+  levels: readonly string[] | undefined,
+  wanted: string,
+  /** CLI agents read "off" as their own default effort. */
+  isCli = false,
+): void {
   const available = levels && levels.length > 0 ? levels : THINKING_LEVELS;
   select.replaceChildren();
   if (available.length === 1 && available[0] === 'off') {
@@ -61,6 +71,9 @@ export function renderThinkingOptions(select: HTMLSelectElement, levels: readonl
     return;
   }
   select.disabled = false;
-  for (const level of available) select.append(new Option(t(`thinking_${level}`, level), level));
+  for (const level of available) {
+    const label = isCli && level === 'off' ? t('thinking_cli_default', 'CLI default') : t(`thinking_${level}`, level);
+    select.append(new Option(label, level));
+  }
   select.value = pickThinkingLevel(available, wanted);
 }

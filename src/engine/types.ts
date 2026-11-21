@@ -17,7 +17,7 @@ export interface ImageContentExt {
 }
 
 export interface AgentRuntime {
-  readonly engine: 'pi';
+  readonly engine: 'pi' | 'cli';
   prompt(message: string, images?: ImageContentExt[]): Promise<void>;
   abort(): void;
   steer?(message: string): void;
@@ -41,4 +41,6 @@ export interface RuntimeConfig {
   language?: 'ru' | 'en';
   allowOutOfWorkspace?: boolean;
   thinkingLevel?: ThinkingLevel;
+  /** Mapped onto the permission mode of CLI agents, which do not use TeleCode's tools. */
+  safeModeProfile?: 'strict' | 'balanced' | 'power';
 }

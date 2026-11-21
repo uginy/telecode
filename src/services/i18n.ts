@@ -109,6 +109,9 @@ export interface Translations {
   thinking_high: string;
   thinking_xhigh: string;
   thinking_max: string;
+  thinking_cli_default: string;
+  provider_group_cli: string;
+  provider_cli_hint: string;
   provider_group_api: string;
   provider_group_local: string;
   provider_group_custom: string;
@@ -310,6 +313,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     thinking_high: 'Высокий',
     thinking_xhigh: 'Очень высокий',
     thinking_max: 'Максимальный',
+    thinking_cli_default: 'По умолчанию CLI',
+    provider_group_cli: 'Подписка (локальный CLI)',
+    provider_cli_hint: 'Запускает CLI, установленный на этом компьютере, с подпиской, под которой вы вошли в нём. Задача уходит в CLI целиком: он работает своими инструментами, а «Профиль безопасности» задаёт его режим разрешений.',
     provider_group_api: 'По API-ключу',
     provider_group_local: 'Локальные модели',
     provider_group_custom: 'Свой сервер',
@@ -507,6 +513,9 @@ const TRANSLATIONS: Record<Language, Translations> = {
     thinking_high: 'High',
     thinking_xhigh: 'Extra high',
     thinking_max: 'Max',
+    thinking_cli_default: 'CLI default',
+    provider_group_cli: 'Subscription (local CLI)',
+    provider_cli_hint: 'Runs the CLI installed on this computer with the subscription you signed in to there. The task goes to the CLI as a whole: it uses its own tools, and the Safe Mode Profile sets its permission mode.',
     provider_group_api: 'API key',
     provider_group_local: 'Local models',
     provider_group_custom: 'Custom server',
