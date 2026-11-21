@@ -1617,6 +1617,10 @@
     for (const n of navs) {
       n.classList.toggle("active", n.dataset.cat === catId);
     }
+    if (catId === "inference") {
+      const settings = readForm();
+      if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
+    }
   }
   __name(updateSettingsCategory, "updateSettingsCategory");
   for (const btn of Array.from(el.settingsNavItems())) {

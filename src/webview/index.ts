@@ -491,6 +491,11 @@ function updateSettingsCategory(catId: string): void {
   for (const n of navs) {
     n.classList.toggle('active', (n as HTMLElement).dataset.cat === catId);
   }
+  // Model lists change often, so load the live one as soon as the model settings are shown.
+  if (catId === 'inference') {
+    const settings = readForm();
+    if (requestedModelContext !== modelContext(settings.provider, settings.baseUrl)) fetchModels();
+  }
 }
 
 for (const btn of Array.from(el.settingsNavItems())) {
